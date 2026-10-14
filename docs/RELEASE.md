@@ -2,31 +2,58 @@
 
 Der aktuell tatsächlich ausgeführte Prüfstand steht in [VALIDATION.md](VALIDATION.md).
 
-## Android
+## Android für akribos.de
+
+Der normale Gerätebuild verwendet direkt `https://akribos.de`. Anmeldung und private
+Funktionen laufen über das gewöhnliche Akribos-Konto; es muss kein API-Schlüssel erstellt
+oder eingetragen werden. Nach der Installation benötigt die App nur eine Internetverbindung.
+USB, ADB und ein lokaler Testserver sind für den Betrieb nicht erforderlich.
+
+Voraussetzungen: Flutter 3.47.0 / Dart 3.13.0, Android SDK und JDK 17 oder eine passende
+Android-Studio-JBR. Aus dem Repository:
 
 ```sh
-flutter pub get --enforce-lockfile
-flutter build apk --debug
-adb install -r build/app/outputs/flutter-apk/app-debug.apk
+./scripts/build-android-production.sh
 ```
 
-Die Debug-APK ist für lokale Tests signiert. Release-Signierung ist bewusst nicht mit einem
-Debugschlüssel vorkonfiguriert. Für Verteilung über Google Play müssen ein eigener Upload-
-Schlüssel, sichere CI-Secrets und die tatsächliche Play-Console-Anwendung eingerichtet werden.
-Schlüssel und `key.properties` gehören nicht ins Repository. Versions-/Buildnummern können ohne
-Quellcodeänderung über `--build-name` und `--build-number` gesetzt werden.
-
-Der Server benötigt das App-Protokoll v1. Für einen lokalen Testserver über USB:
+Die Prüfsumme wird aus dem Artefaktverzeichnis geprüft:
 
 ```sh
-adb reverse tcp:4176 tcp:4176
-flutter build apk --debug --target-platform android-arm64 \
-  --dart-define=AKRIBOS_SERVER=http://127.0.0.1:4176
-adb install -r build/app/outputs/flutter-apk/app-debug.apk
+(cd artifacts && sha256sum -c akribos-0.1.0-akribos-de-debug.apk.sha256)
 ```
 
-Diese lokale Variante verliert die Serververbindung, wenn USB-Weiterleitung oder Testserver
-beendet werden. Sie ist nicht mit einer öffentlichen Serverbereitstellung gleichzusetzen.
+Das Skript akzeptiert keine Parameter und legt diese Werte ausdrücklich fest:
+
+| Einstellung | Wert |
+| --- | --- |
+| Server | `https://akribos.de` |
+| Anwendung | `de.akribos.app` |
+| Version / Android-Versionscode | `0.1.0` / `2` |
+| Architektur | `android-arm64` |
+| Build und Signatur | Debug-Build, automatische Android-Debug-Signatur |
+| APK | `artifacts/akribos-0.1.0-akribos-de-debug.apk` |
+
+Es lädt die festgeschriebenen Abhängigkeiten mit `--enforce-lockfile`, baut die APK und
+schreibt eine SHA-256-Prüfsumme daneben. Es installiert nichts und verändert keinen Server.
+Die gleiche Buildkonfiguration ist reproduzierbar; identische APK-Bytes auf anderen Rechnern
+sind wegen lokaler Debug-Zertifikate und Werkzeug-Metadaten nicht zugesagt.
+
+Die APK kann auf dem Pixel direkt als Datei geöffnet und installiert werden. Für Updates
+muss die Android-Signatur zur vorhandenen Installation passen. Auf demselben Buildrechner
+bleibt die automatische Debug-Signatur normalerweise erhalten. Das Buildskript benötigt
+keine privaten Store-Schlüssel und keine Anmeldung bei Google Play.
+
+Der App-Server muss das App-Protokoll v1 anbieten; die Bereitstellung wird unabhängig vom
+APK-Build geprüft. Ein erfolgreicher APK-Build belegt noch keine Live-Server- oder Geräteabnahme.
+
+## Store-Verteilung
+
+Die direkte APK verwendet den produktiven Server, bleibt aber ein Debug-Build. Für Google Play
+müssen eine eigene Upload-Signatur, sichere CI-Secrets und die tatsächliche Play-Console-Anwendung
+eingerichtet werden. Release-Signierung ist bewusst nicht mit einem Debugschlüssel vorkonfiguriert.
+Schlüssel und `key.properties` gehören nicht ins Repository. Für spätere Veröffentlichungen
+können Versions-/Buildnummern über `--build-name` und `--build-number` gesetzt werden; das obige
+Skript hält den konkreten Pixel-Build `0.1.0+2` fest.
 
 ## iOS
 

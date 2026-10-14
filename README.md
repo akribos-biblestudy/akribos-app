@@ -5,9 +5,29 @@ einschließlich eines E-Ink-Modus für Android-Geräte wie Boox. Das Repository 
 ausschließlich Android- und iOS-Projekte. Verwaltungsfunktionen und Ressourcenimporte
 bleiben in der Webverwaltung.
 
-Die App verbindet sich mit einem Akribos-Server mit dem neuen App-Protokoll v1.
-Die Änderungen dafür liegen im benachbarten Repository `../akribos`; sie müssen vor
-der Verwendung mit einem öffentlichen Server bereitgestellt werden.
+Die normale App verbindet sich direkt über HTTPS mit **https://akribos.de**.
+Lesen ist ohne API-Schlüssel möglich; persönliche Funktionen verwenden die normale
+Akribos-Anmeldung per E-Mail-Code oder Passwort. Dafür sind weder ein lokaler Server
+noch eine USB-Verbindung oder ADB erforderlich. Eine Internetverbindung wird benötigt.
+Das öffentliche App-Protokoll v1 ist auf akribos.de bereitgestellt; der bestätigte
+Prüfstand steht in [docs/VALIDATION.md](docs/VALIDATION.md).
+
+## Android-APK für akribos.de
+
+Mit der unten beschriebenen Flutter-/Android-Buildumgebung:
+
+```sh
+./scripts/build-android-production.sh
+```
+
+Das Skript baut fest für `https://akribos.de`, Android ARM64 und Version `0.1.0+2`.
+Die installierbare Datei liegt unter
+`artifacts/akribos-0.1.0-akribos-de-debug.apk`; daneben liegt ihre SHA-256-Prüfsumme.
+Sie kann auf dem Pixel als APK geöffnet und installiert werden. Eine bereits installierte
+App mit derselben Android-Debug-Signatur lässt sich damit aktualisieren.
+Die APK verwendet die automatisch erzeugte Android-Debug-Signatur; eigene Schlüssel,
+API-Schlüssel und eine Store-Signierung sind für diesen Build nicht erforderlich.
+Sie ist für den direkten Betrieb mit akribos.de bestimmt und keine Google-Play-Veröffentlichung.
 
 ## Funktionen
 
@@ -45,7 +65,7 @@ verpflichtend; Debug-Builds erlauben zusätzlich lokale Entwicklungsadressen.
 ```sh
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
-flutter test
+flutter test test/core/api_client_test.dart
 flutter build apk --debug
 ```
 
@@ -58,13 +78,9 @@ flutter test test/live_api_test.dart \
   --dart-define=AKRIBOS_TEST_SERVER=http://127.0.0.1:4176
 ```
 
-Für ein über USB verbundenes Android-Gerät kann ein lokaler Server weitergeleitet
-werden; die hier gezeigte App bleibt auf diese Verbindung angewiesen:
-
-```sh
-adb reverse tcp:4176 tcp:4176
-flutter run --dart-define=AKRIBOS_SERVER=http://127.0.0.1:4176
-```
+Dieser optionale Testserver ist ausschließlich eine Entwicklungsumgebung. Das oben
+beschriebene Produktions-Buildskript verwendet immer akribos.de und übernimmt weder
+diese Testadresse noch `AKRIBOS_TEST_SERVER` in die APK.
 
 Die CI prüft Formatierung, Analyse und Tests, baut eine Android-Debug-APK und auf
 macOS einen unsignierten iOS-Build. Sie veröffentlicht keine Store-Version.

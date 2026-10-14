@@ -2,9 +2,48 @@
 
 Dieses Repository enthält den Flutter-Client für Android und iOS. Die Implementierung
 des Protokolls liegt im benachbarten Server-Repository `../akribos`.
-Die App verwendet die normalen, widerrufbaren Akribos-Sitzungen. Es gibt keinen eingebauten
-API-Schlüssel, keine zusätzliche globale Berechtigung und keine Änderung an `resources.api_enabled`.
-Leserechte entsprechen den internen Reader-Endpunkten.
+Die normale App und `scripts/build-android-production.sh` verwenden direkt
+`https://akribos.de` über HTTPS. Auf dem Gerät werden weder ein API-Schlüssel noch eine
+Entwicklungsverbindung eingerichtet. Die App verwendet die normalen, widerrufbaren
+Akribos-Sitzungen: öffentlich lesen, für persönliche Funktionen per E-Mail-Code oder
+Passwort anmelden. Die Kontoverwaltung vorhandener API-Schlüssel ist eine separate
+Funktion für externe Integrationen und keine Voraussetzung für die App.
+Es gibt keine zusätzliche globale Berechtigung und keine Änderung an `resources.api_enabled`.
+Leserechte entsprechen den internen Reader-Endpunkten. USB, ADB oder ein lokaler Server
+sind im normalen Betrieb nicht beteiligt.
+
+## Öffentlicher Zugriff auf akribos.de
+
+Die öffentliche Produktionsbasis der App-API ist **`https://akribos.de/api/app`**. In der Flutter-App
+wird als Server **`https://akribos.de`** verwendet. Öffentliche Bibeltexte, verfügbare Werke, Suche und
+öffentliche Hilfeseiten funktionieren ohne Registrierung, Sitzungscookie oder API-Schlüssel.
+`x-akribos-app: 1` bezeichnet lediglich die Protokollversion und ist kein Geheimnis.
+
+Diese Anfragen benötigen weder `Authorization` noch einen zuvor angelegten Schlüssel:
+
+```sh
+curl --fail-with-body --silent --show-error \
+  -H 'x-akribos-app: 1' \
+  -H 'Origin: https://akribos.de' \
+  'https://akribos.de/api/app/bootstrap'
+
+curl --fail-with-body --silent --show-error --get \
+  -H 'x-akribos-app: 1' \
+  -H 'Origin: https://akribos.de' \
+  --data-urlencode 'path=/Joh1' \
+  'https://akribos.de/api/app/page'
+```
+
+Der Bootstrap liefert `type: "success"`, `data.protocolVersion: 1` und bei Gästen `data.user: null`.
+Eine Lesestelle kann zunächst einen kanonischen `redirect`-Umschlag liefern; dessen lokalen
+`location`-Wert lädt der Client erneut über `/api/app/page?path=…`.
+
+Persönliche Notizen, Sammlungen, Markierungen und Arbeitsbereiche benötigen die normale
+Kontoanmeldung mit Passwort oder E-Mail-Code und den daraus erzeugten Sitzungscookie. Ohne Sitzung
+antworten geschützte App-Seiten mit dem lokalen Anmelde-Redirect; geschützte JSON-Endpunkte wie
+`/api/documents` liefern HTTP 401. Weder der Versions-/Origin-Header noch ein mitgesendeter API-Key
+erteilt Kontorechte. Private Ressourcen bleiben zusätzlich an die aktuellen Kontofreigaben gebunden.
+Die getrennte Schnittstelle `/api/v1` und deren API-Key-/Lizenzregeln bleiben unverändert.
 
 | Endpunkt | Aufgabe |
 | --- | --- |
@@ -22,7 +61,8 @@ Der Header ist keine Authentifizierung. API-Schlüssel werden nicht in Sitzungsk
 ```
 
 Formularwerte sind Strings oder Stringlisten. Dateiimporte verwenden `multipart/form-data` mit
-den ursprünglichen Feldnamen. Die Größenbegrenzungen werden vor der Formularauswertung geprüft.
+den ursprünglichen Feldnamen. Private Importe prüfen die Sitzung vor dem Einlesen des Anfragekörpers;
+Größenbegrenzungen werden vor der Formularauswertung geprüft.
 Antworten verwenden ein stabiles JSON-Format:
 
 ```json
@@ -73,7 +113,11 @@ Antworten und Formulargrenzen. `e2e/app-api.e2e.ts` prüft gegen eine eigene Dat
 Anmeldung, Rollen, private Dokumente, Erstellen, Speichern, Konflikte, Multipart und Abmeldung.
 Zusätzlich gelten die vorhandenen Authentifizierungs- und Ressourcenberechtigungstests.
 
-Die neuen Endpunkte müssen bereitgestellt sein, bevor eine veröffentlichte App mit dem Server
-arbeiten kann. Eine Installation gegen einen älteren Server zeigt einen erklärten Fehler. Dieser
-Change löst weder Deployment noch App-Store-Veröffentlichung aus. Gerätesignierung und verifizierte
-HTTPS-App-Links benötigen die tatsächlichen Android-/Apple-Signieridentitäten.
+Die Endpunkte wurden am 14. Oktober 2026 auf akribos.de veröffentlicht und ohne
+Anmeldung/API-Schlüssel live geprüft; siehe [VALIDATION.md](VALIDATION.md).
+Eine Installation gegen einen älteren Server zeigt einen erklärten Fehler.
+APK-Build und Serverbereitstellung sind getrennte Schritte; das Buildskript führt kein Deployment
+und keine Store-Veröffentlichung aus. Die direkt installierbare Android-APK verwendet die
+automatische Debug-Signatur. Store-Signierung und verifizierte HTTPS-App-Links benötigen die
+tatsächlichen Android-/Apple-Signieridentitäten. Anmeldung per E-Mail-Code oder Passwort benötigt
+keine verifizierten App-Links.
