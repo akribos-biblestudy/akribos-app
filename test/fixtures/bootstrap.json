@@ -1,0 +1,791 @@
+{
+  "initializeReaderWorkspace": false,
+  "analytics": {
+    "enabled": false,
+    "scriptUrl": "",
+    "websiteId": "",
+    "provider": "",
+    "privacyUrl": "",
+    "privacyDetails": "",
+    "revision": "991c10ea592449cd9bcd"
+  },
+  "savedWorkspaces": [],
+  "activeSavedWorkspaceId": null,
+  "activeSavedWorkspaceVersion": null,
+  "activeSavedWorkspaceContentVersion": null,
+  "bibles": [
+    {
+      "id": "SEEDDE",
+      "kind": "bible",
+      "name": "Testübersetzung",
+      "sourceRevision": "1.2",
+      "abbrev": "Testübersetzung",
+      "coverTitle": "Testübersetzung",
+      "tabTitle": "Testübersetzung",
+      "selectionTitle": "Testübersetzung",
+      "selectionSubtitle": "Testübersetzung",
+      "language": "de",
+      "canon": "both",
+      "direction": "ltr",
+      "sortOrder": 10,
+      "hasStrongs": true,
+      "hasMorphology": false,
+      "licenseHtml": "Public Domain",
+      "usageNotesHtml": null
+    },
+    {
+      "id": "SEEDPLAIN",
+      "kind": "bible",
+      "name": "Testübersetzung schlicht",
+      "sourceRevision": null,
+      "abbrev": "Schlicht",
+      "coverTitle": "Schlicht",
+      "tabTitle": "Schlicht Tab",
+      "selectionTitle": "Testübersetzung schlicht",
+      "selectionSubtitle": "Schlicht",
+      "language": "de",
+      "canon": "both",
+      "direction": "ltr",
+      "sortOrder": 20,
+      "hasStrongs": false,
+      "hasMorphology": false,
+      "licenseHtml": null,
+      "usageNotesHtml": null
+    }
+  ],
+  "defaultBibleId": null,
+  "previewBibleId": "SEEDDE",
+  "readerResources": [
+    {
+      "id": "SEEDDE",
+      "kind": "bible",
+      "name": "Testübersetzung",
+      "sourceRevision": "1.2",
+      "abbrev": "Testübersetzung",
+      "coverTitle": "Testübersetzung",
+      "tabTitle": "Testübersetzung",
+      "selectionTitle": "Testübersetzung",
+      "selectionSubtitle": "Testübersetzung",
+      "language": "de",
+      "canon": "both",
+      "direction": "ltr",
+      "sortOrder": 10,
+      "hasStrongs": true,
+      "hasMorphology": false,
+      "licenseHtml": "Public Domain",
+      "usageNotesHtml": null
+    },
+    {
+      "id": "SEEDPLAIN",
+      "kind": "bible",
+      "name": "Testübersetzung schlicht",
+      "sourceRevision": null,
+      "abbrev": "Schlicht",
+      "coverTitle": "Schlicht",
+      "tabTitle": "Schlicht Tab",
+      "selectionTitle": "Testübersetzung schlicht",
+      "selectionSubtitle": "Schlicht",
+      "language": "de",
+      "canon": "both",
+      "direction": "ltr",
+      "sortOrder": 20,
+      "hasStrongs": false,
+      "hasMorphology": false,
+      "licenseHtml": null,
+      "usageNotesHtml": null
+    },
+    {
+      "id": "SEEDCOMMENTARY",
+      "kind": "commentary",
+      "name": "Testkommentar",
+      "sourceRevision": null,
+      "abbrev": "Kommentar",
+      "coverTitle": "Kommentar",
+      "tabTitle": "Kommentar",
+      "selectionTitle": "Testkommentar",
+      "selectionSubtitle": "Kommentar",
+      "language": "de",
+      "canon": "both",
+      "direction": "ltr",
+      "sortOrder": 30,
+      "hasStrongs": false,
+      "hasMorphology": false,
+      "licenseHtml": null,
+      "usageNotesHtml": null
+    },
+    {
+      "id": "STRONGS_GREEK",
+      "kind": "lexicon",
+      "name": "Strong's Greek Dictionary",
+      "sourceRevision": null,
+      "abbrev": "Strong Griechisch",
+      "coverTitle": "Strong Griechisch",
+      "tabTitle": "Strong Griechisch",
+      "selectionTitle": "Strong's Greek Dictionary",
+      "selectionSubtitle": "Strong Griechisch",
+      "language": "grc",
+      "canon": "nt",
+      "direction": "ltr",
+      "sortOrder": 100,
+      "hasStrongs": false,
+      "hasMorphology": false,
+      "licenseHtml": "Seed",
+      "usageNotesHtml": null
+    },
+    {
+      "id": "STRONGS_HEBREW",
+      "kind": "lexicon",
+      "name": "Strong's Hebrew and Aramaic Dictionary",
+      "sourceRevision": null,
+      "abbrev": "Strong Hebräisch",
+      "coverTitle": "Strong Hebräisch",
+      "tabTitle": "Strong Hebräisch",
+      "selectionTitle": "Strong's Hebrew and Aramaic Dictionary",
+      "selectionSubtitle": "Strong Hebräisch",
+      "language": "hbo",
+      "canon": "ot",
+      "direction": "rtl",
+      "sortOrder": 100,
+      "hasStrongs": false,
+      "hasMorphology": false,
+      "licenseHtml": null,
+      "usageNotesHtml": null
+    },
+    {
+      "id": "SEEDTSK",
+      "kind": "xrefs",
+      "name": "Treasury of Scripture Knowledge",
+      "sourceRevision": null,
+      "abbrev": "TSK",
+      "coverTitle": "TSK",
+      "tabTitle": "TSK",
+      "selectionTitle": "Treasury of Scripture Knowledge",
+      "selectionSubtitle": "TSK",
+      "language": "en",
+      "canon": "both",
+      "direction": "ltr",
+      "sortOrder": 100,
+      "hasStrongs": false,
+      "hasMorphology": false,
+      "licenseHtml": null,
+      "usageNotesHtml": null
+    }
+  ],
+  "columns": [
+    "SEEDDE",
+    "SEEDCOMMENTARY"
+  ],
+  "workspace": {
+    "version": 1,
+    "layout": "columns-2",
+    "tiles": [
+      {
+        "id": "tile-1",
+        "tabs": [
+          {
+            "id": "tab-1",
+            "resourceId": "SEEDDE",
+            "linkSet": "A",
+            "reference": {
+              "book": 43,
+              "chapter": 1
+            },
+            "lookup": null,
+            "studyContext": null
+          }
+        ],
+        "activeTabId": "tab-1"
+      },
+      {
+        "id": "tile-2",
+        "tabs": [
+          {
+            "id": "tab-2",
+            "resourceId": "SEEDCOMMENTARY",
+            "linkSet": "A",
+            "reference": {
+              "book": 43,
+              "chapter": 1
+            },
+            "lookup": null,
+            "studyContext": null
+          }
+        ],
+        "activeTabId": "tab-2"
+      }
+    ],
+    "focusedTileId": "tile-1",
+    "layoutSizes": {}
+  },
+  "readerFontScale": 100,
+  "user": null,
+  "tourGuestDone": false,
+  "protocolVersion": 1,
+  "books": [
+    {
+      "id": 1,
+      "name": "1.Mose",
+      "shortName": "1Mo",
+      "osisId": "Gen",
+      "chapters": 50,
+      "testament": "ot"
+    },
+    {
+      "id": 2,
+      "name": "2.Mose",
+      "shortName": "2Mo",
+      "osisId": "Exod",
+      "chapters": 40,
+      "testament": "ot"
+    },
+    {
+      "id": 3,
+      "name": "3.Mose",
+      "shortName": "3Mo",
+      "osisId": "Lev",
+      "chapters": 27,
+      "testament": "ot"
+    },
+    {
+      "id": 4,
+      "name": "4.Mose",
+      "shortName": "4Mo",
+      "osisId": "Num",
+      "chapters": 36,
+      "testament": "ot"
+    },
+    {
+      "id": 5,
+      "name": "5.Mose",
+      "shortName": "5Mo",
+      "osisId": "Deut",
+      "chapters": 34,
+      "testament": "ot"
+    },
+    {
+      "id": 6,
+      "name": "Josua",
+      "shortName": "Jos",
+      "osisId": "Josh",
+      "chapters": 24,
+      "testament": "ot"
+    },
+    {
+      "id": 7,
+      "name": "Richter",
+      "shortName": "Ri",
+      "osisId": "Judg",
+      "chapters": 21,
+      "testament": "ot"
+    },
+    {
+      "id": 8,
+      "name": "Rut",
+      "shortName": "Ruth",
+      "osisId": "Ruth",
+      "chapters": 4,
+      "testament": "ot"
+    },
+    {
+      "id": 9,
+      "name": "1.Samuel",
+      "shortName": "1Sam",
+      "osisId": "1Sam",
+      "chapters": 31,
+      "testament": "ot"
+    },
+    {
+      "id": 10,
+      "name": "2.Samuel",
+      "shortName": "2Sam",
+      "osisId": "2Sam",
+      "chapters": 24,
+      "testament": "ot"
+    },
+    {
+      "id": 11,
+      "name": "1.Könige",
+      "shortName": "1Kön",
+      "osisId": "1Kgs",
+      "chapters": 22,
+      "testament": "ot"
+    },
+    {
+      "id": 12,
+      "name": "2.Könige",
+      "shortName": "2Kön",
+      "osisId": "2Kgs",
+      "chapters": 25,
+      "testament": "ot"
+    },
+    {
+      "id": 13,
+      "name": "1.Chronik",
+      "shortName": "1Chr",
+      "osisId": "1Chr",
+      "chapters": 29,
+      "testament": "ot"
+    },
+    {
+      "id": 14,
+      "name": "2.Chronik",
+      "shortName": "2Chr",
+      "osisId": "2Chr",
+      "chapters": 36,
+      "testament": "ot"
+    },
+    {
+      "id": 15,
+      "name": "Esra",
+      "shortName": "Esra",
+      "osisId": "Ezra",
+      "chapters": 10,
+      "testament": "ot"
+    },
+    {
+      "id": 16,
+      "name": "Nehemia",
+      "shortName": "Neh",
+      "osisId": "Neh",
+      "chapters": 13,
+      "testament": "ot"
+    },
+    {
+      "id": 17,
+      "name": "Esther",
+      "shortName": "Est",
+      "osisId": "Esth",
+      "chapters": 10,
+      "testament": "ot"
+    },
+    {
+      "id": 18,
+      "name": "Hiob",
+      "shortName": "Hi",
+      "osisId": "Job",
+      "chapters": 42,
+      "testament": "ot"
+    },
+    {
+      "id": 19,
+      "name": "Psalmen",
+      "shortName": "Ps",
+      "osisId": "Ps",
+      "chapters": 150,
+      "testament": "ot"
+    },
+    {
+      "id": 20,
+      "name": "Sprüche",
+      "shortName": "Spr",
+      "osisId": "Prov",
+      "chapters": 31,
+      "testament": "ot"
+    },
+    {
+      "id": 21,
+      "name": "Prediger",
+      "shortName": "Pred",
+      "osisId": "Eccl",
+      "chapters": 12,
+      "testament": "ot"
+    },
+    {
+      "id": 22,
+      "name": "Hoheslied",
+      "shortName": "Hld",
+      "osisId": "Song",
+      "chapters": 8,
+      "testament": "ot"
+    },
+    {
+      "id": 23,
+      "name": "Jesaja",
+      "shortName": "Jes",
+      "osisId": "Isa",
+      "chapters": 66,
+      "testament": "ot"
+    },
+    {
+      "id": 24,
+      "name": "Jeremia",
+      "shortName": "Jer",
+      "osisId": "Jer",
+      "chapters": 52,
+      "testament": "ot"
+    },
+    {
+      "id": 25,
+      "name": "Klagelieder",
+      "shortName": "Klgl",
+      "osisId": "Lam",
+      "chapters": 5,
+      "testament": "ot"
+    },
+    {
+      "id": 26,
+      "name": "Hesekiel",
+      "shortName": "Hes",
+      "osisId": "Ezek",
+      "chapters": 48,
+      "testament": "ot"
+    },
+    {
+      "id": 27,
+      "name": "Daniel",
+      "shortName": "Dan",
+      "osisId": "Dan",
+      "chapters": 12,
+      "testament": "ot"
+    },
+    {
+      "id": 28,
+      "name": "Hosea",
+      "shortName": "Hos",
+      "osisId": "Hos",
+      "chapters": 14,
+      "testament": "ot"
+    },
+    {
+      "id": 29,
+      "name": "Joel",
+      "shortName": "Joel",
+      "osisId": "Joel",
+      "chapters": 4,
+      "testament": "ot"
+    },
+    {
+      "id": 30,
+      "name": "Amos",
+      "shortName": "Am",
+      "osisId": "Amos",
+      "chapters": 9,
+      "testament": "ot"
+    },
+    {
+      "id": 31,
+      "name": "Obadja",
+      "shortName": "Obd",
+      "osisId": "Obad",
+      "chapters": 1,
+      "testament": "ot"
+    },
+    {
+      "id": 32,
+      "name": "Jona",
+      "shortName": "Jona",
+      "osisId": "Jonah",
+      "chapters": 4,
+      "testament": "ot"
+    },
+    {
+      "id": 33,
+      "name": "Micha",
+      "shortName": "Mi",
+      "osisId": "Mic",
+      "chapters": 7,
+      "testament": "ot"
+    },
+    {
+      "id": 34,
+      "name": "Nahum",
+      "shortName": "Nah",
+      "osisId": "Nah",
+      "chapters": 3,
+      "testament": "ot"
+    },
+    {
+      "id": 35,
+      "name": "Habakuk",
+      "shortName": "Hab",
+      "osisId": "Hab",
+      "chapters": 3,
+      "testament": "ot"
+    },
+    {
+      "id": 36,
+      "name": "Zefanja",
+      "shortName": "Zef",
+      "osisId": "Zeph",
+      "chapters": 3,
+      "testament": "ot"
+    },
+    {
+      "id": 37,
+      "name": "Haggai",
+      "shortName": "Hag",
+      "osisId": "Hag",
+      "chapters": 2,
+      "testament": "ot"
+    },
+    {
+      "id": 38,
+      "name": "Sacharja",
+      "shortName": "Sach",
+      "osisId": "Zech",
+      "chapters": 14,
+      "testament": "ot"
+    },
+    {
+      "id": 39,
+      "name": "Maleachi",
+      "shortName": "Mal",
+      "osisId": "Mal",
+      "chapters": 3,
+      "testament": "ot"
+    },
+    {
+      "id": 40,
+      "name": "Matthäus",
+      "shortName": "Mt",
+      "osisId": "Matt",
+      "chapters": 28,
+      "testament": "nt"
+    },
+    {
+      "id": 41,
+      "name": "Markus",
+      "shortName": "Mk",
+      "osisId": "Mark",
+      "chapters": 16,
+      "testament": "nt"
+    },
+    {
+      "id": 42,
+      "name": "Lukas",
+      "shortName": "Lk",
+      "osisId": "Luke",
+      "chapters": 24,
+      "testament": "nt"
+    },
+    {
+      "id": 43,
+      "name": "Johannes",
+      "shortName": "Joh",
+      "osisId": "John",
+      "chapters": 21,
+      "testament": "nt"
+    },
+    {
+      "id": 44,
+      "name": "Apostelgeschichte",
+      "shortName": "Apg",
+      "osisId": "Acts",
+      "chapters": 28,
+      "testament": "nt"
+    },
+    {
+      "id": 45,
+      "name": "Römer",
+      "shortName": "Röm",
+      "osisId": "Rom",
+      "chapters": 16,
+      "testament": "nt"
+    },
+    {
+      "id": 46,
+      "name": "1.Korinther",
+      "shortName": "1Kor",
+      "osisId": "1Cor",
+      "chapters": 16,
+      "testament": "nt"
+    },
+    {
+      "id": 47,
+      "name": "2.Korinther",
+      "shortName": "2Kor",
+      "osisId": "2Cor",
+      "chapters": 13,
+      "testament": "nt"
+    },
+    {
+      "id": 48,
+      "name": "Galater",
+      "shortName": "Gal",
+      "osisId": "Gal",
+      "chapters": 6,
+      "testament": "nt"
+    },
+    {
+      "id": 49,
+      "name": "Epheser",
+      "shortName": "Eph",
+      "osisId": "Eph",
+      "chapters": 6,
+      "testament": "nt"
+    },
+    {
+      "id": 50,
+      "name": "Philipper",
+      "shortName": "Phil",
+      "osisId": "Phil",
+      "chapters": 4,
+      "testament": "nt"
+    },
+    {
+      "id": 51,
+      "name": "Kolosser",
+      "shortName": "Kol",
+      "osisId": "Col",
+      "chapters": 4,
+      "testament": "nt"
+    },
+    {
+      "id": 52,
+      "name": "1.Thessalonicher",
+      "shortName": "1Thess",
+      "osisId": "1Thess",
+      "chapters": 5,
+      "testament": "nt"
+    },
+    {
+      "id": 53,
+      "name": "2.Thessalonicher",
+      "shortName": "2Thess",
+      "osisId": "2Thess",
+      "chapters": 3,
+      "testament": "nt"
+    },
+    {
+      "id": 54,
+      "name": "1.Timotheus",
+      "shortName": "1Tim",
+      "osisId": "1Tim",
+      "chapters": 6,
+      "testament": "nt"
+    },
+    {
+      "id": 55,
+      "name": "2.Timotheus",
+      "shortName": "2Tim",
+      "osisId": "2Tim",
+      "chapters": 4,
+      "testament": "nt"
+    },
+    {
+      "id": 56,
+      "name": "Titus",
+      "shortName": "Tit",
+      "osisId": "Titus",
+      "chapters": 3,
+      "testament": "nt"
+    },
+    {
+      "id": 57,
+      "name": "Philemon",
+      "shortName": "Phlm",
+      "osisId": "Phlm",
+      "chapters": 1,
+      "testament": "nt"
+    },
+    {
+      "id": 58,
+      "name": "Hebräer",
+      "shortName": "Hebr",
+      "osisId": "Heb",
+      "chapters": 13,
+      "testament": "nt"
+    },
+    {
+      "id": 59,
+      "name": "Jakobus",
+      "shortName": "Jak",
+      "osisId": "Jas",
+      "chapters": 5,
+      "testament": "nt"
+    },
+    {
+      "id": 60,
+      "name": "1.Petrus",
+      "shortName": "1Petr",
+      "osisId": "1Pet",
+      "chapters": 5,
+      "testament": "nt"
+    },
+    {
+      "id": 61,
+      "name": "2.Petrus",
+      "shortName": "2Petr",
+      "osisId": "2Pet",
+      "chapters": 3,
+      "testament": "nt"
+    },
+    {
+      "id": 62,
+      "name": "1.Johannes",
+      "shortName": "1Joh",
+      "osisId": "1John",
+      "chapters": 5,
+      "testament": "nt"
+    },
+    {
+      "id": 63,
+      "name": "2.Johannes",
+      "shortName": "2Joh",
+      "osisId": "2John",
+      "chapters": 1,
+      "testament": "nt"
+    },
+    {
+      "id": 64,
+      "name": "3.Johannes",
+      "shortName": "3Joh",
+      "osisId": "3John",
+      "chapters": 1,
+      "testament": "nt"
+    },
+    {
+      "id": 65,
+      "name": "Judas",
+      "shortName": "Jud",
+      "osisId": "Jude",
+      "chapters": 1,
+      "testament": "nt"
+    },
+    {
+      "id": 66,
+      "name": "Offenbarung",
+      "shortName": "Offb",
+      "osisId": "Rev",
+      "chapters": 22,
+      "testament": "nt"
+    }
+  ],
+  "navigation": [
+    {
+      "id": "reader",
+      "label": "Bibel",
+      "path": "/"
+    },
+    {
+      "id": "search",
+      "label": "Suche",
+      "path": "/search"
+    },
+    {
+      "id": "notes",
+      "label": "Notizen",
+      "path": "/notes"
+    },
+    {
+      "id": "sermons",
+      "label": "Ausarbeitungen",
+      "path": "/sermons"
+    },
+    {
+      "id": "lists",
+      "label": "Stellensammlungen",
+      "path": "/lists"
+    },
+    {
+      "id": "account",
+      "label": "Konto",
+      "path": "/account"
+    },
+    {
+      "id": "help",
+      "label": "Hilfe",
+      "path": "/help"
+    }
+  ]
+}

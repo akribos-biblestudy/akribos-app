@@ -1,0 +1,496 @@
+{
+  "initializeReaderWorkspace": false,
+  "analytics": {
+    "enabled": false,
+    "scriptUrl": "",
+    "websiteId": "",
+    "provider": "",
+    "privacyUrl": "",
+    "privacyDetails": "",
+    "revision": "991c10ea592449cd9bcd"
+  },
+  "savedWorkspaces": [],
+  "activeSavedWorkspaceId": null,
+  "activeSavedWorkspaceVersion": null,
+  "activeSavedWorkspaceContentVersion": null,
+  "bibles": [
+    {
+      "id": "SEEDDE",
+      "kind": "bible",
+      "name": "Testübersetzung",
+      "sourceRevision": "1.2",
+      "abbrev": "Testübersetzung",
+      "coverTitle": "Testübersetzung",
+      "tabTitle": "Testübersetzung",
+      "selectionTitle": "Testübersetzung",
+      "selectionSubtitle": "Testübersetzung",
+      "language": "de",
+      "canon": "both",
+      "direction": "ltr",
+      "sortOrder": 10,
+      "hasStrongs": true,
+      "hasMorphology": false,
+      "licenseHtml": "Public Domain",
+      "usageNotesHtml": null
+    },
+    {
+      "id": "SEEDPLAIN",
+      "kind": "bible",
+      "name": "Testübersetzung schlicht",
+      "sourceRevision": null,
+      "abbrev": "Schlicht",
+      "coverTitle": "Schlicht",
+      "tabTitle": "Schlicht Tab",
+      "selectionTitle": "Testübersetzung schlicht",
+      "selectionSubtitle": "Schlicht",
+      "language": "de",
+      "canon": "both",
+      "direction": "ltr",
+      "sortOrder": 20,
+      "hasStrongs": false,
+      "hasMorphology": false,
+      "licenseHtml": null,
+      "usageNotesHtml": null
+    }
+  ],
+  "defaultBibleId": null,
+  "previewBibleId": "SEEDDE",
+  "readerResources": [
+    {
+      "id": "SEEDDE",
+      "kind": "bible",
+      "name": "Testübersetzung",
+      "sourceRevision": "1.2",
+      "abbrev": "Testübersetzung",
+      "coverTitle": "Testübersetzung",
+      "tabTitle": "Testübersetzung",
+      "selectionTitle": "Testübersetzung",
+      "selectionSubtitle": "Testübersetzung",
+      "language": "de",
+      "canon": "both",
+      "direction": "ltr",
+      "sortOrder": 10,
+      "hasStrongs": true,
+      "hasMorphology": false,
+      "licenseHtml": "Public Domain",
+      "usageNotesHtml": null
+    },
+    {
+      "id": "SEEDPLAIN",
+      "kind": "bible",
+      "name": "Testübersetzung schlicht",
+      "sourceRevision": null,
+      "abbrev": "Schlicht",
+      "coverTitle": "Schlicht",
+      "tabTitle": "Schlicht Tab",
+      "selectionTitle": "Testübersetzung schlicht",
+      "selectionSubtitle": "Schlicht",
+      "language": "de",
+      "canon": "both",
+      "direction": "ltr",
+      "sortOrder": 20,
+      "hasStrongs": false,
+      "hasMorphology": false,
+      "licenseHtml": null,
+      "usageNotesHtml": null
+    },
+    {
+      "id": "SEEDCOMMENTARY",
+      "kind": "commentary",
+      "name": "Testkommentar",
+      "sourceRevision": null,
+      "abbrev": "Kommentar",
+      "coverTitle": "Kommentar",
+      "tabTitle": "Kommentar",
+      "selectionTitle": "Testkommentar",
+      "selectionSubtitle": "Kommentar",
+      "language": "de",
+      "canon": "both",
+      "direction": "ltr",
+      "sortOrder": 30,
+      "hasStrongs": false,
+      "hasMorphology": false,
+      "licenseHtml": null,
+      "usageNotesHtml": null
+    },
+    {
+      "id": "STRONGS_GREEK",
+      "kind": "lexicon",
+      "name": "Strong's Greek Dictionary",
+      "sourceRevision": null,
+      "abbrev": "Strong Griechisch",
+      "coverTitle": "Strong Griechisch",
+      "tabTitle": "Strong Griechisch",
+      "selectionTitle": "Strong's Greek Dictionary",
+      "selectionSubtitle": "Strong Griechisch",
+      "language": "grc",
+      "canon": "nt",
+      "direction": "ltr",
+      "sortOrder": 100,
+      "hasStrongs": false,
+      "hasMorphology": false,
+      "licenseHtml": "Seed",
+      "usageNotesHtml": null
+    },
+    {
+      "id": "STRONGS_HEBREW",
+      "kind": "lexicon",
+      "name": "Strong's Hebrew and Aramaic Dictionary",
+      "sourceRevision": null,
+      "abbrev": "Strong Hebräisch",
+      "coverTitle": "Strong Hebräisch",
+      "tabTitle": "Strong Hebräisch",
+      "selectionTitle": "Strong's Hebrew and Aramaic Dictionary",
+      "selectionSubtitle": "Strong Hebräisch",
+      "language": "hbo",
+      "canon": "ot",
+      "direction": "rtl",
+      "sortOrder": 100,
+      "hasStrongs": false,
+      "hasMorphology": false,
+      "licenseHtml": null,
+      "usageNotesHtml": null
+    },
+    {
+      "id": "SEEDTSK",
+      "kind": "xrefs",
+      "name": "Treasury of Scripture Knowledge",
+      "sourceRevision": null,
+      "abbrev": "TSK",
+      "coverTitle": "TSK",
+      "tabTitle": "TSK",
+      "selectionTitle": "Treasury of Scripture Knowledge",
+      "selectionSubtitle": "TSK",
+      "language": "en",
+      "canon": "both",
+      "direction": "ltr",
+      "sortOrder": 100,
+      "hasStrongs": false,
+      "hasMorphology": false,
+      "licenseHtml": null,
+      "usageNotesHtml": null
+    }
+  ],
+  "columns": [
+    {
+      "index": 0,
+      "tileIndex": 0,
+      "tileId": "url-tile-1",
+      "activeTab": {
+        "id": "url-tab-1-1",
+        "resourceId": "SEEDDE",
+        "linkSet": "A",
+        "reference": {
+          "book": 43,
+          "chapter": 3,
+          "verse": 16
+        },
+        "lookup": null,
+        "studyContext": null
+      },
+      "resource": {
+        "id": "SEEDDE",
+        "kind": "bible",
+        "name": "Testübersetzung",
+        "sourceRevision": "1.2",
+        "abbrev": "Testübersetzung",
+        "coverTitle": "Testübersetzung",
+        "tabTitle": "Testübersetzung",
+        "selectionTitle": "Testübersetzung",
+        "selectionSubtitle": "Testübersetzung",
+        "language": "de",
+        "canon": "both",
+        "direction": "ltr",
+        "sortOrder": 10,
+        "hasStrongs": true,
+        "hasMorphology": false,
+        "licenseHtml": "Public Domain",
+        "usageNotesHtml": null
+      },
+      "bibleCellIndex": 0,
+      "covers": true,
+      "initialChapter": {
+        "resourceId": "SEEDDE",
+        "reference": {
+          "book": 43,
+          "chapter": 3
+        },
+        "fullTitle": "Johannes 3",
+        "shortBookName": "Joh",
+        "bookTitle": {
+          "text": "Johannes",
+          "language": "de",
+          "direction": "ltr"
+        },
+        "chapter": {
+          "book": 43,
+          "chapter": 3,
+          "rows": [
+            {
+              "verse": 16,
+              "cells": [
+                {
+                  "verse": 16,
+                  "verseEnd": null,
+                  "span": 1,
+                  "segments": [
+                    "Denn also hat ",
+                    {
+                      "kind": "w",
+                      "text": "Gott",
+                      "strong": "G2316"
+                    },
+                    " die ",
+                    {
+                      "kind": "w",
+                      "text": "Welt",
+                      "strong": "G2889"
+                    },
+                    " ",
+                    {
+                      "kind": "w",
+                      "text": "geliebt",
+                      "strong": "G25"
+                    },
+                    " ",
+                    {
+                      "kind": "note",
+                      "text": "Automatische Wortzuordnung; fachlich noch nicht bestätigt.",
+                      "marker": ""
+                    },
+                    {
+                      "kind": "note",
+                      "text": "o. so sehr",
+                      "marker": "*"
+                    },
+                    ", daß er seinen ",
+                    {
+                      "kind": "w",
+                      "text": "Sohn",
+                      "strong": "G5207"
+                    },
+                    " gab."
+                  ],
+                  "heading": null
+                }
+              ]
+            },
+            {
+              "verse": 17,
+              "cells": [
+                {
+                  "verse": 17,
+                  "verseEnd": null,
+                  "span": 1,
+                  "segments": [
+                    "Denn ",
+                    {
+                      "kind": "w",
+                      "text": "Gott",
+                      "strong": "G2316"
+                    },
+                    " hat seinen ",
+                    {
+                      "kind": "w",
+                      "text": "Sohn",
+                      "strong": "G5207"
+                    },
+                    " nicht gesandt, um zu richten."
+                  ],
+                  "heading": null
+                }
+              ]
+            }
+          ],
+          "headings": [],
+          "empty": false
+        },
+        "highlights": [],
+        "markedVerses": [],
+        "documentAnchors": [],
+        "referenceResources": {
+          "commentaries": [],
+          "crossReferences": [],
+          "verseNumbers": []
+        },
+        "navigation": {
+          "previous": {
+            "book": 43,
+            "chapter": 2
+          },
+          "next": {
+            "book": 43,
+            "chapter": 4
+          }
+        }
+      },
+      "lexiconEntry": null
+    },
+    {
+      "index": 1,
+      "tileIndex": 1,
+      "tileId": "url-tile-2",
+      "activeTab": {
+        "id": "url-tab-2-1",
+        "resourceId": "SEEDCOMMENTARY",
+        "linkSet": "A",
+        "reference": {
+          "book": 43,
+          "chapter": 3,
+          "verse": 16
+        },
+        "lookup": null,
+        "studyContext": null
+      },
+      "resource": {
+        "id": "SEEDCOMMENTARY",
+        "kind": "commentary",
+        "name": "Testkommentar",
+        "sourceRevision": null,
+        "abbrev": "Kommentar",
+        "coverTitle": "Kommentar",
+        "tabTitle": "Kommentar",
+        "selectionTitle": "Testkommentar",
+        "selectionSubtitle": "Kommentar",
+        "language": "de",
+        "canon": "both",
+        "direction": "ltr",
+        "sortOrder": 30,
+        "hasStrongs": false,
+        "hasMorphology": false,
+        "licenseHtml": null,
+        "usageNotesHtml": null
+      },
+      "bibleCellIndex": null,
+      "covers": false,
+      "initialChapter": {
+        "resourceId": "SEEDCOMMENTARY",
+        "reference": {
+          "book": 43,
+          "chapter": 3
+        },
+        "fullTitle": "Johannes 3",
+        "shortBookName": "Joh",
+        "bookTitle": {
+          "text": "Johannes",
+          "language": "de",
+          "direction": "ltr"
+        },
+        "chapter": {
+          "book": 43,
+          "chapter": 3,
+          "rows": [
+            {
+              "verse": 16,
+              "cells": []
+            }
+          ],
+          "headings": [],
+          "empty": false
+        },
+        "highlights": [],
+        "markedVerses": [],
+        "documentAnchors": [],
+        "referenceResources": {
+          "commentaries": [
+            {
+              "id": 1,
+              "resourceId": "SEEDCOMMENTARY",
+              "verseStart": 16,
+              "verseEnd": null,
+              "title": null,
+              "bodyHtml": "Der bekannteste Vers der Bibel. <strong>Also</strong> meint hier: auf diese Weise."
+            }
+          ],
+          "crossReferences": [],
+          "verseNumbers": [
+            16
+          ]
+        },
+        "navigation": {
+          "previous": {
+            "book": 43,
+            "chapter": 2
+          },
+          "next": {
+            "book": 43,
+            "chapter": 4
+          }
+        }
+      },
+      "lexiconEntry": null
+    }
+  ],
+  "workspace": {
+    "version": 1,
+    "layout": "columns-2",
+    "focusedTileId": "url-tile-1",
+    "tiles": [
+      {
+        "id": "url-tile-1",
+        "activeTabId": "url-tab-1-1",
+        "tabs": [
+          {
+            "id": "url-tab-1-1",
+            "resourceId": "SEEDDE",
+            "linkSet": "A",
+            "reference": {
+              "book": 43,
+              "chapter": 3,
+              "verse": 16
+            },
+            "lookup": null,
+            "studyContext": null
+          }
+        ]
+      },
+      {
+        "id": "url-tile-2",
+        "activeTabId": "url-tab-2-1",
+        "tabs": [
+          {
+            "id": "url-tab-2-1",
+            "resourceId": "SEEDCOMMENTARY",
+            "linkSet": "A",
+            "reference": {
+              "book": 43,
+              "chapter": 3,
+              "verse": 16
+            },
+            "lookup": null,
+            "studyContext": null
+          }
+        ]
+      }
+    ],
+    "layoutSizes": {}
+  },
+  "readerFontScale": 100,
+  "user": null,
+  "tourGuestDone": false,
+  "readerWorkspaceDetached": false,
+  "readerRootEntry": false,
+  "reference": {
+    "book": 43,
+    "chapter": 3,
+    "verse": 16
+  },
+  "title": "Joh 3,16",
+  "fullTitle": "Johannes 3",
+  "readerState": "layout=columns-2&tab=1.1:SEEDDE:A:Joh3,16&active=1.1&tab=2.1:SEEDCOMMENTARY:A:Joh3,16&active=2.1&focus=1",
+  "searchQueries": {},
+  "navigation": {
+    "previous": {
+      "book": 43,
+      "chapter": 2
+    },
+    "next": {
+      "book": 43,
+      "chapter": 4
+    },
+    "maxChapter": 3
+  },
+  "lists": [],
+  "highlightStyles": [],
+  "_path": "/Joh3,16?layout=columns-2&tab=1.1:SEEDDE:A:Joh3,16&active=1.1&tab=2.1:SEEDCOMMENTARY:A:Joh3,16&active=2.1&focus=1"
+}
