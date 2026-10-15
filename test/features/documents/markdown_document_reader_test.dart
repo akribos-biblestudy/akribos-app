@@ -390,12 +390,10 @@ Future<void> _loadFonts(WidgetTester tester) async {
     ]) {
       reading.addFont(rootBundle.load('assets/fonts/akribos-text-$cut.ttf'));
     }
+    // A bundled stand-in keeps incidental Material labels deterministic on CI;
+    // the actual reading baseline uses the AkribosText cuts loaded above.
     final controls = FontLoader('Roboto')
-      ..addFont(
-        File('/usr/share/fonts/noto/NotoSans-Regular.ttf')
-            .readAsBytes()
-            .then(ByteData.sublistView),
-      );
+      ..addFont(rootBundle.load('assets/fonts/akribos-text-regular.ttf'));
     await Future.wait([reading.load(), controls.load()]);
   });
 }

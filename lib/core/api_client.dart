@@ -11,6 +11,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'editor_web_session.dart';
 import 'json.dart';
 export 'json.dart';
 
@@ -131,16 +132,33 @@ class SecureCookieStorage implements Storage {
 /// The package's default redirect handling copies Set-Cookie to redirect targets.
 /// A first-party session must only ever be stored for the server that issued it.
 class _ServerCookieManager extends CookieManager {
-  _ServerCookieManager(super.cookieJar);
+  _ServerCookieManager(super.cookieJar, this.onSessionChanged);
+  final Future<void> Function() onSessionChanged;
 
   @override
-  Future<void> saveCookies(Response response) => super.saveCookies(
-    Response(
-      requestOptions: response.requestOptions,
-      headers: response.headers,
-      statusCode: 200,
-    ),
-  );
+  Future<void> saveCookies(Response response) async {
+    final root = response.requestOptions.uri.replace(
+      path: '/',
+      query: null,
+      fragment: null,
+    );
+    final before = (await cookieJar.loadForRequest(root))
+        .where((cookie) => cookie.name == 'session')
+        .firstOrNull
+        ?.value;
+    await super.saveCookies(
+      Response(
+        requestOptions: response.requestOptions,
+        headers: response.headers,
+        statusCode: 200,
+      ),
+    );
+    final after = (await cookieJar.loadForRequest(root))
+        .where((cookie) => cookie.name == 'session')
+        .firstOrNull
+        ?.value;
+    if (before != after) await onSessionChanged();
+  }
 }
 
 String _formValue(Object value) {
@@ -168,7 +186,9 @@ class AppApi {
     Dio? dio,
     CookieJar? cookies,
     String? browserTabId,
-  }) : origin = validateServer(server),
+    EditorWebSession? editorWebSession,
+  }) : _editorWebSession = editorWebSession ?? EditorWebSession(),
+       origin = validateServer(server),
        _dio = dio ?? Dio(),
        browserTabId = browserTabId ?? newBrowserTabId() {
     _cookies =
@@ -194,13 +214,67 @@ class AppApi {
         'x-reader-browser-tab': this.browserTabId,
       },
     );
-    _dio.interceptors.add(_ServerCookieManager(_cookies));
+    _dio.interceptors.add(
+      _ServerCookieManager(_cookies, _invalidateEditorWebSession),
+    );
   }
   final Uri origin;
   final Dio _dio;
   late final CookieJar _cookies;
   final String browserTabId;
   Json bootstrap = {};
+  final EditorWebSession _editorWebSession;
+  String? _bootstrapOwner;
+  int _sessionGeneration = 0;
+
+  Future<void> _clearEditorWebSession() {
+    _sessionGeneration++;
+    return _editorWebSession.clear(origin);
+  }
+
+  Future<void> _invalidateEditorWebSession() async {
+    try {
+      await _clearEditorWebSession();
+    } on EditorWebSessionException {
+      // Authentication already succeeded on the server. Preserve that response
+      // so the shell invalidates its private screens, even if WebView is broken.
+      // Every editor load retries preparation and fails closed on this error.
+    }
+  }
+
+  /// Await before loading the editor. Credentials never leave this client except
+  /// through the native cookie channel and are not exposed to widget/JS code.
+  Future<void> prepareEditorWebSession() async {
+    final generation = _sessionGeneration;
+    final cookies = await _cookies.loadForRequest(origin.resolve('/'));
+    final session = cookies
+        .where(
+          (cookie) =>
+              cookie.name == 'session' &&
+              cookie.path == '/' &&
+              cookie.domain == null &&
+              cookie.httpOnly &&
+              (origin.scheme != 'https' || cookie.secure) &&
+              cookie.value.isNotEmpty,
+        )
+        .firstOrNull;
+    if (generation != _sessionGeneration) {
+      throw const ApiException(
+        'Die Anmeldung wurde inzwischen geändert. Bitte den Editor erneut öffnen.',
+      );
+    }
+    if (session == null || asString(asMap(bootstrap['user'])['id']).isEmpty) {
+      await _clearEditorWebSession();
+      throw const ApiException('Bitte melde dich erneut an.', status: 401);
+    }
+    await _editorWebSession.setSession(origin, session.value);
+    if (generation != _sessionGeneration) {
+      await _editorWebSession.clear(origin);
+      throw const ApiException(
+        'Die Anmeldung wurde inzwischen geändert. Bitte den Editor erneut öffnen.',
+      );
+    }
+  }
 
   Future<void> initializeReader(double width) async {
     // PersistCookieJar initializes its index eagerly but loads host cookies only
@@ -345,6 +419,9 @@ class AppApi {
         'App und Server verwenden unterschiedliche API-Versionen. Bitte die App aktualisieren.',
       );
     }
+    final owner = asString(asMap(result.data['user'])['id']);
+    if (_bootstrapOwner != owner) await _invalidateEditorWebSession();
+    _bootstrapOwner = owner;
     bootstrap = result.data;
     return bootstrap;
   }
@@ -493,8 +570,15 @@ class AppApi {
   }
 
   Future<void> clearSession() async {
-    await _cookies.deleteAll();
     bootstrap = {};
+    _bootstrapOwner = '';
+    try {
+      await _clearEditorWebSession();
+    } finally {
+      await _cookies.deleteAll();
+      bootstrap = {};
+      _bootstrapOwner = '';
+    }
   }
 
   void dispose() => _dio.close();

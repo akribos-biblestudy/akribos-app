@@ -12,14 +12,24 @@ import '../../core/api_client.dart';
 import '../../widgets/common.dart';
 import 'document_draft.dart';
 import 'document_widgets.dart';
-import 'markdown_source_editor.dart';
-import 'markdown_document_reader.dart';
-import '../reader/books.dart';
-import '../reader/verse_text.dart';
+import 'web_editor.dart';
+import 'web_editor_controller.dart';
+
+import 'package:url_launcher/url_launcher.dart';
 
 class DocumentEditor extends StatefulWidget {
-  const DocumentEditor({super.key, required this.path});
+  const DocumentEditor({super.key, required this.path, this.webEditorBuilder});
   final String path;
+
+  /// Tests supply a protocol peer; production always uses the isolated HTTPS page.
+  final Widget Function(
+    BuildContext,
+    WebEditorController,
+    Json?,
+    bool,
+    VoidCallback,
+  )?
+  webEditorBuilder;
 
   @override
   State<DocumentEditor> createState() => _DocumentEditorState();
@@ -29,27 +39,32 @@ class _DocumentEditorState extends State<DocumentEditor>
     with WidgetsBindingObserver {
   final _title = TextEditingController();
   final _body = TextEditingController();
-  final _editorUndo = UndoHistoryController();
-  final _readingScroll = ScrollController();
-  final _editorScroll = ScrollController();
-  final _editorFocus = FocusNode();
+  WebEditorController? _web;
+  Json? _restore;
+  bool _recoverLocal = false;
+  int _webGeneration = 0;
   final _detailsRevision = ValueNotifier<int>(0);
   final _storage = const FlutterSecureStorage();
   Json? _data;
   Json _links = {};
   DocumentDraft? _draft;
-  Timer? _timer;
   Future<bool>? _saving;
   Future<void> _draftWrites = Future.value();
   String? _draftKey;
+  String? _queuedDraftSignature;
+  bool _paused = false;
   String? _error;
   bool _loading = true;
   bool _preview = false;
   bool _busy = false;
-  bool _recovering = false;
   bool _initialized = false;
+  bool _active = true;
+  bool _seenWebInitialized = false;
+  Future<void>? _backgrounding;
   bool _conflict = false;
   bool _draftStorageError = false;
+  bool _draftReadFailed = false;
+  bool _webSaveError = false;
   late AppScope _scope;
 
   String get _id => Uri.parse(widget.path).path.split('/').last;
@@ -59,8 +74,6 @@ class _DocumentEditorState extends State<DocumentEditor>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _title.addListener(_changed);
-    _body.addListener(_changed);
   }
 
   @override
@@ -68,9 +81,29 @@ class _DocumentEditorState extends State<DocumentEditor>
     super.didChangeDependencies();
     _scope = AppScope.of(context);
     _scope.setNavigationGuard(this, _beforeNavigate);
+    final active = TickerMode.valuesOf(context).enabled;
+    if (_active != active && _web?.initialized == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_setActive(active));
+      });
+    }
+    _active = active;
     if (!_initialized) {
       _initialized = true;
       _load(recover: true);
+    }
+  }
+
+  Future<void> _setActive(bool active) async {
+    if (_web?.initialized != true || _paused == !active) return;
+    try {
+      await _web!.command(active ? 'resume' : 'pause');
+      _paused = !active;
+      _webChanged();
+      await _draftWrites;
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
     }
   }
 
@@ -78,13 +111,10 @@ class _DocumentEditorState extends State<DocumentEditor>
   void dispose() {
     if (_initialized) _scope.setNavigationGuard(this, null);
     WidgetsBinding.instance.removeObserver(this);
-    _timer?.cancel();
+    _web?.removeListener(_webChanged);
+    _web?.dispose();
     _title.dispose();
     _body.dispose();
-    _editorUndo.dispose();
-    _readingScroll.dispose();
-    _editorScroll.dispose();
-    _editorFocus.dispose();
     _detailsRevision.dispose();
     super.dispose();
   }
@@ -93,9 +123,20 @@ class _DocumentEditorState extends State<DocumentEditor>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
-      _persistDraft();
-      unawaited(_save());
+      _backgrounding ??= _background().whenComplete(
+        () => _backgrounding = null,
+      );
+    } else if (state == AppLifecycleState.resumed && _active) {
+      unawaited(
+        (_backgrounding ?? Future<void>.value()).then((_) => _setActive(true)),
+      );
     }
+  }
+
+  Future<void> _background() async {
+    if (_paused) return;
+    await _save(lock: true);
+    await _setActive(false);
   }
 
   void _setSource(String markdown) {
@@ -108,11 +149,12 @@ class _DocumentEditorState extends State<DocumentEditor>
   }
 
   Future<void> _load({bool recover = false}) async {
+    _draftReadFailed = false;
+    _recoverLocal = false;
     try {
       final data = await _scope.api.page(widget.path);
       if (!mounted) return;
       final document = asMap(data['document']);
-      _recovering = true;
       _draft = DocumentDraft(
         title: asString(document['title']),
         markdown: asString(document['bodyMarkdown']),
@@ -123,14 +165,18 @@ class _DocumentEditorState extends State<DocumentEditor>
       if (recover) _preview = _scope.eInk && _draft!.markdown.trim().isNotEmpty;
       _draftKey =
           'document-draft:${_scope.api.origin.origin}:${asMap(data['user'])['id']}:$_id';
-      _recovering = false;
+      setState(() => _data = data);
+      if (recover) await _recoverDraft();
+      if (!mounted) return;
+      if (_draftReadFailed) {
+        setState(() => _loading = false);
+        return;
+      }
+      _createWeb(restore: _recoverLocal ? _draft!.snapshot() : null);
       setState(() {
-        _data = data;
         _loading = false;
-        _error = null;
       });
       _detailsRevision.value++;
-      if (recover) await _recoverDraft();
       try {
         final links = asMap(await _scope.api.get('/api/documents/$_id/links'));
         if (mounted) {
@@ -185,7 +231,7 @@ class _DocumentEditorState extends State<DocumentEditor>
       );
       if (!mounted) return;
       if (restore == true) {
-        _recovering = true;
+        _recoverLocal = true;
         _draft!.title = _title.text = asString(saved['title']);
         _draft!.markdown = asString(saved['markdown']);
         _setSource(_draft!.markdown);
@@ -193,12 +239,12 @@ class _DocumentEditorState extends State<DocumentEditor>
         // server conflict instead of overwriting a newer remote document.
         _draft!.revision = asInt(saved['revision']);
         _preview = false;
-        _recovering = false;
         setState(() {});
       } else {
         await _storage.delete(key: _draftKey!);
       }
     } catch (_) {
+      _draftReadFailed = true;
       if (mounted) {
         setState(
           () => _error = 'Der lokale Entwurf konnte nicht gelesen werden.',
@@ -213,24 +259,116 @@ class _DocumentEditorState extends State<DocumentEditor>
     _detailsRevision.value++;
   }
 
-  void _changed() {
-    if (_recovering || _draft == null) return;
-    if (_draft!.title == _title.text && _draft!.markdown == _body.text) return;
-    _draft!.title = _title.text;
-    _draft!.markdown = _body.text;
-    _persistDraft();
-    _timer?.cancel();
-    _timer = Timer(
-      const Duration(milliseconds: 1200),
-      () => unawaited(_save()),
-    );
-    setState(() {});
+  void _createWeb({Json? restore}) {
+    _web?.removeListener(_webChanged);
+    _web?.dispose();
+    _restore = restore;
+    _seenWebInitialized = false;
+    _paused = false;
+    _webGeneration++;
+    _web = WebEditorController(
+      documentId: _id,
+      userId: asString(asMap(_data?['user'])['id']),
+    )..addListener(_webChanged);
+    _web!.onNavigate = (path) => unawaited(_openWebLink(path));
+  }
+
+  void _webChanged() {
+    final web = _web;
+    if (!mounted || web == null || !web.initialized) return;
+    if (!_seenWebInitialized) {
+      _seenWebInitialized = true;
+      if (!_active) unawaited(_setActive(false));
+    }
+    final snapshot = web.snapshot;
+    if (snapshot != null) {
+      final saved = web.savedSnapshot;
+      if (saved != null) _draft!.acknowledge(saved, asInt(saved['revision']));
+      _draft!.title = _title.text = asString(snapshot['title']);
+      _draft!.markdown = asString(snapshot['markdown']);
+      _setSource(_draft!.markdown);
+      _draft!.revision = asInt(snapshot['revision']);
+      _conflict = snapshot['status'] == 'conflict';
+      if (snapshot['status'] == 'saved') {
+        _data?['document'] = {
+          ...asMap(_data?['document']),
+          'title': _draft!.title,
+          'bodyMarkdown': _draft!.markdown,
+          'revision': _draft!.revision,
+        };
+      }
+      _persistDraft();
+    }
+    setState(() {
+      if (web.error != null) _error = web.error;
+      if (snapshot?['status'] == 'error') {
+        _webSaveError = true;
+        _error = 'Änderungen konnten nicht gespeichert werden. Bitte erneut speichern.';
+      } else if (snapshot?['status'] == 'saved' && _webSaveError) {
+        _webSaveError = false;
+        if (!_draftStorageError) _error = null;
+      }
+      if (_conflict) _error = 'Der Serverstand hat sich geändert. Bitte die Fassungen vergleichen.';
+    });
+  }
+
+  Future<void> _openWebLink(String path) async {
+    final parsed = Uri.tryParse(path);
+    if (parsed == null) return;
+    final uri = _scope.api.origin.resolveUri(parsed);
+    if (!['https', 'http', 'mailto'].contains(uri.scheme) ||
+        uri.userInfo.isNotEmpty) {
+      return;
+    }
+    try {
+      if (uri.scheme != 'mailto' && uri.origin == _scope.api.origin.origin) {
+        if (uri.path.startsWith('/app/editor/')) return;
+        await _scope.open(
+          '${uri.path}${uri.hasQuery ? '?${uri.query}' : ''}${uri.hasFragment ? '#${uri.fragment}' : ''}',
+        );
+      } else if (await _beforeNavigate() &&
+          mounted &&
+          await confirmAction(
+            context,
+            'Externen Link öffnen?',
+            uri.toString(),
+          )) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } finally {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _active) unawaited(_setActive(true));
+      });
+    }
+  }
+
+  Future<void> _retryEditor() async {
+    if (!mounted) return;
+    if (_web?.initialized == true &&
+        _web?.failed == true &&
+        !await confirmAction(
+          context,
+          'Gesicherten Entwurf erneut laden?',
+          'Der Editor antwortet nicht mehr. Der zuletzt gesicherte Entwurf bleibt erhalten; die allerletzten Eingaben konnten möglicherweise noch nicht übertragen werden.',
+        )) {
+      return;
+    }
+    if (!mounted) return;
+    // A failed/unknown bridge never silently replaces the secured local draft.
+    final restore = _draft?.dirty == true ? _draft!.snapshot() : null;
+    setState(() {
+      _error = null;
+      _createWeb(restore: restore);
+    });
   }
 
   void _persistDraft() {
     if (_draftKey == null || _draft == null) return;
     final key = _draftKey!;
     final value = _draft!.dirty ? jsonEncode(_draft!.snapshot()) : null;
+    final signature = '$key:$value';
+    if (_queuedDraftSignature == signature && !_draftStorageError) return;
+    _queuedDraftSignature = signature;
     _draftWrites = _draftWrites
         .then((_) async {
           if (value == null) {
@@ -250,43 +388,34 @@ class _DocumentEditorState extends State<DocumentEditor>
         });
   }
 
-  Future<bool> _save() async {
-    // _body is the canonical Markdown source; its synchronous text listener
-    // already updated the draft before this immutable request snapshot.
-    _timer?.cancel();
-    while (_saving != null) {
+  Future<bool> _save({bool lock = false}) async {
+    if (_saving != null) {
       if (!await _saving!) return false;
+      if (!lock) return true;
     }
-    if (_draft == null || !_draft!.dirty) return true;
-    final submitted = _draft!.snapshot();
+    if (_web?.initialized != true) {
+      return _draft?.dirty != true && _web?.snapshot == null;
+    }
     final completer = Completer<bool>();
     _saving = completer.future;
     if (mounted) setState(() {});
     try {
-      final response = asMap(
-        await _scope.api.send('PATCH', '/api/documents/$_id', data: submitted),
-      );
-      final document = asMap(response['document']);
-      if (document.isEmpty) {
-        throw StateError('Das Dokument wurde nicht bestätigt.');
+      if (lock) {
+        await _web!.command('prepareMutation');
+      } else {
+        await _web!.flush();
       }
-      _draft!.acknowledge(submitted, asInt(document['revision']));
-      _data?['document'] = document;
-      _persistDraft();
+      _webChanged();
+      await _draftWrites;
       if (mounted) {
         setState(() {
           _error = null;
           _conflict = false;
         });
       }
-      completer.complete(true);
+      completer.complete(_draft?.dirty != true);
     } catch (error) {
-      if (mounted) {
-        setState(() {
-          _error = 'Speichern nicht möglich: $error';
-          _conflict = error is ApiException && error.status == 409;
-        });
-      }
+      if (mounted) setState(() => _error = 'Speichern nicht möglich: $error');
       completer.complete(false);
     } finally {
       _saving = null;
@@ -296,15 +425,37 @@ class _DocumentEditorState extends State<DocumentEditor>
   }
 
   Future<bool> _beforeNavigate() async {
-    if (await _save() && !(_draft?.dirty ?? false)) return true;
+    if (await _save(lock: true) && !(_draft?.dirty ?? false)) {
+      if (_web?.initialized == true) {
+        try {
+          await _web!.command('pause');
+          _paused = true;
+        } catch (_) {
+          return false;
+        }
+      }
+      return true;
+    }
+    var captured = false;
+    try {
+      await _web?.command('snapshot');
+      _webChanged();
+      captured = _web?.initialized == true;
+    } catch (_) {
+      /* Never claim the last keystroke is secured after a timeout. */
+    }
+    _persistDraft();
+    await _draftWrites;
     if (!mounted) return false;
     final choice = await showDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Änderungen sind noch nicht gespeichert'),
-        content: const Text(
-          'Dein Text bleibt als lokaler Entwurf erhalten. Du kannst erneut speichern, hierbleiben oder die lokalen Änderungen ausdrücklich verwerfen.',
+        content: Text(
+          captured && !_draftStorageError
+              ? 'Dein Text wurde als lokaler Entwurf gesichert. Du kannst erneut speichern, hierbleiben oder die lokalen Änderungen ausdrücklich verwerfen.'
+              : 'Die neuesten Eingaben konnten nicht vollständig gesichert werden. Bitte bleibe hier und versuche erneut zu speichern. Verwerfen entfernt die lokalen Änderungen ausdrücklich.',
         ),
         actions: [
           TextButton(
@@ -316,7 +467,9 @@ class _DocumentEditorState extends State<DocumentEditor>
             child: const Text('Verwerfen'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, 'keep'),
+            onPressed: captured && !_draftStorageError
+                ? () => Navigator.pop(context, 'keep')
+                : null,
             child: const Text('Auf Gerät behalten und verlassen'),
           ),
           FilledButton(
@@ -327,29 +480,38 @@ class _DocumentEditorState extends State<DocumentEditor>
       ),
     );
     if (choice == 'discard') {
-      _timer?.cancel();
       _draft?.discard();
-      _recovering = true;
       _title.text = _draft?.title ?? _title.text;
       _setSource(_draft?.markdown ?? _body.text);
-      _recovering = false;
       _persistDraft();
       await _draftWrites;
+      if (!mounted) return false;
+      setState(() => _createWeb());
       return true;
     }
     if (choice == 'keep') {
-      _timer?.cancel();
       _persistDraft();
       await _draftWrites;
       if (_draftStorageError) return false;
+      try {
+        await _web!.command('pause');
+        _paused = true;
+      } catch (_) {
+        return false;
+      }
       return true;
     }
-    if (choice == 'save') return await _save() && !(_draft?.dirty ?? false);
+    if (choice == 'save') {
+      if (await _save(lock: true)) {
+        await _setActive(false);
+        return true;
+      }
+    }
+    await _setActive(true);
     return false;
   }
 
   Future<void> _resolveConflict() async {
-    _timer?.cancel();
     try {
       final response = asMap(await _scope.api.get('/api/documents/$_id'));
       final current = asMap(response['document']);
@@ -399,7 +561,6 @@ class _DocumentEditorState extends State<DocumentEditor>
         ),
       );
       if (choice == null || !mounted) return;
-      _recovering = true;
       _draft = DocumentDraft(
         title: asString(current['title']),
         markdown: asString(current['bodyMarkdown']),
@@ -412,39 +573,81 @@ class _DocumentEditorState extends State<DocumentEditor>
       _title.text = _draft!.title;
       _setSource(_draft!.markdown);
       _data!['document'] = current;
-      _recovering = false;
       _persistDraft();
       setState(() {
         _error = null;
         _conflict = false;
       });
-      if (choice == 'local') await _save();
+      setState(
+        () =>
+            _createWeb(restore: choice == 'local' ? _draft!.snapshot() : null),
+      );
     } catch (error) {
       if (mounted) showError(context, error);
     }
   }
 
-  Future<void> _mutate(String action, Json fields) async {
-    if (_busy) return;
+  Future<void> _withMutation(Future<void> Function() operation) async {
+    if (_busy || _web?.initialized != true) return;
     _setBusy(true);
+    var prepared = false;
+    var attempted = false;
+    Object? failure;
     try {
-      if (!await _flush() || !mounted) return;
-      final result = await runAction(context, widget.path, action, {
-        ...fields,
-        'revision': _draft!.revision,
-      });
-      if (result?.isSuccess == true && mounted) await _load();
-    } finally {
-      _setBusy(false);
+      await _web!.command('prepareMutation');
+      prepared = true;
+      _webChanged();
+      await _draftWrites;
+      attempted = true;
+      await operation();
+    } catch (error) {
+      failure = error;
     }
+    // Even a partial attachment batch may have advanced the revision. Re-read
+    // while input is still locked; never retry an uncertain mutation silently.
+    if (prepared && attempted && mounted) {
+      try {
+        final data = await _scope.api.page(widget.path);
+        if (mounted) {
+          await _web!.command('finishMutation', {
+            'document': asMap(data['document']),
+          });
+          prepared = false;
+          _data = data;
+          _detailsRevision.value++;
+          _webChanged();
+        }
+      } catch (error) {
+        failure ??= error;
+      }
+    }
+    if (prepared) {
+      try {
+        await _web!.command('cancelMutation');
+      } catch (error) {
+        failure ??= error;
+      }
+    }
+    if (failure != null && mounted) setState(() => _error = '$failure');
+    _setBusy(false);
   }
 
-  Future<bool> _flush() async {
-    do {
-      if (!await _save()) return false;
-    } while (_draft?.dirty == true);
-    return true;
-  }
+  Future<void> _mutate(String action, Json fields) => _withMutation(() async {
+    final result = await _scope.api.action(widget.path, action, {
+      ...fields,
+      'revision': _draft!.revision,
+    });
+    if (!result.isSuccess) {
+      throw StateError(
+        asString(
+          result.data['message'],
+          'Die Änderung konnte nicht gespeichert werden.',
+        ),
+      );
+    }
+  });
+
+  Future<bool> _flush() => _save();
 
   Future<void> _form(
     String title,
@@ -486,13 +689,13 @@ class _DocumentEditorState extends State<DocumentEditor>
       ),
     ]);
     if (fields == null || !mounted) return;
-    _setBusy(true);
-    try {
-      if (!await _flush()) return;
+    await _withMutation(() async {
       await _scope.api.send(
         'PATCH',
         '/api/documents/$_id',
         data: {
+          // The metadata endpoint requires the already flushed canonical text.
+          // Input remains locked; this is not an independent text save queue.
           ..._draft!.snapshot(),
           ...fields,
           'sermonDate': fields['sermonDate'] == ''
@@ -500,139 +703,14 @@ class _DocumentEditorState extends State<DocumentEditor>
               : fields['sermonDate'],
         },
       );
-      await _load();
-    } catch (error) {
-      if (mounted) setState(() => _error = '$error');
-    } finally {
-      _setBusy(false);
-    }
-  }
-
-  void _insert(String markdown) {
-    if (_busy || _preview) return;
-    insertMarkdownText(_body, markdown);
-    _editorFocus.requestFocus();
-  }
-
-  Future<void> _quoteBible() async {
-    final bibles = asMaps(_data?['bibles']);
-    if (bibles.isEmpty) return;
-    final fields = await editFeatureFields(context, 'Bibeltext zitieren', [
-      FeatureField(
-        'bible',
-        'Übersetzung',
-        value: asString(bibles.first['id']),
-        options: itemOptions(bibles, label: 'tabTitle'),
-      ),
-      FeatureField(
-        'book',
-        'Buch',
-        value: '43',
-        options: {for (final book in bibleBooks) '${book.id}': book.name},
-      ),
-      const FeatureField('chapter', 'Kapitel', value: '3', required: true),
-      const FeatureField('verse', 'Von Vers', value: '16', required: true),
-      const FeatureField('end', 'Bis Vers (optional)'),
-    ], submit: 'Zitat einfügen');
-    if (fields == null || !mounted) return;
-    try {
-      final book = asInt(fields['book']);
-      final chapter = asInt(fields['chapter']);
-      final start = asInt(fields['verse']);
-      final end = asInt(fields['end'], start);
-      if (chapter < 1 || start < 1 || end < start) {
-        throw StateError('Bitte einen gültigen Versbereich eingeben.');
-      }
-      final response = asMap(
-        await _scope.api.get(
-          '/api/reader/bibles/${Uri.encodeComponent(asString(fields['bible']))}/$book/$chapter',
-        ),
-      );
-      final verses = asMaps(response['verses'])
-          .where(
-            (verse) =>
-                asInt(verse['verse']) <= end &&
-                asInt(verse['verseEnd'], asInt(verse['verse'])) >= start,
-          )
-          .toList();
-      if (verses.isEmpty) {
-        throw StateError('Für diesen Versbereich ist kein Text verfügbar.');
-      }
-      final reference = referenceLabel({
-        'book': book,
-        'chapter': chapter,
-        'verse': start,
-        if (end != start) 'verseEnd': end,
-      });
-      final text = verses
-          .map(
-            (verse) =>
-                '${verse['verse']} ${versePlainText(verse['segments'] as List? ?? [])}',
-          )
-          .join(' ');
-      final label = asString(
-        bibles.firstWhere(
-          (bible) => bible['id'] == fields['bible'],
-        )['tabTitle'],
-      );
-      _insert(
-        '\n> $text\n>\n> [$reference](/${Uri.encodeComponent(reference)}) · $label\n\n',
-      );
-    } catch (error) {
-      if (mounted) showError(context, error);
-    }
-  }
-
-  Future<void> _linkDocument() async {
-    final search = await editFeatureFields(
-      context,
-      'Eigene Gedanken verknüpfen',
-      [const FeatureField('query', 'Titel oder Suchbegriff')],
-      submit: 'Suchen',
-    );
-    if (search == null || !mounted) return;
-    try {
-      final result = asMap(
-        await _scope.api.get(
-          '/api/documents?q=${Uri.encodeComponent(asString(search['query']))}',
-        ),
-      );
-      final documents = asMaps(result['documents'])
-          .where((doc) => doc['id'] != _id)
-          .toList();
-      if (!mounted) return;
-      if (documents.isEmpty) {
-        showError(context, 'Keine passenden Dokumente gefunden.');
-        return;
-      }
-      final selected = await editFeatureFields(context, 'Dokument auswählen', [
-        FeatureField(
-          'id',
-          'Dokument',
-          value: asString(documents.first['id']),
-          options: itemOptions(documents),
-        ),
-      ], submit: 'Verknüpfen');
-      if (selected == null || !mounted) return;
-      final document = documents.firstWhere(
-        (doc) => doc['id'] == selected['id'],
-      );
-      final title = asString(document['title'])
-          .replaceAll('[', r'\[')
-          .replaceAll(']', r'\]');
-      _insert('[$title](/notes/${document['id']})');
-    } catch (error) {
-      if (mounted) showError(context, error);
-    }
+    });
   }
 
   Future<void> _upload() async {
     if (!await _save() || !mounted) return;
     final result = await FilePicker.pickFiles();
     if (result.isEmpty || !mounted) return;
-    _setBusy(true);
-    try {
-      if (!await _flush()) return;
+    await _withMutation(() async {
       for (final file in result) {
         final size = await file.length();
         if (size == null || size > 50 * 1024 * 1024) {
@@ -651,19 +729,7 @@ class _DocumentEditorState extends State<DocumentEditor>
         );
         _draft!.revision = asInt(response['revision']);
       }
-      await _load();
-    } catch (error) {
-      // Reload lists after a partial batch, retaining the already saved text.
-      await _load();
-      if (mounted) {
-        setState(
-          () => _error =
-              'Einige Anlagen konnten nicht gespeichert werden: $error',
-        );
-      }
-    } finally {
-      _setBusy(false);
-    }
+    });
   }
 
   Future<void> _deleteAttachment(Json attachment) async {
@@ -687,19 +753,12 @@ class _DocumentEditorState extends State<DocumentEditor>
     );
     if (approved != true) return;
     if (!mounted) return;
-    _setBusy(true);
-    try {
-      if (!await _flush()) return;
+    await _withMutation(() async {
       await _scope.api.send(
         'DELETE',
         '/api/documents/$_id/attachments/${attachment['id']}?revision=${_draft!.revision}',
       );
-      await _load();
-    } catch (error) {
-      if (mounted) setState(() => _error = '$error');
-    } finally {
-      _setBusy(false);
-    }
+    });
   }
 
   Future<void> _export(String format) async {
@@ -942,7 +1001,12 @@ class _DocumentEditorState extends State<DocumentEditor>
   }
 
   Future<void> _showDetails() async {
-    _editorFocus.unfocus();
+    try {
+      await _web?.command('blur');
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
@@ -973,9 +1037,14 @@ class _DocumentEditorState extends State<DocumentEditor>
     );
   }
 
-  Future<void> _showInsertMenu() async {
-    _editorFocus.unfocus();
-    final value = await showModalBottomSheet<Object>(
+  Future<void> _insertMenu() async {
+    try {
+      await _web!.command('blur');
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+    final kind = await showModalBottomSheet<String>(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
@@ -987,46 +1056,34 @@ class _DocumentEditorState extends State<DocumentEditor>
         maxChildSize: .9,
         builder: (context, scroll) => ListView(
           controller: scroll,
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
           children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                'Einfügen',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            for (final entry in const <(Object, String)>[
-              (MarkdownInsertBlock.paragraph, 'Absatz'),
-              (MarkdownInsertBlock.heading1, 'Überschrift 1'),
-              (MarkdownInsertBlock.heading2, 'Überschrift 2'),
-              (MarkdownInsertBlock.heading3, 'Überschrift 3'),
-              (MarkdownInsertBlock.bulletedList, 'Aufzählung'),
-              (MarkdownInsertBlock.numberedList, 'Nummerierte Liste'),
-              (MarkdownInsertBlock.quote, 'Zitat'),
-              (MarkdownInsertBlock.code, 'Codeblock'),
-              (MarkdownInsertBlock.rule, 'Trennlinie'),
-              (MarkdownInsertBlock.table, 'Tabelle'),
-              (MarkdownInsertBlock.footnote, 'Fußnote'),
+            for (final item in const <(String, String)>[
+              ('paragraph', 'Absatz'),
+              ('heading-1', 'Überschrift 1'),
+              ('heading-2', 'Überschrift 2'),
+              ('heading-3', 'Überschrift 3'),
+              ('bullet-list', 'Aufzählung'),
+              ('ordered-list', 'Nummerierte Liste'),
+              ('quote', 'Zitat'),
+              ('code-block', 'Codeblock'),
+              ('divider', 'Trennlinie'),
+              ('table', 'Tabelle'),
+              ('footnote', 'Fußnote'),
               ('bible', 'Bibeltext zitieren'),
-              ('document', 'Eigene Notiz verknüpfen'),
             ])
               ListTile(
-                title: Text(entry.$2),
-                onTap: () => Navigator.pop(context, entry.$1),
+                title: Text(item.$2),
+                onTap: () => Navigator.pop(context, item.$1),
               ),
           ],
         ),
       ),
     );
-    if (!mounted || _busy || _preview) return;
-    if (value == 'bible') {
-      await _quoteBible();
-    } else if (value == 'document') {
-      await _linkDocument();
-    } else if (value is MarkdownInsertBlock) {
-      insertMarkdownBlock(_body, value);
-      _editorFocus.requestFocus();
+    if (kind == null || !mounted) return;
+    try {
+      await _web!.command('insert', {'kind': kind});
+    } catch (error) {
+      if (mounted) showError(context, error);
     }
   }
 
@@ -1035,16 +1092,15 @@ class _DocumentEditorState extends State<DocumentEditor>
     enabled: !_busy,
     onSelected: (value) async {
       if (value == 'insert') {
-        await _showInsertMenu();
+        await _insertMenu();
+      } else if (value == 'undo' || value == 'redo') {
+        try {
+          await _web!.command(value);
+        } catch (error) {
+          if (mounted) showError(context, error);
+        }
       } else if (value == 'details') {
         await _showDetails();
-      } else if (value == 'undo' || value == 'redo') {
-        if (_preview || _busy) return;
-        if (value == 'undo') {
-          _editorUndo.undo();
-        } else {
-          _editorUndo.redo();
-        }
       } else if (value == 'kind') {
         await _form('Dokumentart ändern', 'changeKind', [
           FeatureField(
@@ -1061,19 +1117,17 @@ class _DocumentEditorState extends State<DocumentEditor>
     itemBuilder: (_) => [
       if (!_preview) ...[
         const PopupMenuItem(value: 'insert', child: Text('Einfügen …')),
-        const PopupMenuItem(value: 'details', child: Text('Details')),
-        const PopupMenuDivider(),
         PopupMenuItem(
           value: 'undo',
-          enabled: _editorUndo.value.canUndo,
+          enabled: _web?.snapshot?['canUndo'] == true,
           child: const Text('Rückgängig'),
         ),
         PopupMenuItem(
           value: 'redo',
-          enabled: _editorUndo.value.canRedo,
+          enabled: _web?.snapshot?['canRedo'] == true,
           child: const Text('Wiederholen'),
         ),
-        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'details', child: Text('Details')),
       ],
       const PopupMenuItem(value: 'md', child: Text('Markdown exportieren')),
       const PopupMenuItem(value: 'docx', child: Text('Word exportieren')),
@@ -1128,101 +1182,81 @@ class _DocumentEditorState extends State<DocumentEditor>
     ),
   );
 
-  Widget _header(String saveLabel) {
-    final titleStyle = Theme.of(context).textTheme.headlineSmall;
-    final titleHeight =
-        MediaQuery.textScalerOf(context).scale(titleStyle?.fontSize ?? 24) *
-            (titleStyle?.height ?? 1.3) *
-            2 +
-        40;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          key: const Key('document-header-actions'),
-          children: [
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerLeft,
+  Future<void> _changeMode(bool reading) async {
+    if (_busy || _web?.initialized != true || reading == _preview) return;
+    if (!await _save(lock: true) || !mounted) {
+      await _setActive(true);
+      return;
+    }
+    try {
+      await _web!.setMode(reading);
+      await _web!.command('cancelMutation');
+      await _draftWrites;
+      if (mounted) setState(() => _preview = reading);
+    } catch (error) {
+      try {
+        await _web!.command('cancelMutation');
+      } catch (_) {
+        /* keep original error */
+      }
+      if (mounted) setState(() => _error = '$error');
+    }
+  }
+
+  Widget _header(String saveLabel) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Row(
+        key: const Key('document-header-actions'),
+        children: [
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
                 child: SegmentedButton<bool>(
                   key: const Key('document-mode'),
                   showSelectedIcon: false,
-                  style: const ButtonStyle(
-                    padding: WidgetStatePropertyAll(
-                      EdgeInsets.symmetric(horizontal: 10),
-                    ),
-                  ),
                   segments: const [
                     ButtonSegment(value: false, label: Text('Bearbeiten')),
                     ButtonSegment(value: true, label: Text('Lesen')),
                   ],
                   selected: {_preview},
-                  onSelectionChanged: _busy
+                  onSelectionChanged: _busy || _web?.initialized != true
                       ? null
-                      : (values) {
-                          FocusScope.of(context).unfocus();
-                          // Keep the same local model and geometry in both modes.
-                          setState(() => _preview = values.single);
-                        },
+                      : (values) => _changeMode(values.single),
                 ),
               ),
             ),
-            _optionsMenu(),
-          ],
-        ),
-        SizedBox(
-          height: titleHeight,
-          child: Row(
-            children: [
-              Expanded(
-                child: _preview
-                    ? Text(
-                        _title.text,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      )
-                    : TextField(
-                        controller: _title,
-                        enabled: !_busy,
-                        minLines: 1,
-                        maxLines: 2,
-                        keyboardType: TextInputType.text,
-                        textInputAction: TextInputAction.done,
-                        decoration: InputDecoration(
-                          labelText: _isSermon
-                              ? 'Titel der Ausarbeitung'
-                              : 'Titel',
-                        ),
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-              ),
-              if (_preview)
-                const SizedBox(width: 48, height: 48)
-              else
-                IconButton(
-                  tooltip: saveLabel,
-                  onPressed: _saving != null || _busy ? null : _save,
-                  icon: Icon(
-                    _saving != null
-                        ? Icons.sync
-                        : _draft!.dirty
-                        ? Icons.save_outlined
-                        : Icons.cloud_done_outlined,
-                  ),
-                ),
-            ],
           ),
-        ),
-        if (_error != null) _errorBanner(),
-      ],
-    );
-  }
+          IconButton(
+            tooltip: saveLabel,
+            onPressed: _saving != null || _busy ? null : _save,
+            icon: Icon(
+              _saving != null || _web?.snapshot?['status'] == 'saving'
+                  ? Icons.sync
+                  : _draft!.dirty
+                  ? Icons.save_outlined
+                  : Icons.cloud_done_outlined,
+            ),
+          ),
+          _optionsMenu(),
+        ],
+      ),
+      if (_error != null) _errorBanner(),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_data == null) {
+    if (_loading) {
+      return Center(
+        child: _data == null
+            ? const CircularProgressIndicator()
+            : const Text('Entwurf wird geprüft …'),
+      );
+    }
+    if (_data == null || _web == null) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1236,76 +1270,40 @@ class _DocumentEditorState extends State<DocumentEditor>
         ),
       );
     }
-    final saveLabel = _saving != null
+    final saveLabel = _saving != null || _web?.snapshot?['status'] == 'saving'
         ? 'Speichert …'
         : _draft!.dirty
         ? 'Speichern'
         : 'Gespeichert';
-    final source = _body.text;
-    final savedDocument = asMap(_data!['document']);
-    final savedHtml = asString(savedDocument['bodyHtml']);
-    final renderedHtml =
-        asString(savedDocument['bodyMarkdown']) == source &&
-            (savedHtml.isNotEmpty || source.isEmpty)
-        ? savedHtml
-        : null;
-    final fontScale = (asInt(_data!['readerFontScale'], 100) / 100)
-        .clamp(.7, 2)
-        .toDouble();
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1100),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: LayoutBuilder(
-            builder: (context, constraints) => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: constraints.maxHeight * .6,
-                  ),
-                  child: SingleChildScrollView(child: _header(saveLabel)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: _header(saveLabel),
+        ),
+        Expanded(
+          key: const Key('document-text-surface'),
+          child: KeyedSubtree(
+            key: ValueKey(_webGeneration),
+            child:
+                widget.webEditorBuilder?.call(
+                  context,
+                  _web!,
+                  _restore,
+                  _preview,
+                  _retryEditor,
+                ) ??
+                WebEditor(
+                  api: _scope.api,
+                  controller: _web!,
+                  restore: _restore,
+                  readOnly: _preview,
+                  onRetry: _retryEditor,
                 ),
-                Expanded(
-                  child: IndexedStack(
-                    key: const Key('document-text-surface'),
-                    index: _preview ? 1 : 0,
-                    children: [
-                      // Keep TextField and its UndoHistoryState mounted across
-                      // modes. Hidden editing must not retain focus or semantics.
-                      ExcludeSemantics(
-                        excluding: _preview,
-                        child: ExcludeFocus(
-                          excluding: _preview,
-                          child: MarkdownSourceEditor(
-                            key: const Key('document-source-editor'),
-                            controller: _body,
-                            undoController: _editorUndo,
-                            readOnly: _preview || _busy,
-                            scrollController: _editorScroll,
-                            focusNode: _editorFocus,
-                            fontScale: fontScale,
-                          ),
-                        ),
-                      ),
-                      if (_preview)
-                        MarkdownDocumentReader(
-                          markdown: source,
-                          renderedHtml: renderedHtml,
-                          scrollController: _readingScroll,
-                          fontScale: fontScale,
-                        )
-                      else
-                        const SizedBox.expand(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

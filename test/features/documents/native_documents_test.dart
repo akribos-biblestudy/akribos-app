@@ -6,8 +6,9 @@ import 'package:akribos_app/core/app_scope.dart';
 import 'package:akribos_app/features/collections/collections_screen.dart';
 import 'package:akribos_app/features/documents/document_editor.dart';
 import 'package:akribos_app/features/documents/documents_screen.dart';
-import 'package:akribos_app/features/documents/markdown_source_editor.dart';
-import 'package:akribos_app/features/documents/markdown_document_reader.dart';
+
+import 'web_editor_test_peer.dart';
+
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -31,15 +32,23 @@ class _FakeApi extends AppApi {
   @override
   Future<ApiResult> action(String path, String action, Json fields) async {
     actions.add({'path': path, 'action': action, 'fields': fields});
+    if (data['document'] is Map) {
+      final doc = asMap(data['document']);
+      doc['revision'] = asInt(doc['revision']) + 1;
+    }
     return actionResult;
   }
 
   @override
   Future<dynamic> send(String method, String path, {dynamic data}) async {
     saves.add(Map<String, dynamic>.from(data as Map));
-    if (pending != null) return pending!.future;
+    if (pending != null) {
+      final value = await pending!.future;
+      this.data['document'] = asMap(value)['document'];
+      return value;
+    }
     if (failure != null) throw failure!;
-    return {
+    final result = {
       'document': {
         'id': 'one',
         'kind': 'note',
@@ -49,6 +58,8 @@ class _FakeApi extends AppApi {
         'revision': asInt(data['revision']) + 1,
       },
     };
+    this.data['document'] = result['document'];
+    return result;
   }
 }
 
@@ -76,22 +87,13 @@ Widget _app(
   ),
 );
 
-Finder _source() => find.byType(MarkdownSourceEditor, skipOffstage: false);
-MarkdownSourceEditor _editor(WidgetTester tester) =>
-    tester.widget<MarkdownSourceEditor>(_source());
-Finder _sourceEditable() => find.descendant(
-  of: _source(),
-  matching: find.byType(EditableText, skipOffstage: false),
-  skipOffstage: false,
+const _draftKey = 'document-draft:https://example.test:user:one';
+Widget _document() => const DocumentEditor(
+  path: '/notes/one',
+  webEditorBuilder: testWebEditorBuilder,
 );
-
-String _replaceBody(WidgetTester tester, String text) {
-  _editor(tester).controller.value = TextEditingValue(
-    text: text,
-    selection: TextSelection.collapsed(offset: text.length),
-  );
-  return text;
-}
+TestWebEditorPeerState _peer(WidgetTester tester) =>
+    tester.state<TestWebEditorPeerState>(find.byType(TestWebEditorPeer));
 
 Json _documentData({String markdown = 'Lesetext', int revision = 1}) => {
   'user': {'id': 'user'},
@@ -291,356 +293,229 @@ void main() {
   );
 
   testWidgets(
-    'editor serializes saves and does not overwrite text typed during request',
+    'web save barrier includes edits arriving during an earlier save',
     (tester) async {
-      final api = _FakeApi({
-        'user': {'id': 'user'},
-        'document': {
-          'id': 'one',
-          'kind': 'note',
-          'title': 'Titel',
-          'bodyMarkdown': 'Alt',
-          'revision': 1,
-        },
-        'tags': [],
-        'passages': [],
-        'bibles': [],
-      });
+      final api = _FakeApi(_documentData(markdown: 'Alt'));
       final first = Completer<dynamic>();
       api.pending = first;
       Future<bool> Function()? guard;
       await tester.pumpWidget(
-        _app(
-          api,
-          const DocumentEditor(path: '/notes/one'),
-          guard: (_, callback) => guard = callback,
-        ),
+        _app(api, _document(), guard: (_, value) => guard = value),
       );
       await tester.pumpAndSettle();
-      final firstMarkdown = _replaceBody(tester, 'Erster Text');
-      await tester.pump(const Duration(milliseconds: 1300));
+      final peer = _peer(tester);
+      peer.edit('Erster Text');
+      await tester.pump();
+      await tester.tap(find.byTooltip('Speichern'));
+      await tester.pump();
       expect(api.saves, hasLength(1));
-      final latestMarkdown = _replaceBody(tester, 'Text während der Anfrage');
+      peer.edit('Während der Anfrage');
+      final navigation = guard!();
       api.pending = null;
       first.complete({
         'document': {
           'id': 'one',
-          'kind': 'note',
-          'title': 'Titel',
-          'bodyMarkdown': firstMarkdown,
+          'kind': 'sermon',
+          'title': 'Gedanken',
+          'bodyMarkdown': 'Erster Text',
           'revision': 2,
         },
       });
-      await tester.pump();
-      expect(_editor(tester).controller.text, latestMarkdown);
-      final canNavigate = guard!();
-      await tester.pump();
-      expect(await canNavigate, isTrue);
-      expect(api.saves, hasLength(2));
+      await tester.pumpAndSettle();
+      expect(await navigation, isTrue);
+      expect(api.saves.map((v) => v['markdown']), [
+        'Erster Text',
+        'Während der Anfrage',
+      ]);
       expect(api.saves.last['revision'], 2);
-      expect(api.saves.last['markdown'], latestMarkdown);
-      await tester.pumpWidget(const SizedBox());
-      await tester.pumpAndSettle();
+      expect(peer.locked, isTrue);
+      expect(
+        peer.commands,
+        containsAllInOrder(['flush', 'prepareMutation', 'pause']),
+      );
+      expect(await const FlutterSecureStorage().read(key: _draftKey), isNull);
     },
   );
 
-  testWidgets('e-ink opens existing documents in native reading view', (
-    tester,
-  ) async {
-    final api = _FakeApi({
-      'user': {'id': 'user'},
-      'document': {
-        'id': 'one',
-        'kind': 'note',
-        'title': 'Gedanken',
-        'bodyMarkdown': 'Lesetext',
-        'bodyHtml': '<p>Lesetext</p>',
-        'revision': 1,
-      },
-      'tags': [],
-      'passages': [],
-    });
-    await tester.pumpWidget(
-      _app(api, const DocumentEditor(path: '/notes/one'), eInk: true),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(TextField), findsNothing);
-    expect(_editor(tester).readOnly, isTrue);
-    expect(find.byTooltip('Details'), findsNothing);
-    await tester.tap(find.text('Bearbeiten'));
-    await tester.pumpAndSettle();
-    expect(find.byType(TextField), findsNWidgets(2));
-    expect(_editor(tester).readOnly, isFalse);
-  });
-
   testWidgets(
-    'reading toggle preserves raw Markdown, controller, history and scroll without saving',
+    'read edit toggles keep one bridge and source bytes without text writes',
     (tester) async {
-      await tester.binding.setSurfaceSize(const Size(390, 844));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final source =
-          '# Titel  \n\n${List.filled(50, 'Ein Absatz mit **Fett** und [Link](/Joh3,16).\n\n').join()}';
+      const source = '# Titel  \n\n-   Erster\n\n    -   Zweiter\n';
       final api = _FakeApi(_documentData(markdown: source));
-      asMap(api.data['document'])['title'] = 'Getragen durch Hoffnung';
-      await tester.pumpWidget(
-        _app(api, const DocumentEditor(path: '/notes/one')),
-      );
+      await tester.pumpWidget(_app(api, _document()));
       await tester.pumpAndSettle();
-      final title = tester.widget<TextField>(find.byType(TextField).first);
-      expect(title.maxLines, 2);
-      expect(title.controller!.text, 'Getragen durch Hoffnung');
-      final bounds = tester.getRect(
-        find.byKey(const Key('document-text-surface')),
-      );
-      final rich = _editor(tester).controller;
-      final editableState = tester.state<EditableTextState>(_sourceEditable());
-      final undo = _editor(tester).undoController;
-      final scroll = _editor(tester).scrollController;
-      rich.selection = const TextSelection.collapsed(offset: 5);
-      await tester.pump();
-      scroll.jumpTo(250);
-      await tester.pump();
-      final offset = scroll.offset;
-      final canUndo = undo.value.canUndo;
-      double? readingOffset;
-      expect(
-        find.byType(MarkdownDocumentReader, skipOffstage: false),
-        findsNothing,
-      );
-      expect(
-        tester.getSize(find.byKey(const Key('document-text-surface'))).height,
-        greaterThan(500),
-      );
-      for (final mode in ['Lesen', 'Bearbeiten', 'Lesen']) {
-        await tester.tap(find.text(mode));
+      final peer = _peer(tester), bridge = peer.widget.controller;
+      for (final label in ['Lesen', 'Bearbeiten', 'Lesen']) {
+        await tester.tap(find.text(label));
         await tester.pumpAndSettle();
-        expect(identical(_editor(tester).controller, rich), isTrue);
-        expect(
-          identical(
-            tester.state<EditableTextState>(_sourceEditable()),
-            editableState,
-          ),
-          isTrue,
-        );
-        expect(rich.text, source);
-        expect(undo.value.canUndo, canUndo);
-        expect(rich.selection, const TextSelection.collapsed(offset: 5));
-        expect(_editor(tester).focusNode.hasFocus, isFalse);
-        expect(scroll.offset, closeTo(offset, 1));
-        if (mode == 'Lesen') {
-          final reader = tester.widget<MarkdownDocumentReader>(
-            find.byType(MarkdownDocumentReader),
-          );
-          final readingScroll = reader.scrollController!;
-          if (readingOffset == null) {
-            readingScroll.jumpTo(180);
-            await tester.pump();
-            readingOffset = readingScroll.offset;
-          } else {
-            expect(readingScroll.offset, closeTo(readingOffset, 1));
-          }
-        } else {
-          expect(
-            find.byType(MarkdownDocumentReader, skipOffstage: false),
-            findsNothing,
-          );
-        }
-        expect(
-          tester.getRect(find.byKey(const Key('document-text-surface'))),
-          bounds,
-        );
+        expect(_peer(tester), same(peer));
+        expect(peer.widget.controller, same(bridge));
+        expect(peer.current['markdown'], source);
       }
-      expect(find.byType(TextField), findsNothing);
-      expect(find.byTooltip('Einfügen'), findsNothing);
-      expect(find.byTooltip('Details'), findsNothing);
-      await tester.pump(const Duration(seconds: 2));
+      expect(peer.reading, isTrue);
       expect(api.saves, isEmpty);
+      expect(
+        peer.commands,
+        containsAllInOrder(['prepareMutation', 'setMode', 'cancelMutation']),
+      );
+      expect(find.byType(TextField), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
 
-  testWidgets(
-    'document actions stay at the right edge and insertion remains available without a plus button',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(320, 640));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final api = _FakeApi(_documentData(markdown: 'Gedanke\n'));
-      await tester.pumpWidget(
-        _app(api, const DocumentEditor(path: '/notes/one'), textScale: 2.0),
-      );
-      await tester.pumpAndSettle();
-      final header = find.byKey(const Key('document-header-actions'));
-      final menu = find.byWidgetPredicate(
-        (widget) =>
-            widget is PopupMenuButton<String> &&
-            widget.tooltip == 'Dokumentoptionen',
-      );
-      expect(find.byIcon(Icons.add), findsNothing);
-      expect(
-        tester.getRect(menu).right,
-        closeTo(tester.getRect(header).right, 1),
-      );
-      await tester.tap(menu);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Einfügen …'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Überschrift 2'));
-      await tester.pumpAndSettle();
-      expect(_editor(tester).controller.text, contains('## Gedanke'));
-      await tester.tap(find.text('Lesen'));
-      await tester.pumpAndSettle();
-      expect(
-        tester.getRect(menu).right,
-        closeTo(tester.getRect(header).right, 1),
-      );
-      await tester.tap(menu);
-      await tester.pumpAndSettle();
-      expect(find.text('Einfügen …'), findsNothing);
-      expect(find.text('PDF exportieren'), findsOneWidget);
-      await tester.tapAt(const Offset(8, 500));
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(seconds: 2));
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets('selection and title cursor movements never start autosave', (
+  testWidgets('e ink initializes the web reader without a second renderer', (
     tester,
   ) async {
     final api = _FakeApi(_documentData());
-    await tester.pumpWidget(
-      _app(api, const DocumentEditor(path: '/notes/one')),
-    );
+    await tester.pumpWidget(_app(api, _document(), eInk: true));
     await tester.pumpAndSettle();
-    final rich = _editor(tester).controller;
-    rich.selection = const TextSelection(baseOffset: 0, extentOffset: 4);
-    final title = tester
-        .widget<TextField>(find.byType(TextField).first)
-        .controller!;
-    title.selection = const TextSelection.collapsed(offset: 2);
-    await tester.pump(const Duration(seconds: 2));
+    expect(_peer(tester).reading, isTrue);
     expect(api.saves, isEmpty);
-    expect(rich.text, 'Lesetext');
+    await tester.tap(find.text('Bearbeiten'));
+    await tester.pumpAndSettle();
+    expect(_peer(tester).reading, isFalse);
   });
 
   testWidgets(
-    'reading an unsaved local script works offline and keeps navigation protection',
-    (tester) async {
-      final api = _FakeApi(_documentData())..failure = StateError('Offline');
-      Future<bool> Function()? guard;
-      await tester.pumpWidget(
-        _app(
-          api,
-          const DocumentEditor(path: '/notes/one'),
-          guard: (_, callback) => guard = callback,
-        ),
-      );
-      await tester.pumpAndSettle();
-      final local = _replaceBody(tester, 'Lokaler neuer Predigttext');
-      await tester.pump();
-      await tester.tap(find.text('Lesen'));
-      await tester.pumpAndSettle();
-      expect(_editor(tester).readOnly, isTrue);
-      expect(_editor(tester).controller.text, local);
-      final reading = tester.widget<MarkdownDocumentReader>(
-        find.byType(MarkdownDocumentReader),
-      );
-      expect(reading.markdown, local);
-      expect(reading.renderedHtml, isNull);
-      expect(
-        find
-            .textContaining('Lokaler neuer Predigttext', findRichText: true)
-            .hitTestable(),
-        findsWidgets,
-      );
-      final navigation = guard!();
-      await tester.pumpAndSettle();
-      expect(
-        find.text('Änderungen sind noch nicht gespeichert'),
-        findsOneWidget,
-      );
-      await tester.tap(find.text('Hierbleiben'));
-      await tester.pumpAndSettle();
-      expect(await navigation, isFalse);
-      expect(_editor(tester).controller.text, local);
-      final raw = await const FlutterSecureStorage().read(
-        key: 'document-draft:https://example.test:user:one',
-      );
-      expect(asMap(jsonDecode(raw!))['markdown'], local);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-    },
-  );
-
-  testWidgets(
-    'recovered source draft retains old revision and latest keystroke on immediate flush',
+    'stale recovery keeps original revision and flush captures undelivered last key',
     (tester) async {
       FlutterSecureStorage.setMockInitialValues({
-        'document-draft:https://example.test:user:one': jsonEncode({
+        _draftKey: jsonEncode({
           'title': 'Lokaler Titel',
-          'markdown': 'Lokaler Entwurf',
+          'markdown': 'Entwurf',
           'revision': 1,
         }),
       });
-      final api = _FakeApi(_documentData(markdown: 'Serverstand', revision: 3));
+      final api = _FakeApi(_documentData(markdown: 'Server', revision: 3));
       Future<bool> Function()? guard;
       await tester.pumpWidget(
-        _app(
-          api,
-          const DocumentEditor(path: '/notes/one'),
-          guard: (_, callback) => guard = callback,
-        ),
+        _app(api, _document(), guard: (_, value) => guard = value),
       );
       await tester.pumpAndSettle();
+      expect(find.text('Lokalen Entwurf wiederherstellen?'), findsOneWidget);
       await tester.tap(find.text('Entwurf öffnen'));
       await tester.pumpAndSettle();
-      expect(_editor(tester).controller.text, 'Lokaler Entwurf');
+      final peer = _peer(tester);
+      expect(peer.current['revision'], 1);
       expect(api.saves, isEmpty);
-      final local = _replaceBody(tester, 'Letztes Zeichen!');
-      // No debounce or frame between editing and navigation: flush must observe it.
+      peer.edit('Letztes Zeichen!', notify: false);
       final navigation = guard!();
       await tester.pumpAndSettle();
       expect(await navigation, isTrue);
       expect(api.saves.single['revision'], 1);
       expect(api.saves.single['title'], 'Lokaler Titel');
-      expect(api.saves.single['markdown'], local);
+      expect(api.saves.single['markdown'], 'Letztes Zeichen!');
     },
   );
 
   testWidgets(
-    'source editor remains bounded on narrow large text and keyboard resize',
+    'offline navigation retains encrypted draft and pauses only on explicit keep',
+    (tester) async {
+      final api = _FakeApi(_documentData())..failure = StateError('Offline');
+      Future<bool> Function()? guard;
+      await tester.pumpWidget(
+        _app(api, _document(), guard: (_, value) => guard = value),
+      );
+      await tester.pumpAndSettle();
+      final peer = _peer(tester);
+      peer.edit('Lokaler Predigttext');
+      final stay = guard!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Hierbleiben'));
+      await tester.pumpAndSettle();
+      expect(await stay, isFalse);
+      expect(peer.locked, isFalse);
+      final raw = await const FlutterSecureStorage().read(key: _draftKey);
+      expect(asMap(jsonDecode(raw!))['markdown'], 'Lokaler Predigttext');
+      final leave = guard!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Auf Gerät behalten und verlassen'));
+      await tester.pumpAndSettle();
+      expect(await leave, isTrue);
+      expect(peer.locked, isTrue);
+      expect(peer.commands.last, 'pause');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'conflicting recovery never overwrites until explicit server adoption',
+    (tester) async {
+      FlutterSecureStorage.setMockInitialValues({
+        _draftKey: jsonEncode({
+          'title': 'Mein Titel',
+          'markdown': '> Mein Entwurf',
+          'revision': 1,
+        }),
+      });
+      final api = _FakeApi(
+        _documentData(markdown: 'Neuer Serverstand', revision: 3),
+      )..failure = const ApiException('Revision veraltet', status: 409);
+      Future<bool> Function()? guard;
+      await tester.pumpWidget(
+        _app(api, _document(), guard: (_, value) => guard = value),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Entwurf öffnen'));
+      await tester.pumpAndSettle();
+      final navigation = guard!();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Hierbleiben'));
+      await tester.pumpAndSettle();
+      expect(await navigation, isFalse);
+      expect(api.saves.single['revision'], 1);
+      await tester.tap(find.text('Fassungen vergleichen'));
+      await tester.pumpAndSettle();
+      expect(find.text('Dein Entwurf: Mein Titel'), findsOneWidget);
+      await tester.tap(find.text('Serverfassung übernehmen'));
+      await tester.pumpAndSettle();
+      expect(_peer(tester).current['markdown'], 'Neuer Serverstand');
+      expect(api.saves, hasLength(1));
+      expect(await const FlutterSecureStorage().read(key: _draftKey), isNull);
+    },
+  );
+
+  testWidgets(
+    'metadata reserves text queue and passes latest revision back to web',
+    (tester) async {
+      final api = _FakeApi(_documentData());
+      await tester.pumpWidget(_app(api, _document()));
+      await tester.pumpAndSettle();
+      final peer = _peer(tester);
+      peer.edit('Geändert');
+      await tester.pump();
+      await tester.tap(find.byTooltip('Dokumentoptionen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dokumentart ändern'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Speichern').last);
+      await tester.pumpAndSettle();
+      expect(api.saves, hasLength(1));
+      expect(api.actions.single['fields']['revision'], 2);
+      expect(peer.current['revision'], 3);
+      expect(
+        peer.commands,
+        containsAllInOrder(['prepareMutation', 'finishMutation']),
+      );
+      expect(peer.commands.last, 'finishMutation');
+      expect(peer.locked, isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'compact native header stays bounded with large text and keyboard resize',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final api = _FakeApi(_documentData());
-      await tester.pumpWidget(
-        _app(api, const DocumentEditor(path: '/notes/one'), textScale: 1.6),
-      );
+      await tester.pumpWidget(_app(api, _document(), textScale: 2));
       await tester.pumpAndSettle();
       expect(
         tester.getSize(find.byKey(const Key('document-text-surface'))).height,
-        greaterThan(300),
+        greaterThan(400),
       );
-      await tester.binding.setSurfaceSize(const Size(320, 360));
-      await tester.pumpAndSettle();
-      expect(
-        tester.getSize(find.byKey(const Key('document-text-surface'))).height,
-        greaterThan(60),
-      );
-      final bounds = tester.getRect(
-        find.byKey(const Key('document-text-surface')),
-      );
-      await tester.tap(find.text('Lesen'));
-      await tester.pumpAndSettle();
-      expect(
-        tester.getRect(find.byKey(const Key('document-text-surface'))),
-        bounds,
-      );
-      await tester.tap(find.text('Bearbeiten'));
-      await tester.pumpAndSettle();
-      api.failure = StateError('Offline');
-      _replaceBody(tester, 'Offline mit Tastatur');
-      await tester.pump(const Duration(milliseconds: 1300));
+      await tester.binding.setSurfaceSize(const Size(320, 300));
       await tester.pumpAndSettle();
       expect(
         tester.getSize(find.byKey(const Key('document-text-surface'))).height,
@@ -650,162 +525,144 @@ void main() {
     },
   );
 
-  testWidgets('document menu exposes touch undo and redo only while editing', (
+  testWidgets(
+    'touch insert menu sends bounded web command without native source edits',
+    (tester) async {
+      final api = _FakeApi(_documentData());
+      await tester.pumpWidget(_app(api, _document()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Dokumentoptionen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Einfügen …'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Überschrift 2'));
+      await tester.pumpAndSettle();
+      expect(_peer(tester).commands.last, 'insert');
+      expect(api.saves, isEmpty);
+      await tester.tap(find.text('Lesen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Dokumentoptionen'));
+      await tester.pumpAndSettle();
+      expect(find.text('Einfügen …'), findsNothing);
+      expect(find.text('PDF exportieren'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'late editor handshake in hidden branch pauses before it can retain focus',
+    (tester) async {
+      final api = _FakeApi(_documentData());
+      final ready = Completer<void>();
+      final active = ValueNotifier<bool>(true);
+      addTearDown(active.dispose);
+      final document = DocumentEditor(
+        path: '/notes/one',
+        webEditorBuilder: (context, controller, restore, reading, retry) =>
+            TestWebEditorPeer(
+              controller: controller,
+              restore: restore,
+              readOnly: reading,
+              readyDelay: ready.future,
+            ),
+      );
+      await tester.pumpWidget(
+        _app(
+          api,
+          ValueListenableBuilder<bool>(
+            valueListenable: active,
+            builder: (context, enabled, child) =>
+                TickerMode(enabled: enabled, child: child!),
+            child: document,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      active.value = false;
+      await tester.pump();
+      ready.complete();
+      await tester.pumpAndSettle();
+      final peer = _peer(tester);
+      expect(peer.commands, containsAllInOrder(['initialize', 'pause']));
+      expect(peer.locked, isTrue);
+      active.value = true;
+      await tester.pumpAndSettle();
+      expect(peer.commands.last, 'resume');
+      expect(peer.locked, isFalse);
+      expect(api.saves, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'unreadable secure draft prevents editor initialization and remains stored',
+    (tester) async {
+      FlutterSecureStorage.setMockInitialValues({_draftKey: 'invalid-json'});
+      final api = _FakeApi(_documentData());
+      await tester.pumpWidget(_app(api, _document()));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Der lokale Entwurf konnte nicht gelesen werden.'),
+        findsOneWidget,
+      );
+      expect(find.byType(TestWebEditorPeer), findsNothing);
+      expect(
+        await const FlutterSecureStorage().read(key: _draftKey),
+        'invalid-json',
+      );
+      expect(api.saves, isEmpty);
+    },
+  );
+
+  testWidgets('canceling external navigation resumes the same editor', (
     tester,
   ) async {
     final api = _FakeApi(_documentData());
-    await tester.pumpWidget(
-      _app(api, const DocumentEditor(path: '/notes/one')),
-    );
+    await tester.pumpWidget(_app(api, _document()));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Dokumentoptionen'));
+    final peer = _peer(tester);
+    peer.emit('navigate', {'path': 'https://example.org/article'});
     await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<PopupMenuItem<String>>(
-            find.widgetWithText(PopupMenuItem<String>, 'Rückgängig'),
-          )
-          .enabled,
-      isFalse,
-    );
-    expect(
-      tester
-          .widget<PopupMenuItem<String>>(
-            find.widgetWithText(PopupMenuItem<String>, 'Wiederholen'),
-          )
-          .enabled,
-      isFalse,
-    );
-    Navigator.of(tester.element(find.text('Rückgängig'))).pop();
+    expect(find.text('Externen Link öffnen?'), findsOneWidget);
+    expect(peer.locked, isTrue);
+    await tester.tap(find.text('Abbrechen'));
     await tester.pumpAndSettle();
-    final latest = _replaceBody(tester, 'Neuer Gedanke');
-    await tester.pump(const Duration(milliseconds: 600));
-    final editingState = tester.state<EditableTextState>(_sourceEditable());
-    await tester.tap(find.text('Lesen'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Bearbeiten'));
-    await tester.pumpAndSettle();
-    expect(
-      identical(
-        tester.state<EditableTextState>(_sourceEditable()),
-        editingState,
-      ),
-      isTrue,
-    );
-    await tester.tap(find.byTooltip('Dokumentoptionen'));
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<PopupMenuItem<String>>(
-            find.widgetWithText(PopupMenuItem<String>, 'Rückgängig'),
-          )
-          .enabled,
-      isTrue,
-    );
-    await tester.tap(find.text('Rückgängig'));
-    await tester.pumpAndSettle();
-    expect(_editor(tester).controller.text, 'Lesetext');
-    await tester.tap(find.byTooltip('Dokumentoptionen'));
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<PopupMenuItem<String>>(
-            find.widgetWithText(PopupMenuItem<String>, 'Wiederholen'),
-          )
-          .enabled,
-      isTrue,
-    );
-    await tester.tap(find.text('Wiederholen'));
-    await tester.pumpAndSettle();
-    expect(_editor(tester).controller.text, latest);
-    await tester.tap(find.text('Lesen'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Dokumentoptionen'));
-    await tester.pumpAndSettle();
-    expect(find.text('Rückgängig'), findsNothing);
-    expect(find.text('Wiederholen'), findsNothing);
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
-  });
-
-  testWidgets('stale draft preserves conflict until explicit server adoption', (
-    tester,
-  ) async {
-    FlutterSecureStorage.setMockInitialValues({
-      'document-draft:https://example.test:user:one': jsonEncode({
-        'title': 'Mein Titel',
-        'markdown': '> Mein lokaler Entwurf',
-        'revision': 1,
-      }),
-    });
-    final api = _FakeApi(
-      _documentData(markdown: 'Neuer Serverstand', revision: 3),
-    )..failure = const ApiException('Revision veraltet', status: 409);
-    Future<bool> Function()? guard;
-    await tester.pumpWidget(
-      _app(
-        api,
-        const DocumentEditor(path: '/notes/one'),
-        guard: (_, callback) => guard = callback,
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Entwurf öffnen'));
-    await tester.pumpAndSettle();
-    final navigation = guard!();
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Hierbleiben'));
-    await tester.pumpAndSettle();
-    expect(await navigation, isFalse);
-    expect(api.saves.single['revision'], 1);
-    expect(_editor(tester).controller.text, '> Mein lokaler Entwurf');
-    await tester.tap(find.text('Fassungen vergleichen'));
-    await tester.pumpAndSettle();
-    expect(find.text('Dein Entwurf: Mein Titel'), findsOneWidget);
-    await tester.tap(find.text('Serverfassung übernehmen'));
-    await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 2));
-    expect(_editor(tester).controller.text, 'Neuer Serverstand');
-    expect(api.saves, hasLength(1));
-    expect(
-      await const FlutterSecureStorage().read(
-        key: 'document-draft:https://example.test:user:one',
-      ),
-      isNull,
-    );
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('saved HTML is used only for exactly matching Markdown', (
-    tester,
-  ) async {
-    final data = _documentData(markdown: 'Original **Markdown**');
-    asMap(data['document'])['bodyHtml'] = '<p>Serverdarstellung</p>';
-    final api = _FakeApi(data);
-    await tester.pumpWidget(
-      _app(api, const DocumentEditor(path: '/notes/one')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Lesen'));
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<MarkdownDocumentReader>(find.byType(MarkdownDocumentReader))
-          .renderedHtml,
-      '<p>Serverdarstellung</p>',
-    );
-    await tester.tap(find.text('Bearbeiten'));
-    await tester.pumpAndSettle();
-    _replaceBody(tester, 'Aktueller **Entwurf**');
-    await tester.pump();
-    await tester.tap(find.text('Lesen'));
-    await tester.pumpAndSettle();
-    final reading = tester.widget<MarkdownDocumentReader>(
-      find.byType(MarkdownDocumentReader),
-    );
-    expect(reading.markdown, 'Aktueller **Entwurf**');
-    expect(reading.renderedHtml, isNull);
+    expect(peer.locked, isFalse);
+    expect(peer.commands.last, 'resume');
     expect(api.saves, isEmpty);
-    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
   });
+  testWidgets(
+    'native status reports web autosave progress and failure without a manual command',
+    (tester) async {
+      final api = _FakeApi(_documentData());
+      await tester.pumpWidget(_app(api, _document()));
+      await tester.pumpAndSettle();
+      final peer = _peer(tester);
+      peer.edit('Neu');
+      peer.current['status'] = 'saving';
+      peer.emit('state');
+      await tester.pump();
+      expect(find.byTooltip('Speichert …'), findsOneWidget);
+      peer.current['status'] = 'error';
+      peer.emit('state');
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'Änderungen konnten nicht gespeichert werden. Bitte erneut speichern.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Speichern wiederholen'), findsOneWidget);
+      peer.saved = Map.of(peer.current);
+      peer.current['status'] = 'saved';
+      peer.emit('state');
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'Änderungen konnten nicht gespeichert werden. Bitte erneut speichern.',
+        ),
+        findsNothing,
+      );
+      expect(find.byTooltip('Gespeichert'), findsOneWidget);
+      expect(api.saves, isEmpty);
+    },
+  );
 }

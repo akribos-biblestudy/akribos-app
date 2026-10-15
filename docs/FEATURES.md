@@ -17,7 +17,7 @@ und auf deren aktuelle serverseitige Leserechte. Der tatsächliche Prüfstand st
 | Wortstudium | Herunterwischbarer Lexikon-Dialog bei Wortklick, Strong-Artikel, Quellwort/Position, Morphologie, Übersetzungsformen, Häufigkeiten und Fundstellen |
 | Markierungen | Ganze Verse, Versbereiche und Wörter; Entfernen, Übersichten, eigene Stilnamen und Farben mit sichtbarer Farbkachel und Textvorschau im Konto |
 | Notizen | Eigener Einstieg `/notes?kind=note`, interner Wechsel zu Ausarbeitungen, Bibliothek ohne Tagwolke, gezielte Tagfilter, Stellen, Papierkorb/Wiederherstellung, verknüpfte Sammlungen und Rückverweise |
-| Editor | Nativer Markdown-Quelltexteditor mit Auswahlformatierung und formatiertem Lesemodus, Markdown-Speicherung, revisionstreues Autosave, Konfliktvergleich, Entwurfswiederherstellung, Bibelzitate und Anhänge |
+| Editor | Gemeinsamer Akribos-Webeditor in einer System-WebView mit Auswahlformatierung, Tabellen, Fußnoten und schreibgeschütztem Lesemodus, Markdown-Speicherung, revisionstreues Autosave, Konfliktvergleich, Entwurfswiederherstellung, Bibelzitate und Anhänge |
 | Dokumentdateien | Serverseitige Exportformate über den nativen Teilen-Dialog; kein mobiler Import |
 | Ausarbeitungen | Board mit vorhandenen, nicht bearbeitbaren Spalten; Dokumente zwischen Spalten verschieben, Metadaten und Durchführungen; Wechsel zwischen Notiz und Ausarbeitung |
 | Sammlungen | Anlegen/Umbenennen/Löschen, Stellen hinzufügen/entfernen, Freigabelinks, Mitglieder/Einladungen, Verlassen, Kommentare/Antworten/Reaktionen |
@@ -28,9 +28,9 @@ und auf deren aktuelle serverseitige Leserechte. Der tatsächliche Prüfstand st
 
 ## Unterschiede zur Weboberfläche
 
-Die Bedienung wird an das Gerät angepasst. Der Dokumenteditor bearbeitet Markdown direkt; dessen Zeichen bleiben beim Schreiben
-sichtbar. Formatierungsaktionen erscheinen an der Textauswahl. Ein getrennter formatierter
-Lesemodus eignet sich für Predigtskripte und zeigt auch ungespeicherte lokale Änderungen. Kommentare werden in die vom bestehenden Server unterstützte
+Die Bedienung wird an das Gerät angepasst. Der Dokumenteditor nutzt denselben visuellen
+Editor und dieselben Markdown-Konverter wie die Webanwendung. Formatierungsaktionen
+erscheinen an der Textauswahl. Ein schreibgeschützter Lesemodus eignet sich für Predigtskripte. Kommentare werden in die vom bestehenden Server unterstützte
 Formatierung umgewandelt; vorhandenes HTML bleibt ohne Bearbeitung erhalten. Die Webhilfe
 und die Web-Einführungstour mit Popovern werden nicht als App-Hilfe übernommen.
 

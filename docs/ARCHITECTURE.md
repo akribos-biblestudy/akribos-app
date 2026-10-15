@@ -4,7 +4,8 @@
 `lib/theme/akribos_theme.dart` übernimmt PWA-Farben, Typografie und E-Ink-Darstellung.
 `AppScope` liegt oberhalb des Navigators, damit auch Dialoge denselben authentifizierten
 Client und dieselben Darstellungseinstellungen verwenden. Ein Navigationsschutz wartet
-auf ausstehende Reader-/Dokumentspeicherung. Die Nutzeroberfläche enthält keine WebView.
+auf ausstehende Reader-/Dokumentspeicherung. Nur der Notizeditor verwendet die
+isolierte HTTPS-WebView mit der bestehenden Akribos-Webkomponente.
 
 Lesen, Suche, Dokumente und weitere Funktionen werden erst bei Bedarf erzeugt und als
 getrennte Bereiche im `IndexedStack` gehalten. Ein bloßer Hauptbereichswechsel baut den
@@ -118,6 +119,32 @@ Boardspalten werden nur angezeigt, Dokumente lassen sich weiterhin zwischen ihne
 Die Notizübersichten rendern keine vollständige Tagwolke. Tagfilter werden bei Bedarf
 geöffnet, Tagdetails am Dokument bleiben eingeklappt und bearbeitbar. Die Zahl vorhandener
 Tags darf den eigentlichen Notizinhalt nicht aus dem sichtbaren Bereich verdrängen.
+
+### Gemeinsamer aktiver Webeditor
+
+`WebEditor` lädt ausschließlich `/app/editor/[id]` auf dem konfigurierten HTTPS-Origin.
+`EditorWebSession` überträgt die vorhandene Session über einen nativen MethodChannel
+an CookieManager/WKHTTPCookieStore: hostgebunden, HttpOnly, Secure und Pfad `/`.
+Abmelden/Kontowechsel löscht den Webkontext. Gleiche bereits bestätigte Sitzungen
+werden nur prozesslokal erkannt, damit normale Notizwechsel nicht alle Assets neu laden.
+Kein Sessionwert gelangt in JavaScript, URLs oder Logs.
+
+Die Webkomponente besitzt die einzige Text-Speicherqueue. `WebEditorController` wartet
+auf versionierte Antworten für Flush, Lesen/Bearbeiten und reservierte Metadatenaktionen.
+Aktueller Text und bestätigter Serverstand bleiben getrennt. Snapshots sichern den
+bestehenden verschlüsselten Entwurf samt Ursprungsrevision; Konflikte überschreiben
+keinen neueren Stand. Navigation benötigt eine Speicherbestätigung oder eine ausdrückliche
+Entwurfsentscheidung. Der Editor bleibt beim Moduswechsel samt Undo-History erhalten.
+
+Rootlayout und Clientinitialisierung der Embedroute greifen nicht auf Reader-/Browser-
+Arbeitsbereiche zu. Native Navigation und Meta-/Dateidialoge bleiben im Flutter-Host.
+Die Seite benötigt Netzwerk beim Öffnen; lokale Entwurfssicherung ist keine Zusage
+für einen vollständig offline verfügbaren Webeditor.
+
+### Erhaltene native Widgets aus dem vorherigen Editor
+
+Die folgenden Widgets bleiben separat testbar, sind aber nicht mehr die aktive
+Bearbeitungs- oder Lesefläche einer geöffneten Notiz:
 
 `MarkdownSourceEditor` bearbeitet die kanonische Markdown-Quelle unmittelbar in einem
 nativen Flutter-Textfeld. Es gibt keine Delta-Projektion und keine Rückkonvertierung beim

@@ -1,5 +1,47 @@
 # Prüfstand 15. Oktober 2026
 
+## Gemeinsamer Akribos-Webeditor, Build 12
+
+Version `0.2.9+12` verwendet die echte Webkomponente auf einer isolierten HTTPS-Seite
+in der System-WebView. Verschachtelte Listen, Tabellen, Fußnoten, Markdown-Kürzel und
+Auswahlformatierung stammen aus demselben Editor wie im Webportal. Bearbeiten/Lesen,
+Navigation und Dokumentmenü bleiben nativ. Die bisherigen nativen Markdown-Widgets
+sind nicht mehr die aktive Dokumentfläche.
+
+Gezielte lokale Prüfungen, keine vollständige lokale Testsuite:
+
+- 25 Sitzungs-/Authentifizierungsprüfungen: HttpOnly-Übergabe über native Kanäle,
+  Konto- und Servertrennung, Race-/Fehlerfälle und Wiederverwendung gleicher Sitzungen.
+- 28 Bridge-/Dokument-/Tagprüfungen: echte Backendtranskripte, Ursprungsrevision,
+  409-Konflikt, letzter Tastendruck während laufendem Save, sichere Entwürfe,
+  Tab-/Hintergrundwechsel, Metadatenrevision und sichtbarer Autosave-Status.
+- Backend: 23 Layout-/Initialisierungs-/Reader-Isolationsprüfungen, 18 neue
+  Bridge-/Routen-/Editorprüfungen und zwei bestehende echte Editorprüfungen grün.
+- Drei echte Browser-E2E gegen isolierte Konten im vorhandenen E2E-Datenbestand:
+  Öffnen/Lesen ohne PATCH oder Readerzustandsänderung, echte Eingabekürzel,
+  verschachtelte Listen/Zitate, Tabellen/Fußnoten, Metadaten und Bridge-Lifecycle.
+- Zehn Release-Guardtests grün; Formatprüfung und vollständige statische Flutter-
+  Analyse ohne Befunde. Backend `pnpm check`: keine Fehler, 14 bestehende Warnungen.
+
+Die lokale E2E-Datenbank wurde nicht zurückgesetzt. Synthetische Browseraufnahmen
+prüfen Smartphone und dunkles Tablet; dabei wurde ein zu dunkler Zitattext korrigiert.
+Keine privaten Produktionsnotizen wurden bearbeitet. Der Webeditor benötigt eine
+Verbindung zum Öffnen; verschlüsselte Entwürfe ersetzen keinen vollständigen Offline-
+Editor. Android-IME-, iOS- und Boox-Bedienabnahme bleiben gerätespezifisch.
+
+Die Android-Environment-Versionsgrenze wurde auf 12 gesetzt und zurückgelesen.
+Kein Google-Play-Upload. Der finale ARM64-AOT-Release wurde erfolgreich gebaut;
+Signatur, Paket/Version, 16-KiB-Alignment und fehlendes Debuggable-Flag sind geprüft.
+APK: `artifacts/akribos-0.2.9-akribos-de-release.apk`.
+SHA-256: `5120fc8ac45944511212bc5cea82ec0093e04a64288d5221994204fe57f91d67`.
+Die bisherigen Anmeldedaten bleiben bei Installation als Update erhalten.
+USB-Installation ist offen: Das Pixel ist derzeit nicht verbunden. Die Backend-
+Produktionsroute wird über PR #326 und die bestehende CI/Deploymentkette eingeführt.
+
+Aktuelle rein synthetische Aufnahmen: [Telefon](screenshots/web-editor-phone.png),
+[dunkles Tablet](screenshots/web-editor-tablet-dark.png). Ältere `editor-*.png` und
+der opt-in Capturetest dokumentieren die vorherige native Implementierung.
+
 ## Einfacher Markdown-Editor und native Lesedarstellung, Build 11
 
 Version `0.2.8+11` entfernt FlutterQuill samt Delta-/Markdown-Adapter. Bearbeiten zeigt

@@ -1,0 +1,599 @@
+{
+  "protocol": 1,
+  "scenarios": [
+    {
+      "name": "navigation",
+      "requests": [
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "1",
+          "method": "initialize"
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "2",
+          "method": "prepareMutation"
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "3",
+          "method": "pause"
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "4",
+          "method": "resume"
+        }
+      ],
+      "messages": [
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "ready",
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "1",
+          "method": "initialize",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "2",
+          "method": "prepareMutation",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "3",
+          "method": "pause",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "4",
+          "method": "resume",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        }
+      ],
+      "viewCalls": [
+        "edit:false",
+        "edit:true",
+        "flush",
+        "edit:true",
+        "edit:false"
+      ]
+    },
+    {
+      "name": "read-mode",
+      "requests": [
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "1",
+          "method": "initialize"
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "2",
+          "method": "prepareMutation"
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "3",
+          "method": "setMode",
+          "mode": "read"
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "4",
+          "method": "cancelMutation"
+        }
+      ],
+      "messages": [
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "ready",
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "1",
+          "method": "initialize",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "2",
+          "method": "prepareMutation",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "3",
+          "method": "setMode",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "4",
+          "method": "cancelMutation",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        }
+      ],
+      "viewCalls": [
+        "edit:false",
+        "edit:true",
+        "flush",
+        "read:true",
+        "read:false"
+      ]
+    },
+    {
+      "name": "metadata",
+      "requests": [
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "1",
+          "method": "initialize"
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "2",
+          "method": "prepareMutation"
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "3",
+          "method": "finishMutation",
+          "revision": 4
+        }
+      ],
+      "messages": [
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "ready",
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "1",
+          "method": "initialize",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "2",
+          "method": "prepareMutation",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "3",
+          "method": "finishMutation",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 4,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 4
+          }
+        }
+      ],
+      "viewCalls": [
+        "edit:false",
+        "edit:true",
+        "flush",
+        "edit:false"
+      ]
+    },
+    {
+      "name": "offline-keep",
+      "requests": [
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "1",
+          "method": "initialize"
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "2",
+          "method": "prepareMutation"
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "3",
+          "method": "snapshot"
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "4",
+          "method": "pause"
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "id": "5",
+          "method": "resume"
+        }
+      ],
+      "messages": [
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "ready",
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "1",
+          "method": "initialize",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "2",
+          "method": "prepareMutation",
+          "ok": false,
+          "error": "saveFailed",
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "3",
+          "method": "snapshot",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "4",
+          "method": "pause",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        },
+        {
+          "protocol": 1,
+          "documentId": "doc",
+          "userId": "user",
+          "instanceId": "instance",
+          "type": "response",
+          "id": "5",
+          "method": "resume",
+          "ok": true,
+          "snapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3,
+            "status": "saved"
+          },
+          "savedSnapshot": {
+            "title": "Titel",
+            "markdown": "Server\n",
+            "revision": 3
+          }
+        }
+      ],
+      "viewCalls": [
+        "edit:false",
+        "edit:true",
+        "edit:false",
+        "edit:true",
+        "edit:false"
+      ]
+    }
+  ]
+}

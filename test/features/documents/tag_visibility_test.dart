@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'web_editor_test_peer.dart';
+
 class _TagApi extends AppApi {
   _TagApi(this.data)
     : super(server: 'https://example.test', cookies: CookieJar());
@@ -166,7 +168,13 @@ void main() {
         'bibles': [],
       });
       await tester.pumpWidget(
-        _app(api, const DocumentEditor(path: '/notes/one')),
+        _app(
+          api,
+          const DocumentEditor(
+            path: '/notes/one',
+            webEditorBuilder: testWebEditorBuilder,
+          ),
+        ),
       );
       await tester.pumpAndSettle();
       expect(find.byType(Chip), findsNothing);

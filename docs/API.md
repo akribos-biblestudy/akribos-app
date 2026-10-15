@@ -164,3 +164,18 @@ bleiben getrennte Prüfschritte. Vorerst wird nur Android veröffentlicht. iOS-S
 App-Links folgen nach Bestätigung der laufenden Apple-Organisationsanmeldung, siehe
 [RELEASE.md](RELEASE.md). Anmeldung per E-Mail-Code oder Passwort benötigt keine verifizierten
 App-Links.
+
+
+## Eingebetteter Dokumenteditor
+
+`GET /app/editor/[id]` ist eine authentifizierte HTML-Seite desselben Origins für die
+System-WebView, kein App-JSON-Endpunkt. Die App überträgt den bestehenden HttpOnly-
+Sessioncookie nativ. Dokumentbesitz und Revisionen bleiben serverseitig geprüft.
+Der gemeinsame Webeditor speichert über den vorhandenen `/api/documents/[id]`-PATCH.
+Die Flutter-Bridge besitzt keine beliebigen HTTP-/JavaScript-Kommandos. Das genaue
+versionierte Protokoll steht in `../akribos/docs/native-app-api.md`.
+
+Reader-Workspace-Auflösung, Browser-Tab-Initialisierung, Analytics und Webnavigation
+sind für diese Route ausgeschaltet. Theme/Schriftgröße/E-Ink sind reine Anzeigeparameter.
+Native Navigation wartet auf Flush und Entwurfssicherung; Metadaten-/Anlagenänderungen
+reservieren zuvor die Web-Speicherqueue und geben die neue Revision zurück.
