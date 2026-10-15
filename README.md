@@ -21,9 +21,9 @@ Mit der unten beschriebenen Flutter-/Android-Buildumgebung:
 ./scripts/build-android-production.sh
 ```
 
-Das Skript baut fest für `https://akribos.de`, Android ARM64 und Version `0.2.2+5` als optimierten AOT-Release.
+Das Skript baut fest für `https://akribos.de`, Android ARM64 und Version `0.2.3+6` als optimierten AOT-Release.
 Die installierbare Datei liegt unter
-`artifacts/akribos-0.2.2-akribos-de-release.apk`; daneben liegt ihre SHA-256-Prüfsumme.
+`artifacts/akribos-0.2.3-akribos-de-release.apk`; daneben liegt ihre SHA-256-Prüfsumme.
 Sie kann auf dem Pixel als APK geöffnet und installiert werden. Eine bereits installierte
 App mit derselben Android-Debug-Signatur lässt sich damit aktualisieren.
 Die APK verwendet zur Update-Kompatibilität den bereits vorhandenen lokalen

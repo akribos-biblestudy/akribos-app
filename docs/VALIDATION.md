@@ -1,5 +1,29 @@
 # Prüfstand 15. Oktober 2026
 
+## Sichtbare Markierungsfarben, Build 6
+
+Version `0.2.3+6` ersetzt das farblose Symbol jeder gespeicherten Markierungsfarbe in den
+Kontoeinstellungen durch eine 36-Pixel-Farbkachel aus dem tatsächlichen Farbwert. Ein
+kontrastierender Rand hält auch Weiß und Schwarz erkennbar; der Name bleibt sichtbar.
+Aufgeklappt zeigt der Eintrag eine Textmarkierung über denselben `VerseText`-Renderer wie
+im Reader, einschließlich dessen Deckkraft. Bezeichnungen und bestehende Farben werden
+nicht verändert. Kein neuer API-Endpunkt und keine Backendänderung.
+
+Die bestehenden acht Konto-/Inhaltstests bestanden; Flutter-Analyse, Formatierung und
+`git diff --check` waren sauber. Der optimierte ARM64-Release wurde erfolgreich gebaut;
+Signatur, Version, 16-KiB-Alignment und fehlendes Debuggable-Flag sind geprüft. Ein
+vollständiger lokaler Testlauf wurde wie gewünscht nicht ausgeführt. Synthetische
+Widget-Aufnahmen der echten Kontoeinstellung wurden im hellen und dunklen Modus geprüft:
+Farben, Namen und Textvorschau sind sichtbar, ohne Überläufe.
+
+APK: `artifacts/akribos-0.2.3-akribos-de-release.apk`.
+SHA-256: `1d019646004643d09ac7ee76fd0c4d391a55a6d9151d6241b39138c2b7fb99d7`.
+
+Die Geräteinstallation steht noch aus: Das Pixel wurde beim vorbereiteten Update nicht
+mehr über ADB erkannt. Bei erneuter Verbindung ausschließlich `adb install -r` verwenden,
+mit demselben Signer und ohne Löschen von App-Daten. Die Darstellung wurde noch nicht
+auf dem Pixel geprüft.
+
 ## Sitzungserhalt und Passwortmanager, Build 5
 
 Version `0.2.2+5` behebt einen reproduzierten Kaltstartfehler. `initializeReader` speicherte

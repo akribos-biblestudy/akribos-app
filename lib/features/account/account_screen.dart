@@ -182,8 +182,25 @@ class AccountScreen extends StatelessWidget {
                 ExpansionTile(
                   key: ValueKey(style['id']),
                   title: Text(asString(style['name'], 'Markierungen')),
-                  leading: const Icon(Icons.format_color_fill),
+                  leading: _HighlightColorSwatch(
+                    id: asString(style['id']),
+                    colorValue: asString(style['color']),
+                  ),
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      child: VerseText(
+                        key: ValueKey('highlight-preview:${style['id']}'),
+                        segments: const [
+                          'So sieht diese Markierung im Text aus.',
+                        ],
+                        highlights: [
+                          {'start': 0, 'end': 7, 'color': style['color']},
+                        ],
+                        fontSize: 17,
+                        selectable: false,
+                      ),
+                    ),
                     TextButton(
                       onPressed: () =>
                           AppScope.of(context)
@@ -280,4 +297,39 @@ class AccountScreen extends StatelessWidget {
       );
     },
   );
+}
+
+class _HighlightColorSwatch extends StatelessWidget {
+  const _HighlightColorSwatch({required this.id, required this.colorValue});
+  final String id, colorValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = verseColor(colorValue);
+    final fill = color ?? theme.colorScheme.surfaceContainerHighest;
+    final visible = Color.alphaBlend(fill, theme.colorScheme.surface);
+    final border =
+        ThemeData.estimateBrightnessForColor(visible) == Brightness.light
+        ? Colors.black
+        : Colors.white;
+    return Tooltip(
+      message: color == null ? 'Farbe nicht verfügbar' : 'Farbe $colorValue',
+      child: SizedBox(
+        width: 36,
+        height: 36,
+        child: DecoratedBox(
+          key: ValueKey('highlight-swatch:$id'),
+          decoration: BoxDecoration(
+            color: fill,
+            border: Border.all(color: border, width: 1.5),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: color == null
+              ? Icon(Icons.format_color_fill_outlined, size: 20, color: border)
+              : null,
+        ),
+      ),
+    );
+  }
 }
