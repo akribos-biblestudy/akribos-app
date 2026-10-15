@@ -7,7 +7,8 @@ bleiben in der Webverwaltung.
 
 Die normale App verbindet sich direkt über HTTPS mit **https://akribos.de**.
 Lesen ist ohne API-Schlüssel möglich; persönliche Funktionen verwenden die normale
-Akribos-Anmeldung per E-Mail-Code oder Passwort. Dafür sind weder ein lokaler Server
+Akribos-Anmeldung per E-Mail-Code oder Passwort mit System-Autofill. Gültige Sitzungen
+bleiben bei regulären App-Updates und Neustarts erhalten. Dafür sind weder ein lokaler Server
 noch eine USB-Verbindung oder ADB erforderlich. Eine Internetverbindung wird benötigt.
 Das öffentliche App-Protokoll v1 ist auf akribos.de bereitgestellt; der bestätigte
 Prüfstand steht in [docs/VALIDATION.md](docs/VALIDATION.md).
@@ -20,9 +21,9 @@ Mit der unten beschriebenen Flutter-/Android-Buildumgebung:
 ./scripts/build-android-production.sh
 ```
 
-Das Skript baut fest für `https://akribos.de`, Android ARM64 und Version `0.2.1+4` als optimierten AOT-Release.
+Das Skript baut fest für `https://akribos.de`, Android ARM64 und Version `0.2.2+5` als optimierten AOT-Release.
 Die installierbare Datei liegt unter
-`artifacts/akribos-0.2.1-akribos-de-release.apk`; daneben liegt ihre SHA-256-Prüfsumme.
+`artifacts/akribos-0.2.2-akribos-de-release.apk`; daneben liegt ihre SHA-256-Prüfsumme.
 Sie kann auf dem Pixel als APK geöffnet und installiert werden. Eine bereits installierte
 App mit derselben Android-Debug-Signatur lässt sich damit aktualisieren.
 Die APK verwendet zur Update-Kompatibilität den bereits vorhandenen lokalen

@@ -28,7 +28,7 @@ No deployment, store publication, signing-identity setup or remote push is impli
 by editing the local app. Distinguish local checks from device acceptance.
 
 The direct Pixel APK is built by `scripts/build-android-production.sh`: fixed HTTPS
-origin `https://akribos.de`, ARM64, version `0.2.1+4`, optimized AOT release with the existing local debug signing identity. Keep it
+origin `https://akribos.de`, ARM64, version `0.2.2+5`, optimized AOT release with the existing local debug signing identity. Keep it
 independent of local test-server defines and do not install/deploy from the script.
 Ordinary app use requires no API key, USB or ADB. The ignored artifact and its SHA-256
 file are written to `artifacts/`; store signing remains a separate explicit task.
@@ -51,3 +51,12 @@ source resource, reference, word and wordPosition into lookups. Tab groups use t
 palette plus visible letters; E-Ink must retain labels without depending on color.
 Do not render the full account tag catalogue in note lists. Keep tag filters on demand and
 tag editing available; large tag collections must not create a wall of chips by default.
+
+PersistCookieJar 4.0.9 does not load a stored host cookie map before saveFromResponse.
+initializeReader must await loadForRequest(origin) before writing reader preference cookies;
+otherwise every cold start overwrites the persisted session. Keep the secure-storage namespace,
+key format and encryption options stable across app updates. Test with fresh persistent jars,
+not only an in-memory CookieJar. Install updates with adb install -r; never uninstall/clear data.
+Credential autofill must be explicit per field. Keep the login identifier and password mounted
+in the same group, cancel on abandonment, and save credentials only after server-confirmed
+success. Ordinary text fields must not be offered as usernames or passwords.

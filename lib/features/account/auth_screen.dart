@@ -105,18 +105,25 @@ class AuthScreen extends StatelessWidget {
                   : 'Passwort zurücksetzen',
               path: path,
               action: 'default',
+              shouldSaveAutofill: reset
+                  ? (result) =>
+                        result.isRedirect &&
+                        Uri.parse(result.location!).path == '/account'
+                  : null,
               fields: reset
                   ? const [
                       FormFieldSpec(
                         'password',
                         'Neues Passwort',
                         kind: FieldKind.password,
+                        autofillHints: [AutofillHints.newPassword],
                         required: true,
                       ),
                       FormFieldSpec(
                         'passwordRepeat',
                         'Passwort wiederholen',
                         kind: FieldKind.password,
+                        autofillHints: [AutofillHints.newPassword],
                         required: true,
                       ),
                     ]
@@ -127,6 +134,10 @@ class AuthScreen extends StatelessWidget {
                         'email',
                         'E-Mail-Adresse',
                         kind: FieldKind.email,
+                        autofillHints: [
+                          AutofillHints.username,
+                          AutofillHints.email,
+                        ],
                         required: true,
                       ),
                     ],
@@ -217,133 +228,151 @@ class _LoginFormState extends State<_LoginForm> {
   @override
   Widget build(BuildContext context) {
     final redirectTo = asString(widget.data['redirectTo'], '/');
-    return AutofillGroup(
-      child: PageBody(
-        maxWidth: 520,
-        children: [
-          const SizedBox(height: 24),
-          Icon(
-            Icons.auto_stories_rounded,
-            size: 48,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Willkommen bei Akribos',
+    return PageBody(
+      maxWidth: 520,
+      children: [
+        const SizedBox(height: 24),
+        Icon(
+          Icons.auto_stories_rounded,
+          size: 48,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Willkommen bei Akribos',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Text(
+            'Deine Bibel. Deine Gedanken. Auf allen Geräten.',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineMedium,
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text(
-              'Deine Bibel. Deine Gedanken. Auf allen Geräten.',
-              textAlign: TextAlign.center,
-            ),
+        ),
+        if (_step == 'code')
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(_email, textAlign: TextAlign.center),
           ),
-          if (_step != 'email')
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(_email, textAlign: TextAlign.center),
-            ),
-          ActionForm(
-            key: ValueKey('$_step:$_email'),
-            title: switch (_step) {
-              'password' => 'Mit Passwort anmelden',
-              'code' => 'Code aus deiner E-Mail',
-              _ => 'Anmelden oder Konto erstellen',
-            },
-            path: '/login',
-            action: switch (_step) {
-              'password' => 'login',
-              'code' => 'code',
-              _ => 'start',
-            },
-            hidden: {
-              'redirectTo': redirectTo,
-              if (_step != 'email') 'email': _email,
-              'company': '',
-            },
-            fields: switch (_step) {
-              'password' => const [
-                FormFieldSpec(
-                  'password',
-                  'Passwort',
-                  kind: FieldKind.password,
-                  required: true,
-                ),
-              ],
-              'code' => const [
-                FormFieldSpec(
-                  'code',
-                  'Sechsstelliger Code',
-                  kind: FieldKind.number,
-                  required: true,
-                ),
-              ],
-              _ => [
-                FormFieldSpec(
-                  'email',
-                  'E-Mail-Adresse',
-                  value: _email,
-                  kind: FieldKind.email,
-                  required: true,
-                ),
-              ],
-            },
-            submitLabel: _step == 'email' ? 'Weiter' : 'Anmelden',
-            onResult: _result,
-          ),
-          if (_step == 'code')
-            ActionButton(
-              label: 'Neuen Code senden',
-              onPressed: () async {
-                final result = await AppScope.of(context).api.action(
-                  '/login',
-                  'start',
-                  {'email': _email, 'redirectTo': redirectTo},
-                );
-                if (!result.isSuccess &&
-                    !result.isRedirect &&
-                    context.mounted) {
-                  showError(context, result.message);
-                }
-                await _result(result);
-              },
-            ),
-          if (_step == 'password')
-            TextButton(
-              onPressed: () => AppScope.of(context).open('/password-reset'),
-              child: const Text('Passwort vergessen?'),
-            ),
-          if (_step == 'password' && _unverified)
-            ActionButton(
-              label: 'Aktivierungslink erneut senden',
-              onPressed: () async {
-                final result = await AppScope.of(context).api
-                    .action('/login', 'resend', {'email': _email});
-                if (context.mounted) {
-                  showError(
-                    context,
-                    result.isSuccess
-                        ? 'Bitte prüfe dein E-Mail-Postfach.'
-                        : result.message,
-                  );
-                }
-              },
-            ),
-          if (_step != 'email')
-            TextButton(
-              onPressed: () => AppScope.of(context).open(
-                '/login?restart=1&redirectTo=${Uri.encodeComponent(redirectTo)}',
+        ActionForm(
+          key: ValueKey('$_step:$_email'),
+          title: switch (_step) {
+            'password' => 'Mit Passwort anmelden',
+            'code' => 'Code aus deiner E-Mail',
+            _ => 'Anmelden oder Konto erstellen',
+          },
+          path: '/login',
+          action: switch (_step) {
+            'password' => 'login',
+            'code' => 'code',
+            _ => 'start',
+          },
+          hidden: {
+            'redirectTo': redirectTo,
+            if (_step == 'code') 'email': _email,
+            'company': '',
+          },
+          fields: switch (_step) {
+            'password' => [
+              FormFieldSpec(
+                'email',
+                'E-Mail-Adresse',
+                value: _email,
+                kind: FieldKind.email,
+                autofillHints: const [
+                  AutofillHints.username,
+                  AutofillHints.email,
+                ],
+                textInputAction: TextInputAction.next,
+                required: true,
               ),
-              child: const Text('Andere E-Mail-Adresse verwenden'),
-            ),
-          TextButton(
-            onPressed: () => AppScope.of(context).open('/Joh1'),
-            child: const Text('Ohne Anmeldung lesen'),
+              const FormFieldSpec(
+                'password',
+                'Passwort',
+                kind: FieldKind.password,
+                autofillHints: [AutofillHints.password],
+                required: true,
+              ),
+            ],
+            'code' => const [
+              FormFieldSpec(
+                'code',
+                'Sechsstelliger Code',
+                kind: FieldKind.number,
+                autofillHints: [AutofillHints.oneTimeCode],
+                required: true,
+              ),
+            ],
+            _ => [
+              FormFieldSpec(
+                'email',
+                'E-Mail-Adresse',
+                value: _email,
+                kind: FieldKind.email,
+                autofillHints: const [
+                  AutofillHints.username,
+                  AutofillHints.email,
+                ],
+                required: true,
+              ),
+            ],
+          },
+          submitLabel: _step == 'email' ? 'Weiter' : 'Anmelden',
+          shouldSaveAutofill: (result) =>
+              _step == 'password' &&
+              result.isRedirect &&
+              !Uri.parse(result.location!).path.startsWith('/login'),
+          onResult: _result,
+        ),
+        if (_step == 'code')
+          ActionButton(
+            label: 'Neuen Code senden',
+            onPressed: () async {
+              final result = await AppScope.of(context).api.action(
+                '/login',
+                'start',
+                {'email': _email, 'redirectTo': redirectTo},
+              );
+              if (!result.isSuccess && !result.isRedirect && context.mounted) {
+                showError(context, result.message);
+              }
+              await _result(result);
+            },
           ),
-        ],
-      ),
+        if (_step == 'password')
+          TextButton(
+            onPressed: () => AppScope.of(context).open('/password-reset'),
+            child: const Text('Passwort vergessen?'),
+          ),
+        if (_step == 'password' && _unverified)
+          ActionButton(
+            label: 'Aktivierungslink erneut senden',
+            onPressed: () async {
+              final result = await AppScope.of(context).api
+                  .action('/login', 'resend', {'email': _email});
+              if (context.mounted) {
+                showError(
+                  context,
+                  result.isSuccess
+                      ? 'Bitte prüfe dein E-Mail-Postfach.'
+                      : result.message,
+                );
+              }
+            },
+          ),
+        if (_step != 'email')
+          TextButton(
+            onPressed: () => AppScope.of(context).open(
+              '/login?restart=1&redirectTo=${Uri.encodeComponent(redirectTo)}',
+            ),
+            child: const Text('Andere E-Mail-Adresse verwenden'),
+          ),
+        TextButton(
+          onPressed: () => AppScope.of(context).open('/Joh1'),
+          child: const Text('Ohne Anmeldung lesen'),
+        ),
+      ],
     );
   }
 }

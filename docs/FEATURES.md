@@ -19,7 +19,7 @@ beziehen sich auf normale Nutzer und auf deren aktuelle serverseitige Leserechte
 | Ausarbeitungen | Board, Spalten, Sortieren/Verschieben, Vorlagen, Metadaten, Durchführungen; Wechsel zwischen Notiz und Ausarbeitung |
 | Sammlungen | Anlegen/Umbenennen/Löschen, Stellen hinzufügen/entfernen, Freigabelinks, Mitglieder/Einladungen, Verlassen, Kommentare/Antworten/Reaktionen |
 | Öffentlich Geteiltes | Öffentliche Sammlungen und veröffentlichte Notizen lesen, Links teilen/öffnen; Links erweitern keine Leserechte |
-| Konto | E-Mail-Code, Passwort, Bestätigungs-/Rücksetzlinks, Profil, Standardbibel, Schriftgröße, Darstellung, persönliche API-Schlüssel und Abmelden |
+| Konto | E-Mail-Code, Passwort mit System-Autofill, erhaltene gültige Anmeldung bei App-Updates, Bestätigungs-/Rücksetzlinks, Profil, Standardbibel, Schriftgröße, Darstellung, persönliche API-Schlüssel und Abmelden |
 | Hilfe | Themen, Suche, Artikel, echte Serverabbildungen mit Vergrößerung; Adminhilfe ist ausgeschlossen |
 
 ## Unterschiede zur Weboberfläche

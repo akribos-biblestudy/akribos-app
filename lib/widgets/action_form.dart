@@ -29,6 +29,9 @@ class FormFieldSpec {
     this.options = const {},
     this.required = false,
     this.hint,
+    this.autofillHints,
+    this.readOnly = false,
+    this.textInputAction,
   });
   final String name, label;
   final Object? value;
@@ -36,6 +39,11 @@ class FormFieldSpec {
   final Map<String, String> options;
   final bool required;
   final String? hint;
+
+  /// Opt in per business field; ordinary form inputs never become credentials.
+  final Iterable<String>? autofillHints;
+  final bool readOnly;
+  final TextInputAction? textInputAction;
 }
 
 /// Shared native controls; each screen explicitly declares its business fields and action.
@@ -51,6 +59,7 @@ class ActionForm extends StatefulWidget {
     this.reload,
     this.onResult,
     this.confirmation,
+    this.shouldSaveAutofill,
   });
   final String title, path, action, submitLabel;
   final List<FormFieldSpec> fields;
@@ -58,6 +67,9 @@ class ActionForm extends StatefulWidget {
   final Future<void> Function()? reload;
   final Future<void> Function(ApiResult result)? onResult;
   final String? confirmation;
+
+  /// Only the caller knows whether this response confirmed new credentials.
+  final bool Function(ApiResult result)? shouldSaveAutofill;
   @override
   State<ActionForm> createState() => _ActionFormState();
 }
@@ -178,6 +190,9 @@ class _ActionFormState extends State<ActionForm> {
             );
       if (!mounted) return;
       setState(() => _result = result);
+      if (widget.shouldSaveAutofill?.call(result) == true) {
+        TextInput.finishAutofillContext(shouldSave: true);
+      }
       if (widget.onResult != null) {
         await widget.onResult!(result);
       } else if (result.isRedirect) {
@@ -194,7 +209,16 @@ class _ActionFormState extends State<ActionForm> {
   }
 
   @override
-  Widget build(BuildContext context) => SectionCard(
+  Widget build(BuildContext context) {
+    final form = _buildForm();
+    if (!widget.fields.any((field) => field.autofillHints != null)) return form;
+    return AutofillGroup(
+      onDisposeAction: AutofillContextAction.cancel,
+      child: form,
+    );
+  }
+
+  Widget _buildForm() => SectionCard(
     title: widget.title,
     children: [
       Form(
@@ -263,6 +287,7 @@ class _ActionFormState extends State<ActionForm> {
             TextFormField(
               controller: controller,
               enabled: !_busy,
+              autofillHints: null,
               autocorrect: false,
               enableSuggestions: false,
               decoration: InputDecoration(
@@ -438,15 +463,25 @@ class _ActionFormState extends State<ActionForm> {
             labelText: field.label,
             helperText: field.hint,
           ),
+          autofillHints: field.autofillHints,
+          readOnly: field.readOnly,
+          textInputAction: field.textInputAction,
           obscureText: field.kind == FieldKind.password,
-          autocorrect: field.kind != FieldKind.password,
-          enableSuggestions: field.kind != FieldKind.password,
+          autocorrect:
+              field.kind != FieldKind.password &&
+              field.kind != FieldKind.email &&
+              field.autofillHints == null,
+          enableSuggestions:
+              field.kind != FieldKind.password &&
+              field.kind != FieldKind.email &&
+              field.autofillHints == null,
           onChanged: (_) {
             if (_result != null) setState(() => _result = null);
           },
           maxLines: field.kind == FieldKind.multiline ? 5 : 1,
           keyboardType: switch (field.kind) {
             FieldKind.email => TextInputType.emailAddress,
+            FieldKind.password => TextInputType.visiblePassword,
             FieldKind.number => TextInputType.number,
             FieldKind.multiline => TextInputType.multiline,
             _ => TextInputType.text,
@@ -456,7 +491,13 @@ class _ActionFormState extends State<ActionForm> {
               : null,
           onFieldSubmitted: field.kind == FieldKind.multiline
               ? null
-              : (_) => _submit(),
+              : (_) {
+                  if (field.textInputAction == TextInputAction.next) {
+                    FocusScope.of(context).nextFocus();
+                  } else {
+                    _submit();
+                  }
+                },
         );
     }
   }

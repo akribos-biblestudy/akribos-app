@@ -24,11 +24,11 @@ Das Skript akzeptiert keine Parameter und legt diese Werte fest:
 | --- | --- |
 | Server | `https://akribos.de` |
 | Anwendung | `de.akribos.app` |
-| Version / Android-Versionscode | `0.2.1` / `4` |
+| Version / Android-Versionscode | `0.2.2` / `5` |
 | Architektur | `android-arm64` |
 | Laufzeit | Optimierter Flutter-Release-Build mit AOT, ohne Debugger |
 | Signatur | Vorhandener lokaler Android-Debugschlüssel; identisch mit Build 2 |
-| APK | `artifacts/akribos-0.2.1-akribos-de-release.apk` |
+| APK | `artifacts/akribos-0.2.2-akribos-de-release.apk` |
 
 `--release` ist für aussagekräftige Bedien- und Leistungstests erforderlich. Die lokale
 Debug-Signatur beeinflusst den Kompilierungsmodus nicht: Diese APK enthält Release-Code.
@@ -52,12 +52,19 @@ Das APK, eine SHA-256-Prüfsumme und ein Bericht des öffentlichen Signaturzerti
 im ignorierten Verzeichnis `artifacts/`. Die abschließende Prüfsumme lässt sich so prüfen:
 
 ```sh
-(cd artifacts && sha256sum -c akribos-0.2.1-akribos-de-release.apk.sha256)
+(cd artifacts && sha256sum -c akribos-0.2.2-akribos-de-release.apk.sha256)
 ```
 
 Die APK wird als Update der vorhandenen App installiert; **nicht vorher deinstallieren
-oder App-Daten löschen**. Gleiche Anwendungs-ID, derselbe Signer und Versionscode 4 erhalten
-die Android-App-Daten beim Update von Build 2. Die tatsächliche Geräteabnahme einschließlich
+oder App-Daten löschen**. Gleiche Anwendungs-ID, derselbe Signer und Versionscode 5 erhalten
+die Android-App-Daten beim Update von Build 2. Die Installation erfolgt ausschließlich als Paketupdate:
+
+```sh
+adb -s <Geraeteseriennummer> install -r artifacts/akribos-0.2.2-akribos-de-release.apk
+```
+
+Kein `adb uninstall`, `pm clear` oder automatischer Fallback durch Löschen von App-Daten.
+Bei abweichendem Signer muss der Vorgang abbrechen. Die tatsächliche Geräteabnahme einschließlich
 Sitzungserhalt bleibt separat zu prüfen. Das Skript installiert nichts und verändert keinen
 Server; ein angeschlossenes Gerät ist zum Bauen nicht nötig. Identische APK-Bytes auf anderen
 Rechnern sind wegen Werkzeug-Metadaten nicht zugesagt.
@@ -74,7 +81,7 @@ Upload-Signatur, sichere CI-Secrets und die tatsächliche Play-Console-Anwendung
 einzurichten. Eine andere Signatur erlaubt kein gewöhnliches Update der bereits lokal
 installierten App. Schlüssel und `key.properties` gehören nicht ins Repository.
 Versions-/Buildnummern können für spätere Veröffentlichungen über `--build-name` und
-`--build-number` gesetzt werden; dieses Skript hält den Pixel-Build `0.2.1+4` fest.
+`--build-number` gesetzt werden; dieses Skript hält den Pixel-Build `0.2.2+5` fest.
 
 ## iOS
 
@@ -89,6 +96,25 @@ Für echte Geräte und TestFlight in Xcode das tatsächliche Apple-Team und ein 
 Provisioning-Profil für `de.akribos.app` hinterlegen. Keychain-Entitlements sind bereits für
 Debug/Profile/Release gesetzt. Die CI erstellt einen unsignierten Build; sie lädt nichts zu
 App Store Connect hoch. Linux kann diese Schritte nicht verifizieren.
+
+## Passwortmanager
+
+Anmeldefelder verwenden explizite Flutter-Autofill-Hints. Der Passwortschritt zeigt E-Mail
+und Passwort gemeinsam; Bitwarden unterstützt auf Android keine vollständig auf getrennte
+Bildschirme verteilten Loginfelder. Der auf dem Pixel aktivierte Dienst ist Bitwarden.
+Ein vorhandener Eintrag für `https://akribos.de` kann zusätzlich die URI
+`androidapp://de.akribos.app` erhalten, damit er dieser nativen App zugeordnet wird.
+Die App verändert keine Tresoreinträge selbst.
+
+Felderkennung und Eintragszuordnung sind getrennt: Auf iOS erfordert die vollständige
+Webpasswort-/Speicherintegration zusätzlich die tatsächliche Associated-Domains-Konfiguration
+mit Apple-Team und Domainzuordnung. Diese ist noch nicht eingerichtet. Die Widgettests
+prüfen den Flutter-Autofill-Kanal; eine echte Passwortmanager-Abnahme muss am entsperrten
+Gerät mit Freigabe des eigenen Tresors erfolgen.
+
+Quellen: [Flutter Autofill](https://api.flutter.dev/flutter/material/TextField/autofillHints.html),
+[Bitwarden Android](https://bitwarden.com/help/auto-fill-android/),
+[Bitwarden URI-Zuordnung](https://bitwarden.com/help/uri-match-detection/).
 
 ## App-Links
 

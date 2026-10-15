@@ -202,6 +202,12 @@ class AppApi {
   Json bootstrap = {};
 
   Future<void> initializeReader(double width) async {
+    // PersistCookieJar initializes its index eagerly but loads host cookies only
+    // on loadForRequest. Writing first would replace the persisted host record
+    // with these two reader cookies and discard the session on every cold start.
+    // Read the same namespace/host before merging, preserving existing sessions,
+    // path-scoped login challenges and reader preferences without migration.
+    await _cookies.loadForRequest(origin);
     final columns = width < 768
         ? 1
         : width < 1200

@@ -1,5 +1,53 @@
 # Prüfstand 15. Oktober 2026
 
+## Sitzungserhalt und Passwortmanager, Build 5
+
+Version `0.2.2+5` behebt einen reproduzierten Kaltstartfehler. `initializeReader` speicherte
+zwei Hostcookies, bevor `PersistCookieJar` die vorhandene Hostablage geladen hatte. Dadurch
+wurde ein vorhandenes Sitzungscookie überschrieben. Es war kein Deinstallationsschritt:
+Das Pixel meldete vor dem Update weiterhin den ursprünglichen Installationszeitpunkt
+14. Oktober 2026, 22:28 Uhr; die bisherigen Aktualisierungen erfolgten mit `adb install -r`.
+
+Der Fix lädt dieselbe verschlüsselte Cookieablage vor dem Schreiben. Namespace, Schlüssel,
+Verschlüsselung, Paket-ID und Signatur ändern sich nicht. Ein bereits durch ältere App-Starts
+überschriebenes Cookie kann nicht wiederhergestellt werden; dann ist einmal eine reguläre
+Anmeldung nötig. Gültige noch vorhandene Sitzungen werden weiterbenutzt. Serverseitiger
+Ablauf, Widerruf und explizite Abmeldung bleiben wirksam.
+
+Anmelde- und Passwortfelder besitzen explizite Autofill-Rollen. Im Passwortschritt stehen
+E-Mail und Passwort gemeinsam bereit. Neue Passwörter und E-Mail-Codes sind gesondert
+gekennzeichnet; normale Formularfelder sind vom Credential-Autofill ausgeschlossen.
+Speichern wird nur nach bestätigtem Erfolg angefordert, bei Abbruch wird der Kontext verworfen.
+
+Gezielte Prüfungen ohne vollständigen lokalen Testlauf:
+
+- Vor dem Fix scheiterten drei der vier neuen Persistenzregressionen; danach bestanden
+  zusammen mit den vorhandenen API-Tests alle 12 Tests.
+- Die Persistenztests verwenden reale `PersistCookieJar`-/`SecureCookieStorage`-Abläufe mit
+  synthetischem Plattformstore, drei frische App-Instanzen, wechselnde Breite, vorhandene
+  Schlüssel und Session-/Challenge-/Workspace-Cookies. Logout und ein fehlschlagender
+  Hostread ohne Überschreiben sind ebenfalls geprüft. Keine echten Zugangsdaten verwendet.
+- Sechs neue Autofilltests bestanden, einschließlich simulierter
+  `TextInputClient.updateEditingStateWithTag`-Befüllung beider Loginfelder sowie Commit/Cancel,
+  OTP und Passwortwechsel/-reset. Zwölf bestehende Auth-/Konto-Tests ebenfalls erfolgreich.
+- Der Name des konfigurierten Android-Autofill-Dienstes bestätigt Bitwarden. Der private
+  Tresor wurde nicht geöffnet oder verändert; reale Passwortvorschläge sind damit noch
+  nicht als Geräteabnahme bestätigt. Hinweise zur App-URI stehen in [RELEASE.md](RELEASE.md).
+
+Die finale Flutter-Analyse war ohne Befunde; Formatierung und `git diff --check` ebenfalls
+sauber. Die optimierte ARM64-APK wurde am 15. Oktober 2026 um **09:41 Uhr** mit
+`adb install -r` erfolgreich als Update auf dem Pixel 9 Pro installiert und die Activity
+gestartet. Android bestätigt `versionName=0.2.2`, `versionCode=5`, kein `DEBUGGABLE`-Flag und
+den unveränderten Erstinstallationszeitpunkt **14. Oktober, 22:28 Uhr**. Der APK-Signer
+entspricht weiterhin den Builds 2–4. Der Server bleibt `https://akribos.de`.
+
+APK: `artifacts/akribos-0.2.2-akribos-de-release.apk`.
+SHA-256: `a3dcda7d08498caca6f17ff5558a1f4fe916dda4be3625c54cccd6dc3cb2fe4c`.
+
+Die Sitzungserhaltung wurde über die reproduzierten Persistenztests belegt, nicht durch
+Auslesen einer echten Sitzung oder Anmeldung mit privaten Zugangsdaten auf dem Pixel.
+Kein Entsperren, kein Zugriff auf Bitwarden-Tresorinhalte, keine Backendänderung.
+
 ## Tagdarstellung, Tabgruppen und Lexikon-Dialog, Build 4
 
 Version `0.2.1+4` blendet die globale Tagwolke in Notizübersichten aus. Tagfilter sind

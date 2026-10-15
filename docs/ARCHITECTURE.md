@@ -39,6 +39,19 @@ ordnet `Set-Cookie` nur dem ausstellenden Server zu, nicht dessen Redirect-Ziel.
 Domain, Pfad, Secure und Ablauf werden beachtet. Sitzungscookies liegen verschlüsselt über
 `flutter_secure_storage` im Android-Keystore bzw. iOS-Keychain.
 
+Vor dem Schreiben der Reader-Einstellungscookies lädt `initializeReader` die vorhandene
+Host-Cookieablage ausdrücklich über `loadForRequest(origin)`. Die verwendete Cookie-Bibliothek
+liest diese Ablage bei `saveFromResponse` nicht automatisch; ohne vorheriges Laden würde ein
+Kaltstart die gespeicherte Session durch die beiden Einstellungen ersetzen. Schlüssel,
+Namespace und Verschlüsselung bleiben bei Updates unverändert. Tests erzeugen neue
+Client-/CookieJar-Instanzen über derselben Ablage und prüfen auch erneute Neustarts.
+
+Anmeldefelder melden ihre Autofill-Rolle ausdrücklich an das Betriebssystem. Im Passwortschritt
+bleibt die E-Mail-Adresse als Login-Identifier in derselben Autofill-Gruppe vorhanden.
+Erst ein serverseitig bestätigter Erfolg schließt den Kontext zum Speichern ab; ein
+fehlgeschlagener oder abgebrochener Versuch speichert keine Zugangsdaten. Der Passwortmanager
+bleibt für Auswahl, Freigabe und Ablage zuständig; die App speichert selbst keine Passwörter.
+
 Bilder aus eigenen Inhalten nutzen denselben Client. Der HTML-Renderer darf keine eigenen
 Netzwerk-, Datei-, Daten- oder Asset-Provider verwenden. Externe Bilder werden nicht automatisch
 geladen. Externe Links benötigen eine bewusste Bestätigung und öffnen den Systembrowser.

@@ -130,18 +130,32 @@ class AccountScreen extends StatelessWidget {
                 : 'Passwort einrichten',
             path: '/account',
             action: 'password',
+            shouldSaveAutofill: (result) => result.isSuccess,
             fields: [
+              FormFieldSpec(
+                'email',
+                'E-Mail-Adresse',
+                value: user['email'],
+                kind: FieldKind.email,
+                readOnly: true,
+                autofillHints: const [
+                  AutofillHints.username,
+                  AutofillHints.email,
+                ],
+              ),
               if (data['hasPassword'] == true)
                 const FormFieldSpec(
                   'currentPassword',
                   'Aktuelles Passwort',
                   kind: FieldKind.password,
+                  autofillHints: [AutofillHints.password],
                   required: true,
                 ),
               FormFieldSpec(
                 'password',
                 'Neues Passwort',
                 kind: FieldKind.password,
+                autofillHints: const [AutofillHints.newPassword],
                 required: true,
                 hint:
                     'Mindestens ${asInt(data['minPasswordLength'], 12)} Zeichen',
@@ -150,6 +164,7 @@ class AccountScreen extends StatelessWidget {
                 'passwordRepeat',
                 'Neues Passwort wiederholen',
                 kind: FieldKind.password,
+                autofillHints: [AutofillHints.newPassword],
                 required: true,
               ),
             ],
