@@ -19,10 +19,12 @@ Farben, Namen und Textvorschau sind sichtbar, ohne Überläufe.
 APK: `artifacts/akribos-0.2.3-akribos-de-release.apk`.
 SHA-256: `1d019646004643d09ac7ee76fd0c4d391a55a6d9151d6241b39138c2b7fb99d7`.
 
-Die Geräteinstallation steht noch aus: Das Pixel wurde beim vorbereiteten Update nicht
-mehr über ADB erkannt. Bei erneuter Verbindung ausschließlich `adb install -r` verwenden,
-mit demselben Signer und ohne Löschen von App-Daten. Die Darstellung wurde noch nicht
-auf dem Pixel geprüft.
+Die APK wurde am 15. Oktober 2026 um **11:33 Uhr** mit `adb install -r` erfolgreich
+auf dem wieder angeschlossenen Pixel 9 Pro aktualisiert (`Success`). Android bestätigt
+`versionName=0.2.3`, `versionCode=6` und den unveränderten Erstinstallationszeitpunkt
+**14. Oktober, 22:28 Uhr**. Die App wurde anschließend in den Vordergrund gebracht.
+Es gab keine Deinstallation und kein Löschen von App-Daten. Die Darstellung wurde
+per Widget-Aufnahmen geprüft; eine visuelle Abnahme auf dem Pixel steht noch aus.
 
 ## Sitzungserhalt und Passwortmanager, Build 5
 
