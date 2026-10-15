@@ -1,0 +1,26 @@
+{
+  "listQuote": {
+    "html": "<ul><li><p>Demut meint laut Gerhard Kautz:</p><blockquote><p>Es ist nicht das sich gering machen, wo es gar nicht nötig ist.</p></blockquote></li><li><p>Danach geht es weiter.</p></li></ul>",
+    "markdown": "-   Demut meint laut Gerhard Kautz:\n\n    > Es ist nicht das sich gering machen, wo es gar nicht nötig ist.\n\n-   Danach geht es weiter.\n",
+    "rendered": "<ul>\n<li><p>Demut meint laut Gerhard Kautz:</p>\n<blockquote>\n<p>Es ist nicht das sich gering machen, wo es gar nicht nötig ist.</p>\n</blockquote>\n</li>\n<li><p>Danach geht es weiter.</p>\n</li>\n</ul>\n"
+  },
+  "fiveSubitems": {
+    "html": "<ul><li><p>Und darum sollten wir echt beten, aber auch daran arbeiten</p><ul><li><p>Das wir nicht zu hoch von uns selbst denken</p></li><li><p>Dass wir nicht sinnlos streiten</p></li><li><p>Ein gemeinsames Ziel haben</p></li><li><p>Andere höher achten als uns selbst</p></li><li><p>Uns für andere echt interessieren</p></li></ul></li></ul>",
+    "markdown": "-   Und darum sollten wir echt beten, aber auch daran arbeiten\n\n    -   Das wir nicht zu hoch von uns selbst denken\n\n    -   Dass wir nicht sinnlos streiten\n\n    -   Ein gemeinsames Ziel haben\n\n    -   Andere höher achten als uns selbst\n\n    -   Uns für andere echt interessieren\n",
+    "rendered": "<ul>\n<li><p>Und darum sollten wir echt beten, aber auch daran arbeiten</p>\n<ul>\n<li><p>Das wir nicht zu hoch von uns selbst denken</p>\n</li>\n<li><p>Dass wir nicht sinnlos streiten</p>\n</li>\n<li><p>Ein gemeinsames Ziel haben</p>\n</li>\n<li><p>Andere höher achten als uns selbst</p>\n</li>\n<li><p>Uns für andere echt interessieren</p>\n</li>\n</ul>\n</li>\n</ul>\n"
+  },
+  "genuineCode": {
+    "html": "<ul><li><p>Und darum sollten wir echt beten</p><ul><li><p>Andere höher achten</p></li></ul><pre><code>-   Uns für andere echt interessieren</code></pre></li></ul>",
+    "markdown": "-   Und darum sollten wir echt beten\n\n    -   Andere höher achten\n\n\n    ```\n    -   Uns für andere echt interessieren\n    ```\n",
+    "rendered": "<ul>\n<li><p>Und darum sollten wir echt beten</p>\n<ul>\n<li>Andere höher achten</li>\n</ul>\n<pre><code>-   Uns für andere echt interessieren</code></pre>\n</li>\n</ul>\n"
+  },
+  "quotedContinuation": {
+    "html": "<ul><li><p>Vorher.</p><blockquote><p>Zitat mit <strong>Fettdruck</strong>.</p></blockquote><p>Nachher.</p><ul><li><p>Unterpunkt</p></li></ul></li><li><p>Ende.</p></li></ul>",
+    "markdown": "-   Vorher.\n\n    > Zitat mit **Fettdruck**.\n\n    Nachher.\n\n    -   Unterpunkt\n\n-   Ende.\n",
+    "rendered": "<ul>\n<li><p>Vorher.</p>\n<blockquote>\n<p>Zitat mit <strong>Fettdruck</strong>.</p>\n</blockquote>\n<p>Nachher.</p>\n<ul>\n<li>Unterpunkt</li>\n</ul>\n</li>\n<li><p>Ende.</p>\n</li>\n</ul>\n"
+  },
+  "footnotes": {
+    "markdown": "Text[^n] und wieder[^n]. <u>Unterstrichen</u>, <mark>Markiert</mark>.\n\n[^n]: **Fette** Erklärung.\n\n    > Zitat in Fußnote\n\n    - Punkt\n\n[^unused]: Nicht referenziert.\n",
+    "rendered": "<p>Text<sup data-footnote-ref=\"n\">1</sup> und wieder<sup data-footnote-ref=\"n\">1</sup>. <u>Unterstrichen</u>, <mark>Markiert</mark>.</p>\n<ol data-footnotes=\"true\"><li data-footnote-id=\"n\"><p><strong>Fette</strong> Erklärung.</p>\n<blockquote>\n<p>Zitat in Fußnote</p>\n</blockquote>\n<ul>\n<li>Punkt</li>\n</ul>\n</li><li data-footnote-id=\"unused\"><p>Nicht referenziert.</p>\n</li></ol>"
+  }
+}

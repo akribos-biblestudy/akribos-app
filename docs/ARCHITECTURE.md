@@ -25,7 +25,7 @@ gezielt den Reader nach einem erfolgreichen Flush; normale Bereichswechsel tun d
 | `lib/core` | Origin-gebundener HTTP-Client, Cookie-Speicher, Protokollumschläge und App-Kontext |
 | `lib/features/reader` | Workspace-Modelle, flache Ressourcen-Tabs, Kapitelstreams, Verse, Markierungen und Notiz-Sidecar |
 | `lib/features/search` | Suche, Strong, Statistik, Morphologie |
-| `lib/features/documents` | Notizbibliothek, Ausarbeitungen, Richtext-/Markdown-Editor, Entwürfe, Anhänge und Export |
+| `lib/features/documents` | Notizbibliothek, Ausarbeitungen, Markdown-Editor mit Lesemodus, Entwürfe, Anhänge und Export |
 | `lib/features/collections` | Sammlungen, Mitglieder, Kommentare |
 | `lib/features/account` | Anmeldung, Konto, Markierungsstile |
 | `lib/features/help` | Lokaler Hilfeplatzhalter, Über Akribos und Lizenzen |
@@ -119,44 +119,46 @@ Die Notizübersichten rendern keine vollständige Tagwolke. Tagfilter werden bei
 geöffnet, Tagdetails am Dokument bleiben eingeklappt und bearbeitbar. Die Zahl vorhandener
 Tags darf den eigentlichen Notizinhalt nicht aus dem sichtbaren Bereich verdrängen.
 
-`RichMarkdownController` projiziert das bestehende Markdown in FlutterQuill 11.6.0 (MIT).
-Markdown bleibt die Speicherquelle; Delta ist ausschließlich das Bearbeitungsmodell.
-Öffnen, Textauswahl und Lesen/Bearbeiten verändern die Originalquelle nicht. Unveränderte
-Blöcke behalten ihre Quelltexte auch bei Änderungen in anderen Absätzen. Tabellen, Fußnoten
-und nicht darstellbare Blöcke werden mit ihrer Quelle in eigenen Embeds erhalten; unbekannte
-Inhalte dürfen beim Speichern nicht still verschwinden. Das Modell ist dokumentgebunden,
-keine globale Ablage zwischen Konten. Echte Inhaltsänderungen aktualisieren den bestehenden
-Draft, reine Auswahl-/Modusänderungen erzeugen weder Autosave noch neue Revisionen.
+`MarkdownSourceEditor` bearbeitet die kanonische Markdown-Quelle unmittelbar in einem
+nativen Flutter-Textfeld. Es gibt keine Delta-Projektion und keine Rückkonvertierung beim
+Speichern. Alle Formatierungen bleiben als Markdown bzw. unterstütztes Inline-HTML
+bearbeitbar; Lesen zeigt die formatierte Darstellung. Auswahl und Moduswechsel ändern
+keinen Inhalt. Der vorhandene `DocumentDraft` bleibt die Quelle für Revisionen und Saves.
 
-Die Oberfläche verwendet eine zusammenhängende Schreibfläche und eine Formatleiste an der
-Auswahl. Der Modusschalter steht links, das Dokumentmenü rechts; Einfügen und Details
-liegen im Dokumentmenü, ohne eigenen Plus-Button. Lesen und Bearbeiten
-verwenden denselben Controller und erhalten den Bearbeitungsverlauf. Im Lesemodus ist auch
-der Titel schreibgeschützt; die Metadatenverwaltung bleibt außerhalb der Skriptfläche.
-Es gibt keine WebView. Die Quill-Lokalisierung ist in der App registriert. Externe Bilder
-werden im Editor nicht automatisch geladen; Richtext-Paste aus fremden Apps wird zunächst
-als Text übernommen, damit keine ununterstützten Medien-/Formatattribute hineingelangen.
+Der Modusschalter steht links, das Dokumentmenü rechts. An der Textauswahl stehen
+Formatierungsaktionen; weitere Einfügungen und Details liegen im Dokumentmenü. Es gibt
+weder Plus-Button noch dauerhafte Formatleiste. Getippte Markdown-Präfixe bleiben im
+Quelltext sichtbar; die Lesedarstellung interpretiert sie. Der Editor bleibt beim Lesen
+gemountet, aber ohne Fokus und Semantik, damit Flutter seinen Undo-Verlauf erhält.
+Bearbeiten und Lesen behalten eigene Scrollpositionen. Titel und Metadaten sind beim
+Lesen nicht veränderbar. Der Lesemodus ändert die Bildschirm-Standby-Einstellung nicht.
 
-Listen werden als zusammenhängende Markdown-Blöcke geparst, einschließlich der vom
-Web-Editor erzeugten Leerzeilen und vier Leerzeichen vor Unterpunkten. Vorzeitiges
-Aufteilen würde diese Unterpunkte fälschlich zu Codeblöcken machen. Fortsetzungsabsätze
-bleiben ihren Listeneinträgen zugeordnet; echte Codeblöcke behalten ihre Bedeutung.
-Listeneinzüge und Markierungen folgen Schriftgröße und erster Textzeile.
+`MarkdownDocumentReader` verwendet `HtmlContent` mit dokumentbezogenen Abständen,
+Listeneinzügen, Zitatlinie und Tabellenrändern. Die HTML-Listen setzen ihre Marker an der
+Baseline der ersten Textzeile; Folgezeilen und verschachtelte Listen behalten ihren
+nativen Einzug. Der für Dokumente eingeschaltete Marker-Builder verwendet skalierbaren
+Text, da der private TextPainter des Paketstandards die Systemschriftgröße ignoriert.
+Die Positionierung übernimmt weiterhin das native HTML-Listenlayout. Kein Aufteilen an Leerzeilen: Lose Listen aus dem Web-Editor, Zitate in
+Listeneinträgen und echte Codeblöcke werden als vollständiges Dokument interpretiert.
+Es gibt keine WebView. Bilder verwenden weiterhin ausschließlich den authentifizierten,
+originbeschränkten HTML-Bildpfad; externe Medien werden nicht automatisch geladen.
 
-`RichMarkdownShortcuts` ergänzt Eingaberegeln für `- `, `* `, `+ `, `1. `, `> ` und
-`# ` bis `###### `. Quills Hardware-Shortcuts allein reichen für Android/iOS nicht;
-der Adapter berücksichtigt auch einzelne Leerzeichen aus der nativen Texteingabe.
-Laden, Einfügen aus der Zwischenablage, aktive IME-Komposition und Lesen lösen keine
-Umwandlung aus. Rückgängig stellt das eingegebene Präfix samt Leerzeichen wieder her.
+Für einen mit dem Serverstand identischen Quelltext wird dessen `bodyHtml` verwendet.
+Ein aktueller lokaler Entwurf wird dagegen unmittelbar mit dem vorhandenen Dart-Markdown-
+Parser gerendert, auch offline und ohne Schreibanfrage. Die lokale Vorschau ist kein
+zweites Speicherformat. Spezielle automatische Bibelverweise und seltene Syntaxgrenzfälle
+können vom Server abweichen; gespeicherte Quellen werden deshalb nie aus Vorschau-HTML
+zurückgewonnen. Tabellen, Fußnoten und Inline-HTML bleiben direkt bearbeitbar.
+Fußnoten öffnen ein natives Leseblatt; Schließen kehrt zur unveränderten Leseposition
+zurück. Andere Dokumentanker bleiben lokale Scrollziele. Ein eng begrenzter Override der
+`FootnoteDefSyntax` legt Rücklinks in einem Absatz an, weil markdown 7.3.1 bei einer
+Liste am Ende einer Fußnote sonst eine Typausnahme wirft.
 
-Der Tabellendialog bearbeitet einzelne Zellen; Zeilen- und Spaltenumbau ist noch
-nicht vorgesehen. Nicht nativ abbildbare Strukturen haben einen ausdrücklich geöffneten
-Originalformat-Dialog. Der Lesemodus verändert die Bildschirm-Standby-Einstellung nicht.
-
-Auswahlgrundlage: [FlutterQuill](https://pub.dev/packages/flutter_quill) und dessen
-[Konfiguration](https://pub.dev/documentation/flutter_quill/latest/flutter_quill/QuillEditorConfig-class.html).
-Der Paketstandard garantiert keinen vollständigen Markdown-Rundlauf; deshalb hat Akribos
-seinen eigenen Adapter mit Regressionen für Tabellen, Fußnoten, Unicode und Formatierung.
+Auswahlgrundlage: [Flutter TextField](https://api.flutter.dev/flutter/material/TextField-class.html),
+[Dart Markdown](https://pub.dev/packages/markdown) und
+[nativer HTML-Renderer](https://pub.dev/packages/flutter_widget_from_html_core).
+FlutterQuill samt eigenem Roundtrip-Adapter ist entfernt. Die einfachere Quelltexteingabe
+ist eine bewusste Produktentscheidung nach wiederholten Fehlern bei Listen und Zitaten.
 
 Autosave arbeitet mit der aktuellen positiven Dokumentrevision. Ein Bearbeitungsstand wird
 zusätzlich unter einem Schlüssel aus Server, Konto und Dokument sicher gespeichert. Der

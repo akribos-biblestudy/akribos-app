@@ -5,8 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_quill/flutter_quill.dart'
-    show FlutterQuillLocalizations;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api_client.dart';
@@ -108,10 +106,7 @@ class _AkribosAppState extends State<AkribosApp> {
     debugShowCheckedModeBanner: false,
     locale: const Locale('de'),
     supportedLocales: const [Locale('de'), Locale('en')],
-    localizationsDelegates: const [
-      ...GlobalMaterialLocalizations.delegates,
-      FlutterQuillLocalizations.delegate,
-    ],
+    localizationsDelegates: const [...GlobalMaterialLocalizations.delegates],
     theme: appTheme(Brightness.light, eInk: _eInk),
     darkTheme: appTheme(Brightness.dark),
     themeMode: _eInk ? ThemeMode.light : _theme,

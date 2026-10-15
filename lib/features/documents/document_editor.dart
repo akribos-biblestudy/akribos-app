@@ -12,8 +12,8 @@ import '../../core/api_client.dart';
 import '../../widgets/common.dart';
 import 'document_draft.dart';
 import 'document_widgets.dart';
-import 'rich_markdown_controller.dart';
-import 'rich_markdown_editor.dart';
+import 'markdown_source_editor.dart';
+import 'markdown_document_reader.dart';
 import '../reader/books.dart';
 import '../reader/verse_text.dart';
 
@@ -29,7 +29,8 @@ class _DocumentEditorState extends State<DocumentEditor>
     with WidgetsBindingObserver {
   final _title = TextEditingController();
   final _body = TextEditingController();
-  final _rich = RichMarkdownController(markdown: '');
+  final _editorUndo = UndoHistoryController();
+  final _readingScroll = ScrollController();
   final _editorScroll = ScrollController();
   final _editorFocus = FocusNode();
   final _detailsRevision = ValueNotifier<int>(0);
@@ -59,8 +60,7 @@ class _DocumentEditorState extends State<DocumentEditor>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _title.addListener(_changed);
-    _body.addListener(_bodyChanged);
-    _rich.addListener(_syncRichBody);
+    _body.addListener(_changed);
   }
 
   @override
@@ -81,7 +81,8 @@ class _DocumentEditorState extends State<DocumentEditor>
     _timer?.cancel();
     _title.dispose();
     _body.dispose();
-    _rich.dispose();
+    _editorUndo.dispose();
+    _readingScroll.dispose();
     _editorScroll.dispose();
     _editorFocus.dispose();
     _detailsRevision.dispose();
@@ -92,10 +93,18 @@ class _DocumentEditorState extends State<DocumentEditor>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
-      _syncRichBody();
       _persistDraft();
       unawaited(_save());
     }
+  }
+
+  void _setSource(String markdown) {
+    // Flutter records undo baselines only for valid selections. This also makes
+    // the first menu insertion undoable before the source field was focused.
+    _body.value = TextEditingValue(
+      text: markdown,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
   }
 
   Future<void> _load({bool recover = false}) async {
@@ -110,7 +119,7 @@ class _DocumentEditorState extends State<DocumentEditor>
         revision: asInt(document['revision']),
       );
       _title.text = _draft!.title;
-      _body.text = _draft!.markdown;
+      _setSource(_draft!.markdown);
       if (recover) _preview = _scope.eInk && _draft!.markdown.trim().isNotEmpty;
       _draftKey =
           'document-draft:${_scope.api.origin.origin}:${asMap(data['user'])['id']}:$_id';
@@ -178,7 +187,8 @@ class _DocumentEditorState extends State<DocumentEditor>
       if (restore == true) {
         _recovering = true;
         _draft!.title = _title.text = asString(saved['title']);
-        _draft!.markdown = _body.text = asString(saved['markdown']);
+        _draft!.markdown = asString(saved['markdown']);
+        _setSource(_draft!.markdown);
         // Retain the original revision: a stale draft must encounter the normal
         // server conflict instead of overwriting a newer remote document.
         _draft!.revision = asInt(saved['revision']);
@@ -195,22 +205,6 @@ class _DocumentEditorState extends State<DocumentEditor>
         );
       }
     }
-  }
-
-  // The source controller is the persistence boundary. Quill selections never
-  // notify this bridge; loads/recovery replace source without starting autosave.
-  void _bodyChanged() {
-    if (_rich.markdown != _body.text) _rich.setMarkdown(_body.text);
-    _changed();
-  }
-
-  void _syncRichBody() {
-    final markdown = _rich.markdown;
-    if (markdown == _body.text) return;
-    _body.value = TextEditingValue(
-      text: markdown,
-      selection: TextSelection.collapsed(offset: markdown.length),
-    );
   }
 
   void _setBusy(bool value) {
@@ -257,9 +251,8 @@ class _DocumentEditorState extends State<DocumentEditor>
   }
 
   Future<bool> _save() async {
-    // Read the current editor synchronously before capturing the request, also
-    // when a lifecycle event/navigation follows the last keystroke immediately.
-    _syncRichBody();
+    // _body is the canonical Markdown source; its synchronous text listener
+    // already updated the draft before this immutable request snapshot.
     _timer?.cancel();
     while (_saving != null) {
       if (!await _saving!) return false;
@@ -338,7 +331,7 @@ class _DocumentEditorState extends State<DocumentEditor>
       _draft?.discard();
       _recovering = true;
       _title.text = _draft?.title ?? _title.text;
-      _body.text = _draft?.markdown ?? _body.text;
+      _setSource(_draft?.markdown ?? _body.text);
       _recovering = false;
       _persistDraft();
       await _draftWrites;
@@ -417,7 +410,7 @@ class _DocumentEditorState extends State<DocumentEditor>
         _draft!.markdown = asString(local['markdown']);
       }
       _title.text = _draft!.title;
-      _body.text = _draft!.markdown;
+      _setSource(_draft!.markdown);
       _data!['document'] = current;
       _recovering = false;
       _persistDraft();
@@ -517,7 +510,7 @@ class _DocumentEditorState extends State<DocumentEditor>
 
   void _insert(String markdown) {
     if (_busy || _preview) return;
-    _rich.insertMarkdown(markdown);
+    insertMarkdownText(_body, markdown);
     _editorFocus.requestFocus();
   }
 
@@ -1004,17 +997,17 @@ class _DocumentEditorState extends State<DocumentEditor>
               ),
             ),
             for (final entry in const <(Object, String)>[
-              (RichMarkdownBlock.paragraph, 'Absatz'),
-              (RichMarkdownBlock.heading1, 'Überschrift 1'),
-              (RichMarkdownBlock.heading2, 'Überschrift 2'),
-              (RichMarkdownBlock.heading3, 'Überschrift 3'),
-              (RichMarkdownBlock.bulletedList, 'Aufzählung'),
-              (RichMarkdownBlock.numberedList, 'Nummerierte Liste'),
-              (RichMarkdownBlock.quote, 'Zitat'),
-              (RichMarkdownBlock.code, 'Codeblock'),
-              (RichMarkdownBlock.rule, 'Trennlinie'),
-              (RichMarkdownBlock.table, 'Tabelle'),
-              (RichMarkdownBlock.footnote, 'Fußnote'),
+              (MarkdownInsertBlock.paragraph, 'Absatz'),
+              (MarkdownInsertBlock.heading1, 'Überschrift 1'),
+              (MarkdownInsertBlock.heading2, 'Überschrift 2'),
+              (MarkdownInsertBlock.heading3, 'Überschrift 3'),
+              (MarkdownInsertBlock.bulletedList, 'Aufzählung'),
+              (MarkdownInsertBlock.numberedList, 'Nummerierte Liste'),
+              (MarkdownInsertBlock.quote, 'Zitat'),
+              (MarkdownInsertBlock.code, 'Codeblock'),
+              (MarkdownInsertBlock.rule, 'Trennlinie'),
+              (MarkdownInsertBlock.table, 'Tabelle'),
+              (MarkdownInsertBlock.footnote, 'Fußnote'),
               ('bible', 'Bibeltext zitieren'),
               ('document', 'Eigene Notiz verknüpfen'),
             ])
@@ -1031,8 +1024,9 @@ class _DocumentEditorState extends State<DocumentEditor>
       await _quoteBible();
     } else if (value == 'document') {
       await _linkDocument();
-    } else if (value is RichMarkdownBlock) {
-      await insertRichMarkdownBlock(context, _rich, value);
+    } else if (value is MarkdownInsertBlock) {
+      insertMarkdownBlock(_body, value);
+      _editorFocus.requestFocus();
     }
   }
 
@@ -1047,9 +1041,9 @@ class _DocumentEditorState extends State<DocumentEditor>
       } else if (value == 'undo' || value == 'redo') {
         if (_preview || _busy) return;
         if (value == 'undo') {
-          _rich.quill.undo();
+          _editorUndo.undo();
         } else {
-          _rich.quill.redo();
+          _editorUndo.redo();
         }
       } else if (value == 'kind') {
         await _form('Dokumentart ändern', 'changeKind', [
@@ -1071,12 +1065,12 @@ class _DocumentEditorState extends State<DocumentEditor>
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'undo',
-          enabled: _rich.quill.hasUndo,
+          enabled: _editorUndo.value.canUndo,
           child: const Text('Rückgängig'),
         ),
         PopupMenuItem(
           value: 'redo',
-          enabled: _rich.quill.hasRedo,
+          enabled: _editorUndo.value.canRedo,
           child: const Text('Wiederholen'),
         ),
         const PopupMenuDivider(),
@@ -1116,9 +1110,7 @@ class _DocumentEditorState extends State<DocumentEditor>
                   ],
                   TextButton(
                     onPressed: () async {
-                      await Clipboard.setData(
-                        ClipboardData(text: _rich.markdown),
-                      );
+                      await Clipboard.setData(ClipboardData(text: _body.text));
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Entwurf kopiert.')),
@@ -1249,6 +1241,17 @@ class _DocumentEditorState extends State<DocumentEditor>
         : _draft!.dirty
         ? 'Speichern'
         : 'Gespeichert';
+    final source = _body.text;
+    final savedDocument = asMap(_data!['document']);
+    final savedHtml = asString(savedDocument['bodyHtml']);
+    final renderedHtml =
+        asString(savedDocument['bodyMarkdown']) == source &&
+            (savedHtml.isNotEmpty || source.isEmpty)
+        ? savedHtml
+        : null;
+    final fontScale = (asInt(_data!['readerFontScale'], 100) / 100)
+        .clamp(.7, 2)
+        .toDouble();
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1100),
@@ -1265,14 +1268,37 @@ class _DocumentEditorState extends State<DocumentEditor>
                   child: SingleChildScrollView(child: _header(saveLabel)),
                 ),
                 Expanded(
-                  child: RichMarkdownEditor(
-                    key: const Key('document-rich-editor'),
-                    controller: _rich,
-                    readOnly: _preview || _busy,
-                    scrollController: _editorScroll,
-                    focusNode: _editorFocus,
-                    fontScale: (asInt(_data!['readerFontScale'], 100) / 100)
-                        .clamp(.7, 2),
+                  child: IndexedStack(
+                    key: const Key('document-text-surface'),
+                    index: _preview ? 1 : 0,
+                    children: [
+                      // Keep TextField and its UndoHistoryState mounted across
+                      // modes. Hidden editing must not retain focus or semantics.
+                      ExcludeSemantics(
+                        excluding: _preview,
+                        child: ExcludeFocus(
+                          excluding: _preview,
+                          child: MarkdownSourceEditor(
+                            key: const Key('document-source-editor'),
+                            controller: _body,
+                            undoController: _editorUndo,
+                            readOnly: _preview || _busy,
+                            scrollController: _editorScroll,
+                            focusNode: _editorFocus,
+                            fontScale: fontScale,
+                          ),
+                        ),
+                      ),
+                      if (_preview)
+                        MarkdownDocumentReader(
+                          markdown: source,
+                          renderedHtml: renderedHtml,
+                          scrollController: _readingScroll,
+                          fontScale: fontScale,
+                        )
+                      else
+                        const SizedBox.expand(),
+                    ],
                   ),
                 ),
               ],

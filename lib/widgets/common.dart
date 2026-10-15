@@ -9,14 +9,33 @@ import '../core/api_client.dart';
 import '../core/app_scope.dart';
 
 class HtmlContent extends StatelessWidget {
-  const HtmlContent({super.key, required this.html, this.onTapUrl});
+  const HtmlContent({
+    super.key,
+    required this.html,
+    this.onTapUrl,
+    this.textStyle,
+    this.customStylesBuilder,
+    this.customWidgetBuilder,
+    this.scalableListMarkers = false,
+  });
   final String html;
   final FutureOr<bool> Function(String)? onTapUrl;
+  final TextStyle? textStyle;
+  final CustomStylesBuilder? customStylesBuilder;
+  final CustomWidgetBuilder? customWidgetBuilder;
+  final bool scalableListMarkers;
   @override
   Widget build(BuildContext context) => HtmlWidget(
     html,
+    textStyle: textStyle,
+    customStylesBuilder: customStylesBuilder,
+    customWidgetBuilder: customWidgetBuilder,
     baseUrl: AppScope.of(context).api.origin,
-    factoryBuilder: () => _PrivateHtmlFactory(AppScope.of(context).api),
+    factoryBuilder: () => _PrivateHtmlFactory(
+      AppScope.of(context).api,
+      scalableListMarkers: scalableListMarkers,
+      eInk: AppScope.of(context).eInk,
+    ),
     onTapUrl:
         onTapUrl ??
         (url) async {
@@ -30,7 +49,12 @@ class HtmlContent extends StatelessWidget {
           }
           // Let HtmlWidget resolve same-document anchors inside its own scroll
           // view. Reporting them as handled would instead leave this document.
-          if (uri.hasFragment && uri.removeFragment() == scope.api.origin) {
+          if (parsed.hasFragment &&
+              ((!parsed.hasScheme &&
+                      parsed.host.isEmpty &&
+                      parsed.path.isEmpty &&
+                      !parsed.hasQuery) ||
+                  uri.removeFragment() == scope.api.origin)) {
             return false;
           }
           if (uri.scheme != 'mailto' && uri.origin == scope.api.origin.origin) {
@@ -56,8 +80,55 @@ class HtmlContent extends StatelessWidget {
 /// HTML may describe images, but only the authenticated first-party transport loads them.
 /// Disable built-in network/file providers as they also serve CSS background images.
 class _PrivateHtmlFactory extends WidgetFactory {
-  _PrivateHtmlFactory(this.api);
+  _PrivateHtmlFactory(
+    this.api, {
+    this.scalableListMarkers = false,
+    this.eInk = false,
+  });
   final AppApi api;
+  final bool scalableListMarkers, eInk;
+
+  @override
+  Future<bool> onTapAnchor(String id, EnsureVisible scrollTo) => scrollTo(
+    id,
+    duration: eInk ? Duration.zero : const Duration(milliseconds: 100),
+  );
+
+  @override
+  Widget? buildListMarker(
+    BuildTree tree,
+    InheritedProperties resolved,
+    String listStyleType,
+    int index,
+  ) {
+    if (!scalableListMarkers || listStyleType == 'none') {
+      return super.buildListMarker(tree, resolved, listStyleType, index);
+    }
+    final marker = switch (listStyleType) {
+      'disc' => '•',
+      'circle' => '◦',
+      'square' => '▪',
+      _ => getListMarkerText(listStyleType, index),
+    };
+    final style = resolved.prepareTextStyle();
+    final child = buildText(
+      tree,
+      resolved,
+      TextSpan(text: marker, style: style),
+    );
+    if (child == null) return null;
+    return Builder(
+      builder: (context) => Padding(
+        padding: EdgeInsetsDirectional.only(
+          end:
+              MediaQuery.textScalerOf(context).scale(style.fontSize ?? 14) *
+              .15,
+        ),
+        child: child,
+      ),
+    );
+  }
+
   @override
   Widget? buildImage(BuildTree tree, ImageMetadata data) {
     final source = data.sources.firstOrNull;

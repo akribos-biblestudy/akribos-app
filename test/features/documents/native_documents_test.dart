@@ -6,10 +6,10 @@ import 'package:akribos_app/core/app_scope.dart';
 import 'package:akribos_app/features/collections/collections_screen.dart';
 import 'package:akribos_app/features/documents/document_editor.dart';
 import 'package:akribos_app/features/documents/documents_screen.dart';
-import 'package:akribos_app/features/documents/rich_markdown_editor.dart';
+import 'package:akribos_app/features/documents/markdown_source_editor.dart';
+import 'package:akribos_app/features/documents/markdown_document_reader.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_quill/flutter_quill.dart' as q;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -25,7 +25,9 @@ class _FakeApi extends AppApi {
   @override
   Future<Json> page(String path) async => data;
   @override
-  Future<dynamic> get(String path) async => {};
+  Future<dynamic> get(String path) async => path == '/api/documents/one'
+      ? {'document': data['document']}
+      : <String, dynamic>{};
   @override
   Future<ApiResult> action(String path, String action, Json fields) async {
     actions.add({'path': path, 'action': action, 'fields': fields});
@@ -65,7 +67,6 @@ Widget _app(
   themeMode: ThemeMode.light,
   eInk: eInk,
   child: MaterialApp(
-    localizationsDelegates: const [q.FlutterQuillLocalizations.delegate],
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context)
           .copyWith(textScaler: TextScaler.linear(textScale)),
@@ -75,18 +76,21 @@ Widget _app(
   ),
 );
 
-RichMarkdownEditor _editor(WidgetTester tester) =>
-    tester.widget<RichMarkdownEditor>(find.byType(RichMarkdownEditor));
+Finder _source() => find.byType(MarkdownSourceEditor, skipOffstage: false);
+MarkdownSourceEditor _editor(WidgetTester tester) =>
+    tester.widget<MarkdownSourceEditor>(_source());
+Finder _sourceEditable() => find.descendant(
+  of: _source(),
+  matching: find.byType(EditableText, skipOffstage: false),
+  skipOffstage: false,
+);
 
 String _replaceBody(WidgetTester tester, String text) {
-  final rich = _editor(tester).controller;
-  rich.quill.replaceText(
-    0,
-    rich.quill.document.length - 1,
-    text,
-    TextSelection.collapsed(offset: text.length),
+  _editor(tester).controller.value = TextEditingValue(
+    text: text,
+    selection: TextSelection.collapsed(offset: text.length),
   );
-  return rich.markdown;
+  return text;
 }
 
 Json _documentData({String markdown = 'Lesetext', int revision = 1}) => {
@@ -328,7 +332,7 @@ void main() {
         },
       });
       await tester.pump();
-      expect(_editor(tester).controller.markdown, latestMarkdown);
+      expect(_editor(tester).controller.text, latestMarkdown);
       final canNavigate = guard!();
       await tester.pump();
       expect(await canNavigate, isTrue);
@@ -365,7 +369,7 @@ void main() {
     expect(find.byTooltip('Details'), findsNothing);
     await tester.tap(find.text('Bearbeiten'));
     await tester.pumpAndSettle();
-    expect(find.byType(TextField), findsOneWidget);
+    expect(find.byType(TextField), findsNWidgets(2));
     expect(_editor(tester).readOnly, isFalse);
   });
 
@@ -382,35 +386,69 @@ void main() {
         _app(api, const DocumentEditor(path: '/notes/one')),
       );
       await tester.pumpAndSettle();
-      final title = tester.widget<TextField>(find.byType(TextField));
+      final title = tester.widget<TextField>(find.byType(TextField).first);
       expect(title.maxLines, 2);
       expect(title.controller!.text, 'Getragen durch Hoffnung');
-      final bounds = tester.getRect(find.byType(RichMarkdownEditor));
-      final rich = _editor(tester).controller;
-      final document = rich.quill.document;
-      final scroll = _editor(tester).scrollController!;
-      rich.quill.updateSelection(
-        const TextSelection.collapsed(offset: 5),
-        q.ChangeSource.local,
+      final bounds = tester.getRect(
+        find.byKey(const Key('document-text-surface')),
       );
+      final rich = _editor(tester).controller;
+      final editableState = tester.state<EditableTextState>(_sourceEditable());
+      final undo = _editor(tester).undoController;
+      final scroll = _editor(tester).scrollController;
+      rich.selection = const TextSelection.collapsed(offset: 5);
       await tester.pump();
       scroll.jumpTo(250);
       await tester.pump();
       final offset = scroll.offset;
-      final canUndo = rich.quill.hasUndo;
+      final canUndo = undo.value.canUndo;
+      double? readingOffset;
       expect(
-        tester.getSize(find.byType(RichMarkdownEditor)).height,
+        find.byType(MarkdownDocumentReader, skipOffstage: false),
+        findsNothing,
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('document-text-surface'))).height,
         greaterThan(500),
       );
       for (final mode in ['Lesen', 'Bearbeiten', 'Lesen']) {
         await tester.tap(find.text(mode));
         await tester.pumpAndSettle();
         expect(identical(_editor(tester).controller, rich), isTrue);
-        expect(identical(rich.quill.document, document), isTrue);
-        expect(rich.markdown, source);
-        expect(rich.quill.hasUndo, canUndo);
+        expect(
+          identical(
+            tester.state<EditableTextState>(_sourceEditable()),
+            editableState,
+          ),
+          isTrue,
+        );
+        expect(rich.text, source);
+        expect(undo.value.canUndo, canUndo);
+        expect(rich.selection, const TextSelection.collapsed(offset: 5));
+        expect(_editor(tester).focusNode.hasFocus, isFalse);
         expect(scroll.offset, closeTo(offset, 1));
-        expect(tester.getRect(find.byType(RichMarkdownEditor)), bounds);
+        if (mode == 'Lesen') {
+          final reader = tester.widget<MarkdownDocumentReader>(
+            find.byType(MarkdownDocumentReader),
+          );
+          final readingScroll = reader.scrollController!;
+          if (readingOffset == null) {
+            readingScroll.jumpTo(180);
+            await tester.pump();
+            readingOffset = readingScroll.offset;
+          } else {
+            expect(readingScroll.offset, closeTo(readingOffset, 1));
+          }
+        } else {
+          expect(
+            find.byType(MarkdownDocumentReader, skipOffstage: false),
+            findsNothing,
+          );
+        }
+        expect(
+          tester.getRect(find.byKey(const Key('document-text-surface'))),
+          bounds,
+        );
       }
       expect(find.byType(TextField), findsNothing);
       expect(find.byTooltip('Einfügen'), findsNothing);
@@ -448,7 +486,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Überschrift 2'));
       await tester.pumpAndSettle();
-      expect(_editor(tester).controller.markdown, contains('## Gedanke'));
+      expect(_editor(tester).controller.text, contains('## Gedanke'));
       await tester.tap(find.text('Lesen'));
       await tester.pumpAndSettle();
       expect(
@@ -475,15 +513,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     final rich = _editor(tester).controller;
-    rich.quill.updateSelection(
-      const TextSelection(baseOffset: 0, extentOffset: 4),
-      q.ChangeSource.local,
-    );
-    final title = tester.widget<TextField>(find.byType(TextField)).controller!;
+    rich.selection = const TextSelection(baseOffset: 0, extentOffset: 4);
+    final title = tester
+        .widget<TextField>(find.byType(TextField).first)
+        .controller!;
     title.selection = const TextSelection.collapsed(offset: 2);
     await tester.pump(const Duration(seconds: 2));
     expect(api.saves, isEmpty);
-    expect(rich.markdown, 'Lesetext');
+    expect(rich.text, 'Lesetext');
   });
 
   testWidgets(
@@ -504,7 +541,18 @@ void main() {
       await tester.tap(find.text('Lesen'));
       await tester.pumpAndSettle();
       expect(_editor(tester).readOnly, isTrue);
-      expect(_editor(tester).controller.markdown, local);
+      expect(_editor(tester).controller.text, local);
+      final reading = tester.widget<MarkdownDocumentReader>(
+        find.byType(MarkdownDocumentReader),
+      );
+      expect(reading.markdown, local);
+      expect(reading.renderedHtml, isNull);
+      expect(
+        find
+            .textContaining('Lokaler neuer Predigttext', findRichText: true)
+            .hitTestable(),
+        findsWidgets,
+      );
       final navigation = guard!();
       await tester.pumpAndSettle();
       expect(
@@ -514,7 +562,7 @@ void main() {
       await tester.tap(find.text('Hierbleiben'));
       await tester.pumpAndSettle();
       expect(await navigation, isFalse);
-      expect(_editor(tester).controller.markdown, local);
+      expect(_editor(tester).controller.text, local);
       final raw = await const FlutterSecureStorage().read(
         key: 'document-draft:https://example.test:user:one',
       );
@@ -525,7 +573,7 @@ void main() {
   );
 
   testWidgets(
-    'recovered rich draft retains old revision and latest keystroke on immediate flush',
+    'recovered source draft retains old revision and latest keystroke on immediate flush',
     (tester) async {
       FlutterSecureStorage.setMockInitialValues({
         'document-draft:https://example.test:user:one': jsonEncode({
@@ -546,7 +594,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Entwurf öffnen'));
       await tester.pumpAndSettle();
-      expect(_editor(tester).controller.markdown, 'Lokaler Entwurf');
+      expect(_editor(tester).controller.text, 'Lokaler Entwurf');
       expect(api.saves, isEmpty);
       final local = _replaceBody(tester, 'Letztes Zeichen!');
       // No debounce or frame between editing and navigation: flush must observe it.
@@ -560,7 +608,7 @@ void main() {
   );
 
   testWidgets(
-    'rich editor remains bounded on narrow large text and keyboard resize',
+    'source editor remains bounded on narrow large text and keyboard resize',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -570,19 +618,24 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        tester.getSize(find.byType(RichMarkdownEditor)).height,
+        tester.getSize(find.byKey(const Key('document-text-surface'))).height,
         greaterThan(300),
       );
       await tester.binding.setSurfaceSize(const Size(320, 360));
       await tester.pumpAndSettle();
       expect(
-        tester.getSize(find.byType(RichMarkdownEditor)).height,
+        tester.getSize(find.byKey(const Key('document-text-surface'))).height,
         greaterThan(60),
       );
-      final bounds = tester.getRect(find.byType(RichMarkdownEditor));
+      final bounds = tester.getRect(
+        find.byKey(const Key('document-text-surface')),
+      );
       await tester.tap(find.text('Lesen'));
       await tester.pumpAndSettle();
-      expect(tester.getRect(find.byType(RichMarkdownEditor)), bounds);
+      expect(
+        tester.getRect(find.byKey(const Key('document-text-surface'))),
+        bounds,
+      );
       await tester.tap(find.text('Bearbeiten'));
       await tester.pumpAndSettle();
       api.failure = StateError('Offline');
@@ -590,7 +643,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1300));
       await tester.pumpAndSettle();
       expect(
-        tester.getSize(find.byType(RichMarkdownEditor)).height,
+        tester.getSize(find.byKey(const Key('document-text-surface'))).height,
         greaterThan(100),
       );
       expect(tester.takeException(), isNull);
@@ -626,7 +679,19 @@ void main() {
     Navigator.of(tester.element(find.text('Rückgängig'))).pop();
     await tester.pumpAndSettle();
     final latest = _replaceBody(tester, 'Neuer Gedanke');
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    final editingState = tester.state<EditableTextState>(_sourceEditable());
+    await tester.tap(find.text('Lesen'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bearbeiten'));
+    await tester.pumpAndSettle();
+    expect(
+      identical(
+        tester.state<EditableTextState>(_sourceEditable()),
+        editingState,
+      ),
+      isTrue,
+    );
     await tester.tap(find.byTooltip('Dokumentoptionen'));
     await tester.pumpAndSettle();
     expect(
@@ -639,7 +704,7 @@ void main() {
     );
     await tester.tap(find.text('Rückgängig'));
     await tester.pumpAndSettle();
-    expect(_editor(tester).controller.markdown, 'Lesetext');
+    expect(_editor(tester).controller.text, 'Lesetext');
     await tester.tap(find.byTooltip('Dokumentoptionen'));
     await tester.pumpAndSettle();
     expect(
@@ -652,7 +717,7 @@ void main() {
     );
     await tester.tap(find.text('Wiederholen'));
     await tester.pumpAndSettle();
-    expect(_editor(tester).controller.markdown, latest);
+    expect(_editor(tester).controller.text, latest);
     await tester.tap(find.text('Lesen'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Dokumentoptionen'));
@@ -660,6 +725,87 @@ void main() {
     expect(find.text('Rückgängig'), findsNothing);
     expect(find.text('Wiederholen'), findsNothing);
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('stale draft preserves conflict until explicit server adoption', (
+    tester,
+  ) async {
+    FlutterSecureStorage.setMockInitialValues({
+      'document-draft:https://example.test:user:one': jsonEncode({
+        'title': 'Mein Titel',
+        'markdown': '> Mein lokaler Entwurf',
+        'revision': 1,
+      }),
+    });
+    final api = _FakeApi(
+      _documentData(markdown: 'Neuer Serverstand', revision: 3),
+    )..failure = const ApiException('Revision veraltet', status: 409);
+    Future<bool> Function()? guard;
+    await tester.pumpWidget(
+      _app(
+        api,
+        const DocumentEditor(path: '/notes/one'),
+        guard: (_, callback) => guard = callback,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Entwurf öffnen'));
+    await tester.pumpAndSettle();
+    final navigation = guard!();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hierbleiben'));
+    await tester.pumpAndSettle();
+    expect(await navigation, isFalse);
+    expect(api.saves.single['revision'], 1);
+    expect(_editor(tester).controller.text, '> Mein lokaler Entwurf');
+    await tester.tap(find.text('Fassungen vergleichen'));
+    await tester.pumpAndSettle();
+    expect(find.text('Dein Entwurf: Mein Titel'), findsOneWidget);
+    await tester.tap(find.text('Serverfassung übernehmen'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
+    expect(_editor(tester).controller.text, 'Neuer Serverstand');
+    expect(api.saves, hasLength(1));
+    expect(
+      await const FlutterSecureStorage().read(
+        key: 'document-draft:https://example.test:user:one',
+      ),
+      isNull,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('saved HTML is used only for exactly matching Markdown', (
+    tester,
+  ) async {
+    final data = _documentData(markdown: 'Original **Markdown**');
+    asMap(data['document'])['bodyHtml'] = '<p>Serverdarstellung</p>';
+    final api = _FakeApi(data);
+    await tester.pumpWidget(
+      _app(api, const DocumentEditor(path: '/notes/one')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Lesen'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<MarkdownDocumentReader>(find.byType(MarkdownDocumentReader))
+          .renderedHtml,
+      '<p>Serverdarstellung</p>',
+    );
+    await tester.tap(find.text('Bearbeiten'));
+    await tester.pumpAndSettle();
+    _replaceBody(tester, 'Aktueller **Entwurf**');
+    await tester.pump();
+    await tester.tap(find.text('Lesen'));
+    await tester.pumpAndSettle();
+    final reading = tester.widget<MarkdownDocumentReader>(
+      find.byType(MarkdownDocumentReader),
+    );
+    expect(reading.markdown, 'Aktueller **Entwurf**');
+    expect(reading.renderedHtml, isNull);
+    expect(api.saves, isEmpty);
     await tester.pumpWidget(const SizedBox());
   });
 }

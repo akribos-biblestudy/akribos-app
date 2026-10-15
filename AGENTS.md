@@ -29,7 +29,7 @@ No deployment, store publication, signing-identity setup or remote push is impli
 by editing the local app. Distinguish local checks from device acceptance.
 
 The direct Pixel APK is built by `scripts/build-android-production.sh`: fixed HTTPS
-origin `https://akribos.de`, ARM64, version `0.2.7+10`, optimized AOT release with the existing local debug signing identity. Keep it
+origin `https://akribos.de`, ARM64, version `0.2.8+11`, optimized AOT release with the existing local debug signing identity. Keep it
 independent of local test-server defines and do not install/deploy from the script.
 Ordinary app use requires no API key, USB or ADB. The ignored artifact and its SHA-256
 file are written to `artifacts/`; store signing remains a separate explicit task.
@@ -89,23 +89,29 @@ Play upload. Automatic uploads target `internal` only. Keep pinned Actions/depen
 hashes, artifact checksums and actual upload/readback status. Setup is documented in
 `docs/PLAY-STORE.md`; the existing Pixel signing identity and script stay unchanged.
 
-The native document editor uses FlutterQuill 11.6 with an Akribos Markdown adapter.
-Markdown remains authoritative; never replace it with generic HTML/Delta conversion.
-Opening, selection and Read/Edit switches must preserve the original source and produce
-no PATCH. Unchanged source blocks, tables, footnotes and unsupported structures survive
-edits elsewhere. Formatting is contextual, not a permanently wrapped toolbar. Keep one
-controller across Read/Edit to retain undo and position; Read mode cannot edit the title
-or mutate metadata. Keep existing DocumentDraft revisions, serialized saves, encrypted
-account/origin/document drafts and navigation guards. Only content changes update drafts.
-External images/media are not automatically fetched or added by clipboard operations.
-HTML fragment links must stay in the current document; other internal links retain fragments.
+The document editor edits canonical Markdown directly in a native TextField. Never
+introduce a Delta/AST-to-Markdown save conversion. Opening, selection and Read/Edit
+switches must preserve original source bytes and produce no PATCH. Keep the source
+TextField mounted across modes: its internal UndoHistory owns the undo stack. Exclude
+its focus/semantics while reading. Read mode cannot edit title or mutate metadata.
+Keep DocumentDraft revisions, serialized saves, encrypted account/origin/document
+drafts and navigation guards; only content changes update drafts.
 
-Markdown list blocks must be delimited with the Markdown parser, not at every blank
-line: the web editor emits loose nested lists with four-space indentation. Preserve
-list hierarchy, continuation paragraphs, real code blocks and original source on
-read-only loads. List markers use the same scaled first-line geometry as reading text.
-The document header has mode selection at the left and its options menu at the right;
-no separate plus button. Additional insertion actions and details remain in that menu.
-Markdown typing shortcuts must work through native software-keyboard input as well as
-hardware keys. They apply only to typed block prefixes followed by a space, never
-loads/recovery, paste, IME composition or Read mode; Undo must restore the literal input.
+MarkdownDocumentReader renders a complete document through the native HtmlContent
+renderer, never by splitting on blank lines. Use server bodyHtml only when the source
+matches the current draft; otherwise render the current source locally without writes
+or network preview calls. Local GFM rendering is a preview, not a second persistence
+format. Preserve genuine code blocks, loose/nested lists, lists containing quotes,
+tables, footnotes and allowed inline HTML. The scoped FootnoteDefSyntax override puts
+backlinks in a paragraph to avoid markdown 7.3.1's covariant-list crash; regression-test
+rich footnote bodies. Footnote references open a native sheet and close back to the same reading position;
+other same-document anchors remain local. External media must
+never be fetched implicitly; continue using the private authenticated image factory.
+
+Source mode intentionally shows Markdown syntax; typed prefixes are not rewritten.
+Formatting is contextual, not a permanent wrapped toolbar. Insertion helpers edit only
+the selected source span or lines and respect active IME composition. Keep the mode
+selector at the left and the document menu at the right, with no separate plus button.
+Extra insertions and details remain in that menu. Lists in reading mode use native HTML layout and first-line baselines. The opt-in
+marker factory uses the scaled reading font because upstream HtmlListMarker omits
+TextScaler; marker position still belongs to native HtmlListItem layout. Preserve edit/reading scroll positions independently across toggles.

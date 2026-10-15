@@ -5,8 +5,6 @@ import 'package:akribos_app/features/documents/documents_screen.dart';
 import 'package:akribos_app/features/reader/reader_notes.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_quill/flutter_quill.dart'
-    show FlutterQuillLocalizations;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -51,10 +49,7 @@ Widget _app(AppApi api, Widget child, {List<String>? opened}) => AppScope(
   setNavigationGuard: (_, _) {},
   setTheme: (_) {},
   themeMode: ThemeMode.light,
-  child: MaterialApp(
-    localizationsDelegates: const [FlutterQuillLocalizations.delegate],
-    home: Scaffold(body: child),
-  ),
+  child: MaterialApp(home: Scaffold(body: child)),
 );
 
 Finder _tagField() => find.byWidgetPredicate(

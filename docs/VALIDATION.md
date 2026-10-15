@@ -1,5 +1,57 @@
 # Prüfstand 15. Oktober 2026
 
+## Einfacher Markdown-Editor und native Lesedarstellung, Build 11
+
+Version `0.2.8+11` entfernt FlutterQuill samt Delta-/Markdown-Adapter. Bearbeiten zeigt
+nun die unveränderte Markdown-Quelle in einem großen nativen Textfeld. Formatierung
+ist über die Textauswahl und das Dokumentmenü erreichbar. Lesen zeigt das gesamte
+Dokument formatiert; passende Serverdarstellung hat Vorrang, lokale Änderungen werden
+auch offline ohne Schreibanfrage angezeigt. Keine automatische Quelltextmigration.
+
+Die vorherigen Listenprüfungen deckten nicht alle Kombinationen aus Listen, Zitaten
+und Fortsetzungsabsätzen ab. Neue synthetische Fixtures stammen unmittelbar aus dem
+Web-Serializer und umfassen diese Fälle sowie fünf Unterpunkte, echte Codeblöcke,
+Tabellen und reiche, wiederholte und nicht referenzierte Fußnoten. Die vollständige
+Darstellung wird niemals wieder zu Markdown zurückkonvertiert. Ein eng begrenzter
+lokaler Parserfix verhindert den reproduzierten TypeError bei Listen in Fußnoten.
+
+Gezielte Prüfungen, keine vollständige lokale Testsuite:
+
+- Sieben Source-Editorprüfungen: IME-Komposition, unveränderte Quelle, explizite
+  Formatierung, 320 Pixel bei 200 % Systemschrift, native Auswahlaktionen und Undo.
+- 18 Dokument-/Tagprüfungen: gleiches EditableText über Moduswechsel, beide
+  Scrollstände, keine PATCH-Anfrage bei Auswahl/Lesen, aktueller Offline-Entwurf,
+  Save während weiterer Eingabe, veraltete Revision und explizite Konfliktauflösung.
+- 13 Readerprüfungen einschließlich synthetischer Aufnahmen: Web-Listen/Zitate,
+  echte Codeblöcke, Tabellen/Fußnoten, Sprunglinks, Mediengrenzen und reale
+  erste Textbaselines bei 320/1000 Pixeln und 100/200 % Systemschrift sowie
+  tatsächlich gerenderter Markierungskontrast von mindestens 4,5:1 in Hell/Dunkel.
+- 13 bestehende Draft-/Konto-/Inhaltsprüfungen einschließlich authentifizierter
+  eigener Bilder, blockierter externer Bilder und interner Dokumentanker.
+- Zehn Release-Guardtests erfolgreich; Formatprüfung und komplette statische
+  Flutter-Analyse ohne Befunde.
+
+Sieben zusätzliche echte DocumentEditor-Aufnahmen mit synthetischen Inhalten decken
+Telefon hell/dunkel in beiden Modi, Tablet Bearbeiten/Lesen und große Systemschrift
+ab. Die verschachtelten Listen bleiben Listen, ein Zitat bleibt innerhalb seines
+Listeneintrags, Marker skalieren mit. Keine privaten Produktionsdokumente bearbeitet.
+Die lokale Vorschau ersetzt keine vollständige Portierung historischer serverseitiger
+Fußnotenreparaturen oder automatischer Bibelverweise; gespeichertes passendes HTML
+liefert die Serversemantik. Reale Gboard-/iOS-/Boox-Bedienabnahme bleibt separat.
+
+ARM64-AOT-Release für `https://akribos.de` erfolgreich gebaut; Version `0.2.8+11`,
+bisherige Signatur, 16-KiB-Alignment und fehlendes Debuggable-Flag geprüft.
+APK: `artifacts/akribos-0.2.8-akribos-de-release.apk`.
+SHA-256: `073088441500acf482ed508504e33a6320731f29118403f66ccd89f530757cfe`.
+Die direkte Installation ist noch offen: Das zu Beginn angeschlossene Pixel wurde
+vor dem Installationsschritt getrennt; `adb devices -l` zeigt kein Gerät. Es wurde
+keine Deinstallation oder Datenlöschung durchgeführt.
+
+Der vorherige Main-CI-Lauf ist inzwischen erfolgreich abgeschlossen:
+[Build 10 CI](https://github.com/akribos-biblestudy/akribos-app/actions/runs/38727109384).
+Die Android-Environment-Versionsgrenze wurde auf 11 angehoben; kein Store-Upload.
+
+
 ## Notizlisten, Tippkürzel und kompakte Kopfleiste, Build 10
 
 Version `0.2.7+10` richtet das Dokumentmenü am rechten Rand aus und entfernt den
