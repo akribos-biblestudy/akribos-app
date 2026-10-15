@@ -15,6 +15,8 @@ import '../search/search_screen.dart';
 import 'books.dart';
 import 'reader_dialogs.dart';
 import 'reader_controller.dart';
+import 'reader_lexicon_sheet.dart';
+import 'reader_group_badge.dart';
 import 'reader_tab_card.dart';
 import 'highlight_dialog.dart';
 import 'reader_notes.dart';
@@ -745,16 +747,30 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
               ),
             ),
           );
-    if (selected != null) {
-      await _mutate('openLexiconTab', {
-        'tileId': tile['id'],
-        'tabId': tab['id'],
-        'lookup': selected,
-        'currentReference': referenceLabel(asMap(tab['reference'])),
-        'sourceReference': referenceLabel(reference),
-        'word': word['text'],
-        'wordPosition': position,
+    if (selected == null || !mounted) return;
+    final result = await showReaderLexiconSheet(
+      context,
+      strong: selected,
+      lexiconId: preferredReaderLexicon(
+        workspace: _workspace,
+        resources: asMaps(_data['readerResources']),
+        sourceTileId: asString(tile['id']),
+        sourceTab: tab,
+        strong: selected,
+      ),
+      sourceResourceId: asString(tab['resourceId']),
+      reference: reference,
+      word: asString(word['text']),
+      wordPosition: position,
+    );
+    if (result == null || !mounted) return;
+    if (result['reference'] is Map) {
+      await _mutate('openBibleReference', {
+        'reference': referenceLabel(asMap(result['reference'])),
+        if (tab['linkSet'] != null) 'linkSet': tab['linkSet'],
       });
+    } else if (result['path'] is String) {
+      await _scope!.open(asString(result['path']));
     }
   }
 
@@ -1253,11 +1269,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                               for (final group in ['', 'A', 'B', 'C', 'D', 'E'])
                                 PopupMenuItem(
                                   value: 'link:$group',
-                                  child: Text(
-                                    group.isEmpty
-                                        ? 'Unabhängig lesen'
-                                        : 'Tabgruppe $group',
-                                  ),
+                                  child: _groupChoice(tab, group),
                                 ),
                               for (final other in tiles)
                                 if (other['id'] != tile['id'])
@@ -1458,8 +1470,23 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     );
   }
 
+  Widget _groupChoice(Json tab, String group) {
+    final link = group.isEmpty ? null : group;
+    final selected = tab['linkSet'] == link;
+    return Row(
+      children: [
+        ReaderGroupBadge(linkSet: link, selected: selected, eInk: _scope!.eInk),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(link == null ? 'Unabhängig lesen' : 'Tabgruppe $link'),
+        ),
+        if (selected) const Icon(Icons.check, size: 18),
+      ],
+    );
+  }
+
   Widget _tabStrip(List<Json> tiles) => SizedBox(
-    height: 38,
+    height: ReaderGroupBadge.heightFor(MediaQuery.textScalerOf(context)) + 16,
     child: ListView(
       scrollDirection: Axis.horizontal,
       children: [
@@ -1484,12 +1511,24 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                     _activateTab(asString(tile['id']), asString(tab['id']));
                     _showSelectedPage();
                   },
-                  child: Text(
-                    _resourceTitle(tab),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ReaderGroupBadge(
+                        linkSet: tab['linkSet'] as String?,
+                        eInk: _scope!.eInk,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _resourceTitle(tab),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -1579,9 +1618,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                   for (final link in ['', 'A', 'B', 'C', 'D', 'E'])
                     PopupMenuItem(
                       value: 'link:$link',
-                      child: Text(
-                        '${tab['linkSet'] == (link.isEmpty ? null : link) ? '✓ ' : ''}Tabgruppe ${link.isEmpty ? 'Keine' : link}',
-                      ),
+                      child: _groupChoice(tab, link),
                     ),
                   const PopupMenuDivider(),
                   for (final other in asMaps(_workspace['tiles']))
@@ -1595,7 +1632,10 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                 ],
                 child: Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Text(asString(tab['linkSet'], '–')),
+                  child: ReaderGroupBadge(
+                    linkSet: tab['linkSet'] as String?,
+                    eInk: _scope!.eInk,
+                  ),
                 ),
               ),
             ],
@@ -2609,7 +2649,9 @@ class _ChapterPaneState extends State<_ChapterPane> {
                 onPressed: _loading ? null : () => _pageBy(-1),
                 icon: const Icon(Icons.arrow_back),
               ),
-              const Text('Blättern'),
+              const Flexible(
+                child: Text('Blättern', textAlign: TextAlign.center),
+              ),
               IconButton(
                 tooltip: 'Nächste Bildschirmseite',
                 onPressed: _loading ? null : () => _pageBy(1),

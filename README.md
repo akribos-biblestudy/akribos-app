@@ -20,9 +20,9 @@ Mit der unten beschriebenen Flutter-/Android-Buildumgebung:
 ./scripts/build-android-production.sh
 ```
 
-Das Skript baut fest für `https://akribos.de`, Android ARM64 und Version `0.2.0+3` als optimierten AOT-Release.
+Das Skript baut fest für `https://akribos.de`, Android ARM64 und Version `0.2.1+4` als optimierten AOT-Release.
 Die installierbare Datei liegt unter
-`artifacts/akribos-0.2.0-akribos-de-release.apk`; daneben liegt ihre SHA-256-Prüfsumme.
+`artifacts/akribos-0.2.1-akribos-de-release.apk`; daneben liegt ihre SHA-256-Prüfsumme.
 Sie kann auf dem Pixel als APK geöffnet und installiert werden. Eine bereits installierte
 App mit derselben Android-Debug-Signatur lässt sich damit aktualisieren.
 Die APK verwendet zur Update-Kompatibilität den bereits vorhandenen lokalen
@@ -49,6 +49,11 @@ wechseln Wischgesten zwischen geöffneten Werken; optional lassen sich zwei Bere
 Tablets zeigen bis zu vier Panes. E-Ink bietet Schwarz-Weiß-Kontrast,
 reduzierte Animationen und seitenweises Blättern. Die vollständige Zuordnung und
 bewusste Unterschiede zur Weboberfläche stehen in [docs/FEATURES.md](docs/FEATURES.md).
+
+Wortklicks öffnen die Wortstudie über dem Bibeltext als herunterwischbaren Dialog;
+Zurück oder Schließen führt direkt zur unveränderten Lesestelle. Tabgruppen verwenden
+Farben und Buchstaben wie im Web-Portal. Die Notizliste zeigt keine vollständige Tagwolke;
+gezielte Tagfilter und die Bearbeitung der Tags bleiben erreichbar.
 
 Die Recherche und die Übertragung auf Akribos stehen in [docs/MOBILE-DESIGN.md](docs/MOBILE-DESIGN.md).
 

@@ -24,11 +24,11 @@ Das Skript akzeptiert keine Parameter und legt diese Werte fest:
 | --- | --- |
 | Server | `https://akribos.de` |
 | Anwendung | `de.akribos.app` |
-| Version / Android-Versionscode | `0.2.0` / `3` |
+| Version / Android-Versionscode | `0.2.1` / `4` |
 | Architektur | `android-arm64` |
 | Laufzeit | Optimierter Flutter-Release-Build mit AOT, ohne Debugger |
 | Signatur | Vorhandener lokaler Android-Debugschlüssel; identisch mit Build 2 |
-| APK | `artifacts/akribos-0.2.0-akribos-de-release.apk` |
+| APK | `artifacts/akribos-0.2.1-akribos-de-release.apk` |
 
 `--release` ist für aussagekräftige Bedien- und Leistungstests erforderlich. Die lokale
 Debug-Signatur beeinflusst den Kompilierungsmodus nicht: Diese APK enthält Release-Code.
@@ -52,11 +52,11 @@ Das APK, eine SHA-256-Prüfsumme und ein Bericht des öffentlichen Signaturzerti
 im ignorierten Verzeichnis `artifacts/`. Die abschließende Prüfsumme lässt sich so prüfen:
 
 ```sh
-(cd artifacts && sha256sum -c akribos-0.2.0-akribos-de-release.apk.sha256)
+(cd artifacts && sha256sum -c akribos-0.2.1-akribos-de-release.apk.sha256)
 ```
 
 Die APK wird als Update der vorhandenen App installiert; **nicht vorher deinstallieren
-oder App-Daten löschen**. Gleiche Anwendungs-ID, derselbe Signer und Versionscode 3 erhalten
+oder App-Daten löschen**. Gleiche Anwendungs-ID, derselbe Signer und Versionscode 4 erhalten
 die Android-App-Daten beim Update von Build 2. Die tatsächliche Geräteabnahme einschließlich
 Sitzungserhalt bleibt separat zu prüfen. Das Skript installiert nichts und verändert keinen
 Server; ein angeschlossenes Gerät ist zum Bauen nicht nötig. Identische APK-Bytes auf anderen
@@ -74,7 +74,7 @@ Upload-Signatur, sichere CI-Secrets und die tatsächliche Play-Console-Anwendung
 einzurichten. Eine andere Signatur erlaubt kein gewöhnliches Update der bereits lokal
 installierten App. Schlüssel und `key.properties` gehören nicht ins Repository.
 Versions-/Buildnummern können für spätere Veröffentlichungen über `--build-name` und
-`--build-number` gesetzt werden; dieses Skript hält den Pixel-Build `0.2.0+3` fest.
+`--build-number` gesetzt werden; dieses Skript hält den Pixel-Build `0.2.1+4` fest.
 
 ## iOS
 

@@ -36,6 +36,18 @@ E-Ink-Darstellung sind Akribos-Entscheidungen. Die Telegram-Beiträge spezifizie
 verbindlichen Pixelmaße oder Tastaturregel. Akribos verwendet seine eigene Farbpalette,
 Symbole und lokal gebündelten Schriften.
 
+## Wortstudie und Tagdarstellung
+
+Wortklicks öffnen ausschließlich Lexikoninhalte als fast bildschirmhohen Dialog von unten.
+Der Griff, eine sichtbare Schließen-Schaltfläche und die System-Zurück-Geste führen zurück
+zum unveränderten Bibeltext. Der Dialog nutzt lesende API-Aufrufe statt einen neuen
+Arbeitsbereichstab anzulegen. Andere Werke behalten die normale Tabnavigation; ein bewusst
+geöffnetes Lexikon kann ebenfalls als dauerhafter Ressourcentab bestehen bleiben.
+
+A–E nutzen die Web-Gruppenfarben aus `ReaderTabToolbar.svelte`: A `#b9683f`, B `#55759b`,
+C `#60836d`, D `#776b91`, E `#9a6572`. Buchstaben ergänzen die Farben. Die Notizliste zeigt
+keine globale Tagwolke; Filter und Tagbearbeitung bleiben gezielt erreichbar.
+
 ## Aktualitätsgrenzen und Bildherkunft
 
 [Logos v54 vom 06.10.2026](https://www.logos.com/grow/release-october-2026/) macht Tabs und

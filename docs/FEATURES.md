@@ -6,14 +6,14 @@ beziehen sich auf normale Nutzer und auf deren aktuelle serverseitige Leserechte
 | Bereich | Native Umsetzung |
 | --- | --- |
 | Lesen | Stellenwahl, Bibeln, Kommentare, Lexika, Parallelstellen, strukturierte Verse, Fußnoten, Strong-Wörter und Quellenangaben |
-| Ansichten | Acht Layouts, bis zu vier Kacheln, Ressourcen-Tabs, Verschieben/Sortieren, Trennergrößen, A–E-Kopplung, unabhängige Tabs |
+| Ansichten | Acht Layouts, bis zu vier Kacheln, Ressourcen-Tabs, Verschieben/Sortieren, Trennergrößen, A–E-Kopplung mit Web-Farben und Buchstaben, unabhängige Tabs |
 | Arbeitsbereiche | Erstellen aus aktueller Ansicht, Öffnen, Umbenennen, Löschen, versionsgeschütztes Speichern und Folgen veröffentlichter Lesepositionen |
 | Telefon/Tablet | Floating-Hauptnavigation, visuelle Tabkarten und Wischwechsel, mehrere Kacheln bei breitem Fenster; Hoch-/Querformat und verfügbare Fensterbreite |
 | E-Ink | Kontrastreiche helle Darstellung, reduzierte Animationen, direktes Blättern in Bildschirmabschnitten, erkennbare Markierungen ohne Farberkennung |
 | Suche | Wort-/Phrasensuche, Vorschläge, Buchfilter, Seiten, Suche innerhalb eines Ressourcen-Tabs |
-| Wortstudium | Strong-Artikel, Quellwort/Position, Morphologie, Übersetzungsformen, Häufigkeiten und Fundstellen |
+| Wortstudium | Herunterwischbarer Lexikon-Dialog bei Wortklick, Strong-Artikel, Quellwort/Position, Morphologie, Übersetzungsformen, Häufigkeiten und Fundstellen |
 | Markierungen | Ganze Verse, Versbereiche und Wörter; Entfernen, Übersichten, eigene Stilnamen und Hexfarben |
-| Notizen | Bibliothek, Filter, Tags, Stellen, Papierkorb/Wiederherstellung, verknüpfte Sammlungen und Rückverweise |
+| Notizen | Bibliothek ohne Tagwolke, Tagfilter bei Bedarf, eingeklappte Tagdetails, Stellen, Papierkorb/Wiederherstellung, verknüpfte Sammlungen und Rückverweise |
 | Editor | Markdown mit Werkzeugleiste und nativer Vorschau, revisionstreues Autosave, Konfliktvergleich, Entwurfswiederherstellung, Bibelzitate und Anhänge |
 | Dokumentdateien | Persönliche Importe mit Vorschau/Bestätigung, serverseitige Exportformate über den nativen Teilen-Dialog |
 | Ausarbeitungen | Board, Spalten, Sortieren/Verschieben, Vorlagen, Metadaten, Durchführungen; Wechsel zwischen Notiz und Ausarbeitung |

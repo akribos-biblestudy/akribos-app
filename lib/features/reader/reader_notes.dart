@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
 import '../../core/json.dart';
+import '../documents/document_widgets.dart';
 import '../search/search_screen.dart';
 
 class ReaderNotes extends StatefulWidget {
@@ -51,6 +52,15 @@ class _ReaderNotesState extends State<ReaderNotes> {
     setState(_load);
   }
 
+  Future<void> _filter() async {
+    final fields = await editFeatureFields(context, 'Notizen filtern', [
+      FeatureField('tag', 'Tag / Untertag', value: _tag),
+    ], submit: 'Anwenden');
+    if (fields == null || !mounted) return;
+    _tag = asString(fields['tag']).trim();
+    _change();
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -90,6 +100,20 @@ class _ReaderNotesState extends State<ReaderNotes> {
               icon: const Icon(Icons.add),
               label: const Text('Neue Notiz'),
             ),
+            TextButton.icon(
+              onPressed: _filter,
+              icon: const Icon(Icons.tune),
+              label: Text(_tag.isEmpty ? 'Filtern' : 'Tagfilter aktiv'),
+            ),
+            if (_tag.isNotEmpty)
+              IconButton(
+                onPressed: () {
+                  _tag = '';
+                  _change();
+                },
+                icon: const Icon(Icons.filter_alt_off_outlined),
+                tooltip: 'Tagfilter zurücksetzen',
+              ),
             if (_query.isNotEmpty)
               TextButton(
                 onPressed: () {
@@ -116,40 +140,10 @@ class _ReaderNotesState extends State<ReaderNotes> {
             if (!snapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
             }
-            final data = asMap(snapshot.data),
-                tags = asMaps(asMap(snapshot.data)['tags']);
-            final tagValues = {
-              for (final tag in tags) asString(tag['path']),
-              if (_tag.isNotEmpty) _tag,
-            };
+            final data = asMap(snapshot.data);
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: _tag,
-                  decoration: const InputDecoration(labelText: 'Schlagwort'),
-                  items: [
-                    const DropdownMenuItem(
-                      value: '',
-                      child: Text(
-                        'Alle Schlagwörter',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    ...tagValues.map(
-                      (tag) => DropdownMenuItem(
-                        value: tag,
-                        child: Text(tag, overflow: TextOverflow.ellipsis),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    _tag = value ?? '';
-                    _change();
-                  },
-                ),
-                const SizedBox(height: 12),
                 if (asMaps(data['documents']).isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(16),

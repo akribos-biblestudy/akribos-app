@@ -181,9 +181,17 @@ class ResultFilters extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         DropdownButton<int>(
+          isExpanded: true,
           value: asInt(data['book']),
           items: [
-            const DropdownMenuItem(value: 0, child: Text('Alle Bücher')),
+            const DropdownMenuItem(
+              value: 0,
+              child: Text(
+                'Alle Bücher',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             ...asMaps(data['bookCounts'])
                 .where(
                   (item) =>
@@ -194,6 +202,8 @@ class ResultFilters extends StatelessWidget {
                     value: asInt(item['book']),
                     child: Text(
                       '${bookName(asInt(item['book']))} (${item['count']})',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ),
@@ -592,9 +602,11 @@ class LexiconStudy extends StatefulWidget {
     required this.tab,
     required this.entry,
     required this.onOpen,
+    this.scrollController,
   });
   final Json tab, entry;
   final void Function(Json) onOpen;
+  final ScrollController? scrollController;
   @override
   State<LexiconStudy> createState() => _LexiconStudyState();
 }
@@ -665,6 +677,7 @@ class _LexiconStudyState extends State<LexiconStudy> {
       final data = asMap(snapshot.data),
           result = asMap(asMap(snapshot.data)['occurrences']);
       return ListView(
+        controller: widget.scrollController,
         padding: const EdgeInsets.all(16),
         children: [
           StrongDetails(data: data),

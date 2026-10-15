@@ -35,18 +35,27 @@ class DocumentsScreen extends StatelessWidget {
                   child: Text(asString(publication['excerpt'])),
                 ),
               HtmlContent(html: asString(publication['bodyHtml'])),
-              if (publication['tags'] is List)
+              if (publication['tags'] is List &&
+                  (publication['tags'] as List).isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 24),
-                  child: Wrap(
-                    spacing: 8,
+                  child: ExpansionTile(
+                    leading: const Icon(Icons.label_outline),
+                    title: const Text('Tags'),
                     children: [
-                      for (final tag in publication['tags'] as List)
-                        Chip(
-                          label: Text(
-                            tag is Map ? asString(tag['path']) : asString(tag),
-                          ),
-                        ),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          for (final tag in publication['tags'] as List)
+                            Chip(
+                              label: Text(
+                                tag is Map
+                                    ? asString(tag['path'])
+                                    : asString(tag),
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -432,23 +441,6 @@ class _Library extends StatelessWidget {
           if (data['filterError'] != null)
             const Text(
               'Ein Filter war ungültig. Bitte prüfe die Filterauswahl.',
-            ),
-          if (!sermons && asMaps(data['tagTree']).isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  for (final tag in asMaps(data['tagTree']))
-                    ActionChip(
-                      label: Text(asString(tag['path'])),
-                      onPressed: () => AppScope.of(context).open(
-                        '/notes?tag=${Uri.encodeComponent(asString(tag['path']))}',
-                      ),
-                    ),
-                ],
-              ),
             ),
           if (sermons)
             LayoutBuilder(

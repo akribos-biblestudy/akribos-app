@@ -1,5 +1,46 @@
 # Prüfstand 15. Oktober 2026
 
+## Tagdarstellung, Tabgruppen und Lexikon-Dialog, Build 4
+
+Version `0.2.1+4` blendet die globale Tagwolke in Notizübersichten aus. Tagfilter sind
+bei Bedarf erreichbar; Tags im Editor und in veröffentlichten Notizen sind zunächst
+zugeklappt. Tabgruppen nutzen die A–E-Webfarben mit sichtbaren Buchstaben in Pane-Kopf,
+Tabstreifen, Karten und Gruppenmenüs.
+
+Wortklicks öffnen das Lexikon als fast bildschirmhohen, herunterwischbaren Dialog. Der
+Bibeltext bleibt einschließlich Scrollposition und Tabanzahl erhalten. Lokale Strong-
+Querverweise bleiben im Dialog; Schließen und System-Zurück führen zur Bibel zurück.
+Eine ausdrücklich gewählte Fundstelle oder andere Navigation schließt den Dialog zuerst.
+Die bestehenden API-Endpunkte reichen aus; es gibt keine Backendänderung.
+
+Gezielte Prüfungen ohne vollständigen lokalen Testlauf:
+
+- `flutter analyze --no-pub`: keine Befunde; Formatierung und `git diff --check` sauber.
+- Vier neue Widgettests mit jeweils 1000 Tags erfolgreich, zusätzlich bestehende Prüfung
+  schmaler Notizansichten bei großer Schrift. Filter, Rücksetzen, Aufklappen und Bearbeiten
+  bleiben nutzbar; die Übersicht rendert keine vollständige Tagliste.
+- Sieben Badge-/Karten-Tests erfolgreich: Webpalette, Kontrast mindestens 4,5:1 für die
+  Buchstaben in Hell/Dunkel, E-Ink sowie schmale Karten mit großer Schrift.
+- 22 gezielte Reader-/Lexikon-/Performance-Tests erfolgreich: Wischen und System-Zurück,
+  unveränderter Scrollcontroller und Pixeloffset, keine Workspace-Mutation beim Nachschlagen,
+  exakte Wortposition, lokale Strong-Querverweise ohne veraltete Artikelanzeige, Fehler/Retry,
+  ausdrücklich gewählte Navigation nach vollständigem Schließen und 320 Pixel bei 200 %
+  Schrift/E-Ink. Explizite Lexikon-Tabs bleiben reguläre Tabs.
+- Aktuelle Flutter-Aufnahmen mit anonymen öffentlichen Daten visuell geprüft.
+
+Die optimierte ARM64-APK `artifacts/akribos-0.2.1-akribos-de-release.apk` wurde am
+15. Oktober 2026 um 09:24 Uhr als Update auf dem **Pixel 9 Pro** installiert (`adb install
+-r`: `Success`). Android bestätigt `versionName=0.2.1`, `versionCode=4`, denselben Signer
+und kein `DEBUGGABLE`-Flag. Das Activity-Startkommando war erfolgreich. App-Daten wurden
+nicht gelöscht; der Server bleibt fest `https://akribos.de`.
+
+SHA-256: `756e8701dd82cc6903e09df33fc57c7a668dcea273b0816839c27f1a42435ec2`.
+
+Das Pixel war bei der anschließenden Sichtprüfung gesperrt. Die automatische Freigabeprüfung
+lehnte das Schließen der Displaysperre ohne ausdrückliche Erlaubnis ab; es wurde kein anderer
+Entsperrversuch unternommen. Die neue Lexikonbedienung ist deshalb durch Widgettests,
+noch nicht durch eine zusätzliche Bedienprüfung dieses Builds am echten Gerät bestätigt.
+
 ## Neue mobile Oberfläche, Build 3
 
 Version `0.2.0+3` übernimmt die Akribos-PWA-Farben und gebündelte Leseschrift. Die

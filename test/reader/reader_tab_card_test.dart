@@ -1,4 +1,5 @@
 import 'package:akribos_app/features/reader/reader_tab_card.dart';
+import 'package:akribos_app/features/reader/reader_group_badge.dart';
 import 'package:akribos_app/theme/akribos_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +12,7 @@ Widget frame({
   double width = 160,
   double scale = 1,
   bool eInk = false,
+  String? linkSet = 'A',
   String previewText = preview,
   VoidCallback? onTap,
   VoidCallback? onMenu,
@@ -28,7 +30,7 @@ Widget frame({
             reference: 'Johannes 1,1–18',
             previewText: previewText,
             resourceKind: 'bible',
-            linkSet: 'A',
+            linkSet: linkSet,
             selected: true,
             onTap: onTap ?? () {},
             trailing: IconButton(
@@ -101,6 +103,20 @@ void main() {
     await tester.tap(find.text(preview));
     expect(selections, 1);
     semantics.dispose();
+  });
+
+  testWidgets('unlinked cards say Keine and keep large text inside 160px', (
+    tester,
+  ) async {
+    for (final scale in [1.0, 1.4, 2.0, 3.0]) {
+      await tester.pumpWidget(frame(scale: scale, linkSet: null));
+      expect(find.text('Keine'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getRect(find.byType(ReaderGroupBadge)).right,
+        lessThanOrEqualTo(tester.getRect(find.byType(ReaderTabCard)).right),
+      );
+    }
   });
 
   testWidgets('e-ink keeps selection visible without color, shadow or motion', (

@@ -7,6 +7,7 @@ import 'package:akribos_app/features/reader/reader_notes.dart';
 import 'package:akribos_app/features/reader/reader_state.dart';
 import 'package:akribos_app/features/reader/verse_text.dart';
 import 'package:akribos_app/features/reader/workspace_screen.dart';
+import 'package:akribos_app/features/search/search_screen.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -409,9 +410,17 @@ void main() {
       final verse = tester.widget<VerseText>(find.byType(VerseText).first);
       verse.onWord!({'kind': 'w', 'text': 'Liebe', 'strong': 'G26'}, 0);
       await tester.pumpAndSettle();
-      expect(api.actions.single['action'], 'openLexiconTab');
-      expect(asMap(api.actions.single['fields'])['wordPosition'], 0);
-      expect(asMap(api.actions.single['fields'])['sourceReference'], 'Joh1,1');
+      expect(api.actions, isEmpty);
+      expect(find.text('Lexikon · G26'), findsOneWidget);
+      final study = tester.widget<LexiconStudy>(find.byType(LexiconStudy));
+      expect(asMap(study.tab['studyContext'])['wordPosition'], 0);
+      expect(asMap(study.tab['studyContext'])['reference'], {
+        'book': 43,
+        'chapter': 1,
+        'verse': 1,
+      });
+      await tester.tap(find.byTooltip('Lexikon schließen'));
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     },
   );

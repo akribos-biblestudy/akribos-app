@@ -28,7 +28,7 @@ No deployment, store publication, signing-identity setup or remote push is impli
 by editing the local app. Distinguish local checks from device acceptance.
 
 The direct Pixel APK is built by `scripts/build-android-production.sh`: fixed HTTPS
-origin `https://akribos.de`, ARM64, version `0.2.0+3`, optimized AOT release with the existing local debug signing identity. Keep it
+origin `https://akribos.de`, ARM64, version `0.2.1+4`, optimized AOT release with the existing local debug signing identity. Keep it
 independent of local test-server defines and do not install/deploy from the script.
 Ordinary app use requires no API key, USB or ADB. The ignored artifact and its SHA-256
 file are written to `artifacts/`; store signing remains a separate explicit task.
@@ -43,3 +43,11 @@ URL is identical. Flush document and reader guards before navigation. Position-o
 use resume:true; search/filter changes need the separate normal save with fresh versions.
 Do not infer performance from debug builds. Direct device APKs use AOT release and must match
 the already installed certificate; never regenerate the signing key for an update.
+
+Word-triggered lexicon lookup is a temporary draggable bottom sheet using the read-only
+Strong API. Keep the source Bible mounted with its scroll position and workspace untouched;
+Back and dismiss return to it. Explicit lexicon resources still work as normal tabs. Carry
+source resource, reference, word and wordPosition into lookups. Tab groups use the web
+palette plus visible letters; E-Ink must retain labels without depending on color.
+Do not render the full account tag catalogue in note lists. Keep tag filters on demand and
+tag editing available; large tag collections must not create a wall of chips by default.

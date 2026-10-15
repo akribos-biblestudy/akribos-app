@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../theme/akribos_theme.dart';
+import 'reader_group_badge.dart';
 
 /// A preview of an already opened resource, using text supplied by its owner.
 ///
@@ -46,8 +47,14 @@ class ReaderTabCard extends StatefulWidget {
         2,
   );
 
-  static double _footerHeight(TextScaler scaler) =>
-      math.max(24, (scaler.scale(12) * 1.2).ceilToDouble());
+  static bool _stackFooter(TextScaler scaler) => scaler.scale(12) > 17;
+
+  static double _footerHeight(TextScaler scaler) {
+    final referenceHeight = (scaler.scale(12) * 1.2).ceilToDouble();
+    return _stackFooter(scaler)
+        ? referenceHeight + 4 + ReaderGroupBadge.heightFor(scaler, maxLines: 2)
+        : math.max(referenceHeight, ReaderGroupBadge.heightFor(scaler));
+  }
 
   @override
   State<ReaderTabCard> createState() => _ReaderTabCardState();
@@ -75,16 +82,49 @@ class _ReaderTabCardState extends State<ReaderTabCard> {
       _ => ('Werk', Icons.library_books_outlined),
     };
     final preview = widget.previewText.trim();
-    final group = widget.linkSet?.trim();
-    final linked = group != null && group.isNotEmpty;
+    final group = ReaderLinkGroupColors.base.containsKey(widget.linkSet)
+        ? widget.linkSet
+        : null;
+    final linked = group != null;
     final reference = widget.reference.trim();
     final semanticLabel = [
       widget.title,
       kind,
       if (reference.isNotEmpty) reference,
-      linked ? 'Tabgruppe $group' : 'Unabhängig',
+      linked ? 'Tabgruppe $group' : 'Tabgruppe Keine, unabhängig',
       if (preview.isNotEmpty) preview,
     ].join(', ');
+    final referenceText = Text(
+      reference.isEmpty ? kind : reference,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: widget.selected ? accent : ink,
+        fontSize: 12,
+        height: 1.2,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    final groupBadge = ReaderGroupBadge(linkSet: group, eInk: monochrome);
+    final footer = ReaderTabCard._stackFooter(scaler)
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              referenceText,
+              const SizedBox(height: 4),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: groupBadge,
+              ),
+            ],
+          )
+        : Row(
+            children: [
+              Expanded(child: referenceText),
+              const SizedBox(width: 8),
+              groupBadge,
+            ],
+          );
 
     return SizedBox(
       width: 220,
@@ -228,41 +268,7 @@ class _ReaderTabCardState extends State<ReaderTabCard> {
                               ),
                               SizedBox(
                                 height: ReaderTabCard._footerHeight(scaler),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        reference.isEmpty ? kind : reference,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: widget.selected ? accent : ink,
-                                          fontSize: 12,
-                                          height: 1.2,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Icon(
-                                      linked ? Icons.link : Icons.link_off,
-                                      size: 13,
-                                      color: muted,
-                                    ),
-                                    if (linked) ...[
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        group,
-                                        style: TextStyle(
-                                          color: muted,
-                                          fontSize: 12,
-                                          height: 1.2,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
+                                child: footer,
                               ),
                             ],
                           ),

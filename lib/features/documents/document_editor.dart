@@ -708,7 +708,6 @@ class _DocumentEditorState extends State<DocumentEditor>
           ),
         Card(
           child: ExpansionTile(
-            initiallyExpanded: true,
             leading: const Icon(Icons.label_outline),
             title: const Text('Tags'),
             children: [

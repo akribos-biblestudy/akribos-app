@@ -73,7 +73,18 @@ für aktive und inaktive Tabs derselben Gruppe. Die mobile Darstellung veränder
 Anordnung nicht. Nach Rückkehr in den Vordergrund wird die Sitzung aktualisiert; Reader-Follow
 verwendet die bestehenden Versionsprüfungen.
 
+Wortklicks öffnen das Lexikon vorübergehend als fast bildschirmhohen Dialog von unten.
+Die bestehende Strong-API bekommt Quellressource, Stelle, Wort und Wortposition; der
+Dialog legt keinen Tab an und verändert weder Arbeitsbereich noch Bibelposition.
+Wischen nach unten, Zurück oder Schließen kehren zum weiterhin geladenen Reader zurück.
+Bewusst geöffnete Lexikonressourcen bleiben normale Tabs. Tabgruppen zeigen den Buchstaben
+zusammen mit derselben A–E-Farbpalette wie das Web-Portal; E-Ink verwendet deutliche Konturen.
+
 ## Dokumente
+
+Die Notizübersichten rendern keine vollständige Tagwolke. Tagfilter werden bei Bedarf
+geöffnet, Tagdetails am Dokument bleiben eingeklappt und bearbeitbar. Die Zahl vorhandener
+Tags darf den eigentlichen Notizinhalt nicht aus dem sichtbaren Bereich verdrängen.
 
 Autosave arbeitet mit der aktuellen positiven Dokumentrevision. Ein Bearbeitungsstand wird
 zusätzlich unter einem Schlüssel aus Server, Konto und Dokument sicher gespeichert. Der
