@@ -12,24 +12,17 @@ Json tab(String id, String? group, int chapter) => {
 };
 
 void main() {
-  test('server selection response maps to mutation guard names without inventing versions', () {
-    final Json target = {};
-    adoptReaderSelection(target, {
-      'activeSavedWorkspaceId': 'saved',
-      'activeSavedWorkspaceVersion': 7,
-      'activeSavedWorkspaceContentVersion': 14,
+  test('local addresses strip browser workspace guards but preserve public tab coordinates', () {
+    final path = localReaderAddress(
+      '/Joh3?layout=columns-2&tab=1.1:SEEDDE:A:Joh3&tab=2.1:OTHER:B:Joh9&active=1.1&active=2.1&focus=1&workspaceId=saved&workspaceVersion=7&workspaceContentVersion=14&workspaceDetached=false&unknown=1',
+    );
+    final query = Uri.parse(path).queryParametersAll;
+    expect(query, {
+      'layout': ['columns-2'],
+      'tab': ['1.1:SEEDDE:A:Joh3', '2.1:OTHER:B:Joh9'],
+      'active': ['1.1', '2.1'],
+      'focus': ['1'],
     });
-    expect(target, {
-      'workspaceId': 'saved',
-      'workspaceVersion': 7,
-      'workspaceContentVersion': 14,
-    });
-    adoptReaderSelection(target, {
-      'activeSavedWorkspaceId': null,
-      'activeSavedWorkspaceVersion': null,
-      'activeSavedWorkspaceContentVersion': null,
-    });
-    expect(target.values, everyElement(isNull));
   });
   test('canonical reader state preserves repeated tabs, exact word context and notes filters', () {
     final source = tab('bible', 'A', 3)
@@ -66,21 +59,28 @@ void main() {
     expect(state, isNot(contains('workspaceId')));
   });
 
-  test('reader actions carry all versions separately from shareable state', () {
-    final path = readerActionPath('/Joh3?old=1', {
-      'readerState': 'layout=single&tab=1.1:SEEDDE:A:Joh3&active=1.1&focus=1',
-      'workspaceId': 'id',
-      'workspaceVersion': 4,
-      'workspaceContentVersion': 17,
-      'readerWorkspaceDetached': true,
-    });
-    final query = Uri.parse(path).queryParameters;
-    expect(query['workspaceId'], 'id');
-    expect(query['workspaceVersion'], '4');
-    expect(query['workspaceContentVersion'], '17');
-    expect(query['workspaceDetached'], 'true');
-    expect(query.containsKey('old'), false);
-  });
+  for (final detached in [true, false, null]) {
+    test(
+      'reader actions force detachment without server guards when legacy detached=$detached',
+      () {
+        final path = readerActionPath('/Joh3?old=1', {
+          'readerState': 'layout=single&tab=1.1:SEEDDE:A:Joh3&active=1.1&focus=1&workspaceId=legacy&workspaceDetached=false',
+          'workspaceId': 'id',
+          'workspaceVersion': 4,
+          'workspaceContentVersion': 17,
+          'readerWorkspaceDetached': detached,
+        });
+        final query = Uri.parse(path).queryParameters;
+        expect(query, {
+          'layout': 'single',
+          'tab': '1.1:SEEDDE:A:Joh3',
+          'active': '1.1',
+          'focus': '1',
+          'workspaceDetached': 'true',
+        });
+      },
+    );
+  }
 
   test(
     'position update aligns inactive members and preserves independent groups',

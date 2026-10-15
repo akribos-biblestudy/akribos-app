@@ -8,6 +8,7 @@ import 'package:akribos_app/main.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _SessionApi extends AppApi {
@@ -117,6 +118,7 @@ Future<AppScope> _start(WidgetTester tester, _SessionApi api) async {
 }
 
 void main() {
+  setUp(() => FlutterSecureStorage.setMockInitialValues({}));
   testWidgets(
     'successful logout clears private retained readers even when bootstrap is offline',
     (tester) async {

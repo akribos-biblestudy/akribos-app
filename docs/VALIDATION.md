@@ -1,5 +1,85 @@
 # Prüfstand 15. Oktober 2026
 
+## Ausarbeitungen nur über Notizen, Build 8
+
+Version `0.2.5+8` entfernt zusätzlich den Eintrag „Ausarbeitungen“ unter „Mehr“.
+Der Wechsel auf der Notizen-Seite bleibt erhalten. Zwei betroffene Navigationstests
+und die zehn Release-Guardtests sind erfolgreich; keine vollständige lokale Testsuite.
+Die Play-Versionscode-Untergrenze steht nun im Workflow und im GitHub-Environment auf 8.
+
+APK: `artifacts/akribos-0.2.5-akribos-de-release.apk`.
+SHA-256: `8d9c02e1172816c0c5c3c67957effcab25330ae4669f9c3ddadf89f79bf2a9a8`.
+Optimierter ARM64-Build, Signatur, Alignment, Version und fehlendes Debuggable-Flag
+geprüft. Am 15. Oktober um **12:27 Uhr** erfolgreich mit `adb install -r` auf dem
+Pixel aktualisiert. Android bestätigt `0.2.5`, Code `8`, unveränderte Erstinstallation
+**14. Oktober, 22:28 Uhr**; die Activity wurde gestartet. Kein Löschen von App-Daten.
+
+## Lokale Tabs und vereinfachte mobile Abläufe, Build 7
+
+Version `0.2.4+7` verwaltet die Reader-Tabs verschlüsselt auf der jeweiligen Installation,
+getrennt nach Server und Konto. Sie übernimmt oder veröffentlicht keine Browser-Arbeitsbereiche.
+Alle Werke erscheinen unabhängig von der ursprünglichen Spaltenzahl als flache Tabs auf
+Telefon und Tablet. Die Workspace- und Spaltenverwaltung ist entfernt. Ein neuer lokaler
+Stand beginnt mit einer Bibel; Browseransichten werden nicht als mobile Ausgangsauswahl kopiert.
+
+Der Notizen-Einstieg öffnet immer Notizen, mit Wechsel zu Ausarbeitungen. Import, Vorlagen,
+Spaltenbearbeitung, doppelte Informationslinks und der manuelle Linköffner sind entfernt.
+Ausarbeitungen können weiterhin bestehenden Vorbereitungsschritten zugeordnet werden.
+Die Suche nennt das sichtbare Werk und wiederholt beim Werkwechsel dieselbe Anfrage nur
+darin. Wort-Lexikonblätter und bestehende Dokument-Speichergrenzen bleiben erhalten.
+Die Hilfe zeigt vorläufig ausschließlich einen lokalen App-Platzhalter; die spätere
+App-Anleitung ist in TODO.md vorgemerkt.
+
+Gezielte Prüfungen, ohne vollständigen lokalen Testlauf:
+
+- Backend: 70 Tests für Adapter, lokale Reader-Isolation und werkbezogene Lexikonsuche
+  erfolgreich. Svelte-/TypeScript-Prüfung ohne Fehler (14 bestehende Backup-Adminwarnungen),
+  gezieltes ESLint, Prettier und Diffcheck sauber.
+- Reader, Lexikon und URL-Vertrag: 30 gezielte Tests erfolgreich. Darunter Neustart mit
+  eigener lokaler Tabwahl, Scroll-/Suchzustand, Speicherfehler und schnelle A–B–A-Wechsel.
+  Ein dabei reproduzierter Queuefehler wurde behoben und mit verzögertem Schreiben geprüft.
+- Lokaler Store: vier Tests zu Konto-/Server-/Gerätetrennung, serialisierten Schreibvorgängen,
+  Fehlern/Retry und beschädigten Daten erfolgreich.
+- Shell und Anmeldung: 16 Tests erfolgreich; zusätzlich echte Navbar-Regression mit Suche
+  nach „Liebe“, Reader-Swipe auf ein anderes Werk und erneuter Suche mit unverändertem Begriff
+  und ausschließlich neuer Ressourcen-ID erfolgreich. Kein globaler Suchseitenaufruf.
+- Acht werkbezogene Suchtests, neun betroffene Dokument-/Tagprüfungen und drei Linktests
+  erfolgreich. Gesamte Flutter-Analyse ohne Befunde.
+- Fünf synthetische Flutter-Aufnahmen mit anonymen öffentlichen Daten aktualisiert: Telefon
+  hell/dunkel, Tabs, Tablet und E-Ink. Capturetest erfolgreich, visuell keine Überläufe.
+  Die breiten Tabletansichten verwenden weiterhin lange Textzeilen.
+
+Optimierter ARM64-Release erfolgreich gebaut; erwartete Version, bisheriger Signer,
+16-KiB-Alignment und fehlendes Debuggable-Flag durch das Buildskript geprüft.
+APK: `artifacts/akribos-0.2.4-akribos-de-release.apk`.
+SHA-256: `1114753b8fae75b0af2a3c48233e82cefa35f655bc0991a371ece0767ff5a610`.
+
+Die Android-Store-Automatisierung hat zehn gezielte Release-Guardtests und Actionlint
+für alle drei Workflows bestanden. Gepinnte Python-Abhängigkeiten wurden mit Hashprüfung
+installiert und importiert. Das private GitHub-Repository und das Environment
+`android-play-internal` sind angelegt; dessen Deploymentregel erlaubt nach API-Rücklesung
+nur Branch `main`, keine Tags. Bootstrap ist deaktiviert, die Versionscode-Untergrenze
+steht auf 7. Es wurden keine Google-Zugangsdaten oder Store-Schlüssel erzeugt/hinterlegt
+und kein echter Store-Upload durchgeführt; die Einrichtung steht in PLAY-STORE.md.
+
+Backend-Commit `0622517` ergänzt den expliziten lokalen Reader-Modus, den lesenden
+Lexikonsuch-Endpunkt und die Domainzuordnung für Android. Die vollständige GitHub-CI
+[38718224383](https://github.com/akribos-biblestudy/akribos/actions/runs/38718224383)
+ist grün einschließlich Imageveröffentlichung und Coolify-Aufruf. Live geprüft: `/healthz` 200,
+Domainzuordnung 200 JSON mit tatsächlichem Pixel-Signer, Lexikonsuche mit G26 im ausgewählten
+Werk und `private, no-store`, lokaler Bootstrap ohne benannte Ansichten oder Workspace-/
+Lesestellen-Cookies. Auch ein altes Vier-Spalten-Cookie beeinflusst die lokale Startansicht nicht.
+
+Am 15. Oktober um **12:22 Uhr** per `adb install -r` auf dem Pixel aktualisiert (`Success`),
+Version `0.2.4+7`, unveränderter Erstinstallationszeitpunkt **14. Oktober, 22:28 Uhr**.
+Kein Löschen von App-Daten oder Entsperren. App gestartet. Android bestätigt `akribos.de: verified`.
+Die bisher konkurrierende Akribos-PWA blieb zunächst der bevorzugte Linkhandler; für die
+gewünschte native Zuordnung wurde deren automatische Linkübernahme deaktiviert und die
+native App ausgewählt. Der unveränderte echte Verifikationsstatus bleibt `verified`.
+Android löst normale HTTPS-Links nun ohne erzwungenes Paket zu `de.akribos.app/.MainActivity`
+auf; ein gewöhnlicher VIEW-Intent wurde an die laufende App zugestellt. Keine zusätzliche
+vollständige visuelle Geräteabnahme oder Prüfung privater Sitzungsdaten.
+
 ## Sichtbare Markierungsfarben, Build 6
 
 Version `0.2.3+6` ersetzt das farblose Symbol jeder gespeicherten Markierungsfarbe in den

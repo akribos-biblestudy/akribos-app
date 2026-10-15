@@ -19,7 +19,6 @@ import 'features/reader/reader_screen.dart';
 import 'features/reader/reader_controller.dart';
 import 'theme/akribos_theme.dart';
 import 'widgets/floating_navigation.dart';
-import 'features/reader/workspace_screen.dart';
 import 'features/search/search_screen.dart';
 import 'widgets/common.dart';
 
@@ -177,7 +176,7 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
   final _branchPaths = <int, String>{
     0: '/',
     1: '/search',
-    2: '/notes',
+    2: notesLibraryPath,
     3: '/menu',
   };
   final _visited = <int>{0};
@@ -190,6 +189,8 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
   final _branchEpochs = List<int>.filled(4, 0);
   int _activeBranch = 0, _navigationRequest = 0, _bootstrapGeneration = 0;
   Json _acceptedBootstrap = {};
+  ReaderSearchResource? _searchResource;
+  String _lastSearchPath = '/search';
   int? _readerFontScale;
   bool _guardFramePending = false;
   String? _sessionOwner;
@@ -272,10 +273,17 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
     }
     _navigationRequest++;
     _history.clear();
+    _searchResource = null;
+    _lastSearchPath = '/search';
     _guards.clear();
     _deferredPaths.clear();
     _branchOpeners.clear();
-    _branchPaths.addAll({0: '/', 1: '/search', 2: '/notes', 3: '/menu'});
+    _branchPaths.addAll({
+      0: '/',
+      1: '/search',
+      2: notesLibraryPath,
+      3: '/menu',
+    });
     _branchPaths[_activeBranch] = _path;
     _visited
       ..clear()
@@ -333,6 +341,9 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
         _invalidatePrivateBranches(preserveAuthForm: true);
       } else if (refreshReader) {
         _readerRevision++;
+        // Restore the newly saved local position, not the last explicit link.
+        _branchPaths[0] = '/';
+        if (_activeBranch == 0) _path = '/';
       }
       _sessionOwner = owner;
       if (_readerFontScale == null || ownerChanged || refreshReader) {
@@ -375,16 +386,46 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
   }) async {
     try {
       final uri = widget.api.safeUri(path);
-      final target =
-          '${uri.path}${uri.hasQuery ? '?${uri.query}' : ''}${uri.hasFragment ? '#${uri.fragment}' : ''}';
+      var target = mobileDocumentPath(
+        '${uri.path}${uri.hasQuery ? '?${uri.query}' : ''}${uri.hasFragment ? '#${uri.fragment}' : ''}',
+      );
+      if (Uri.parse(target).path == '/workspaces' ||
+          Uri.parse(target).path.startsWith('/workspaces/')) {
+        target = _branchPaths[0]!;
+        preserveReader = true;
+      }
       final request = ++_navigationRequest;
       if (!await _flushBranch()) return;
       if (!mounted || request != _navigationRequest) return;
+      final isSearch = Uri.parse(target).path == '/search';
+      ReaderSearchResource? searchResource;
+      if (isSearch) {
+        // A tab activation may have completed during the flush. Read the
+        // controller after that Reader build, never from the saved workspace.
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted || request != _navigationRequest) return;
+        searchResource = _readerController.activeResource;
+        final parameters = {...Uri.parse(target).queryParameters};
+        if (_searchResource?.id != searchResource?.id) {
+          parameters.remove('book');
+          parameters.remove('page');
+        }
+        parameters.remove('resource');
+        if (searchResource != null) parameters['resource'] = searchResource.id;
+        target = Uri(
+          path: '/search',
+          queryParameters: parameters.isEmpty ? null : parameters,
+        ).toString();
+      }
       FocusManager.instance.primaryFocus?.unfocus();
       setState(() {
         if (record && _path != target) {
           _history.add(_path);
           if (_history.length > 100) _history.removeAt(0);
+        }
+        if (isSearch) {
+          _searchResource = searchResource;
+          _lastSearchPath = target;
         }
         _path = target;
         _activeBranch = _branchFor(target);
@@ -445,6 +486,10 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
       await _readerController.showTabs();
       return;
     }
+    if (index == 1) {
+      await _open(_lastSearchPath, preserveReader: true);
+      return;
+    }
     final branch = switch (index) {
       0 => 0,
       1 => 1,
@@ -453,6 +498,8 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
     };
     final target = branch == 3
         ? '/menu'
+        : branch == 2
+        ? notesLibraryPath
         : (_deferredPaths.remove(branch) ?? _branchPaths[branch]!);
     if (_path != target || _activeBranch != branch) {
       await _open(target, preserveReader: true);
@@ -576,11 +623,6 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
               : null,
           actions: [
             IconButton(
-              tooltip: 'Arbeitsbereiche',
-              onPressed: _ready ? () => _open('/workspaces') : null,
-              icon: const Icon(Icons.space_dashboard_outlined, size: 21),
-            ),
-            IconButton(
               tooltip: user.isEmpty ? 'Anmelden' : 'Konto',
               onPressed: _ready
                   ? () => _open(user.isEmpty ? '/login' : '/account')
@@ -684,9 +726,6 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
   Widget _screen(BuildContext context, String path) {
     final route = Uri.parse(path).path;
     if (route == '/menu') return _menu(context);
-    if (route == '/workspaces' || route.startsWith('/workspaces/')) {
-      return WorkspaceScreen(path: path);
-    }
     if (route.startsWith('/notes') || route.startsWith('/sermons')) {
       return DocumentsScreen(path: path);
     }
@@ -708,7 +747,7 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
       return InformationScreen(path: path);
     }
     if (route == '/search' || RegExp(r'^/[GH]\d').hasMatch(route)) {
-      return SearchScreen(path: path);
+      return SearchScreen(path: path, resource: _searchResource);
     }
     return ReaderScreen(path: path);
   }
@@ -730,16 +769,10 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
           ),
         ),
         for (final item in [
-          ('/workspaces', 'Arbeitsbereiche', Icons.dashboard_outlined),
           ('/lists', 'Sammlungen', Icons.collections_bookmark_outlined),
-          ('/sermons', 'Ausarbeitungen', Icons.view_kanban_outlined),
-          ('/sermons/templates', 'Vorlagen', Icons.description_outlined),
-          ('/notes/import', 'Notizen importieren', Icons.file_upload_outlined),
           ('/account', 'Konto & Darstellung', Icons.manage_accounts_outlined),
           ('/help', 'Hilfe & Anleitungen', Icons.help_outline),
           ('/about', 'Über Akribos', Icons.info_outline),
-          ('/datenschutz', 'Datenschutz', Icons.privacy_tip_outlined),
-          ('/impressum', 'Impressum', Icons.business_outlined),
         ])
           Card(
             child: ListTile(
@@ -749,35 +782,7 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
               onTap: () => _open(item.$1),
             ),
           ),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.link),
-            title: const Text('Akribos-Link öffnen'),
-            onTap: () => _openLink(context),
-          ),
-        ),
       ],
-    );
-  }
-
-  Future<void> _openLink(BuildContext context) async {
-    final value = await showDialog<String>(
-      context: context,
-      builder: (context) => const _LinkDialog(),
-    );
-    if (value == null || value.isEmpty) return;
-    final parsed = Uri.tryParse(value);
-    if (parsed != null && parsed.scheme == 'akribos') {
-      final target = appLinkPath(parsed, widget.api.origin);
-      if (target != null) {
-        await _open(target);
-      } else if (context.mounted) {
-        showError(context, 'Dieser App-Link ist ungültig.');
-      }
-      return;
-    }
-    await _open(
-      value.startsWith('http') || value.startsWith('/') ? value : '/$value',
     );
   }
 }
@@ -808,43 +813,5 @@ class _TabCountIcon extends StatelessWidget {
         color: IconTheme.of(context).color,
       ),
     ),
-  );
-}
-
-class _LinkDialog extends StatefulWidget {
-  const _LinkDialog();
-  @override
-  State<_LinkDialog> createState() => _LinkDialogState();
-}
-
-class _LinkDialogState extends State<_LinkDialog> {
-  final _controller = TextEditingController();
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Link öffnen'),
-    content: TextField(
-      controller: _controller,
-      decoration: const InputDecoration(
-        labelText: 'Akribos-Link oder Bibelstelle',
-      ),
-      autofocus: true,
-      onSubmitted: (value) => Navigator.pop(context, value.trim()),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Abbrechen'),
-      ),
-      FilledButton(
-        onPressed: () => Navigator.pop(context, _controller.text.trim()),
-        child: const Text('Öffnen'),
-      ),
-    ],
   );
 }

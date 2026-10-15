@@ -8,17 +8,23 @@ import 'package:akribos_app/core/app_scope.dart';
 import 'package:akribos_app/core/deep_link.dart';
 import 'package:akribos_app/main.dart';
 import 'package:akribos_app/features/reader/reader_screen.dart';
+import 'package:akribos_app/features/reader/reader_state.dart';
+import 'package:akribos_app/features/reader/reader_local_store.dart';
+import 'package:akribos_app/features/documents/documents_screen.dart';
 import 'package:akribos_app/widgets/floating_navigation.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:akribos_app/features/search/search_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _SeedApi extends AppApi {
   _SeedApi() : super(server: 'https://example.test', cookies: CookieJar());
   final List<String> pageCalls = [];
+  final List<String> getCalls = [];
   Completer<Json>? initialReader;
   final Json _seed = asMap(
     jsonDecode(
@@ -49,7 +55,7 @@ class _SeedApi extends AppApi {
   @override
   Future<Json> page(String path) async {
     pageCalls.add(path);
-    if (path == '/' && initialReader != null) {
+    if (!path.startsWith('/search') && initialReader != null) {
       final pending = initialReader!;
       initialReader = null;
       return pending.future;
@@ -57,6 +63,32 @@ class _SeedApi extends AppApi {
     if (path.startsWith('/search')) return {'query': '', 'results': {}};
     if (path == '/login') return {'pending': null, 'redirectTo': '/account'};
     if (path.startsWith('/help')) return {'topics': [], 'results': []};
+    if (Uri.parse(path).path == '/notes') {
+      return {
+        'documents': [
+          {'id': 'note', 'kind': 'note', 'title': 'Persönliche Notiz'},
+        ],
+        'filters': {'kind': 'note'},
+      };
+    }
+    if (Uri.parse(path).path == '/sermons') {
+      return {
+        'sermons': [
+          {
+            'id': 'sermon',
+            'kind': 'sermon',
+            'title': 'Meine Ausarbeitung',
+            'sermonStatus': 'idea',
+          },
+        ],
+        'board': {
+          'columns': [
+            {'id': 'idea', 'name': 'Ideen'},
+          ],
+        },
+        'filters': {},
+      };
+    }
     // A finite viewport fixture: live chapter loading is tested against the real server separately.
     for (final column in asMaps(reader['columns'])) {
       asMap(column['initialChapter'])['navigation'] = {
@@ -64,11 +96,16 @@ class _SeedApi extends AppApi {
         'next': null,
       };
     }
+    reader['user'] = _seed['user'];
     return reader;
   }
 
   @override
-  Future<dynamic> get(String path) async => {'workspaces': []};
+  Future<dynamic> get(String path) async {
+    getCalls.add(path);
+    return {'hits': [], 'total': 0, 'page': 1, 'pageCount': 1};
+  }
+
   @override
   Future<ApiResult> action(String path, String action, Json fields) async =>
       ApiResult(type: 'success', status: 200, data: reader);
@@ -79,6 +116,7 @@ class _SeedApi extends AppApi {
 }
 
 void main() {
+  setUp(() => FlutterSecureStorage.setMockInitialValues({}));
   test('deep links are confined to the configured server', () {
     final server = Uri.parse('https://akribos.de');
     expect(
@@ -138,13 +176,221 @@ void main() {
       final readerCalls = api.pageCalls.length;
       await tester.tap(find.text('Suchen'));
       await tester.pumpAndSettle();
-      expect(api.pageCalls.where((p) => p == '/search').length, 1);
+      expect(find.byType(SearchScreen), findsOneWidget);
+      expect(api.pageCalls.any((p) => p.startsWith('/search')), isFalse);
       await tester.tap(find.text('Lesen'));
       await tester.pumpAndSettle();
-      expect(api.pageCalls.length, readerCalls + 1);
+      expect(api.pageCalls.length, readerCalls);
       await tester.tap(find.text('Suchen'));
       await tester.pumpAndSettle();
-      expect(api.pageCalls.length, readerCalls + 1);
+      expect(api.pageCalls.length, readerCalls);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'navbar search reruns the retained query only in the newly visible Reader translation',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final api = _SeedApi();
+      addTearDown(api.dispose);
+      final secondResource = asMaps(api.reader['readerResources'])
+          .firstWhere((resource) => resource['id'] == 'SEEDPLAIN');
+      final workspace = asMap(api.reader['workspace']);
+      final secondTile = asMaps(workspace['tiles'])[1];
+      asMaps(secondTile['tabs']).single['resourceId'] = secondResource['id'];
+      final columns = asMaps(api.reader['columns']);
+      columns[1]['resource'] = secondResource;
+      columns[1]['initialChapter'] = jsonDecode(
+        jsonEncode(columns[0]['initialChapter']),
+      );
+      api.reader['readerState'] = encodeReaderState(workspace, {}, '');
+      final local = ReaderLocalStore(origin: api.origin, userId: null);
+      FlutterSecureStorage.setMockInitialValues({
+        local.storageKey: jsonEncode({
+          'version': 1,
+          'path': readerPath(workspace, asString(api.reader['readerState'])),
+          'layoutSizes': {},
+        }),
+      });
+      await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
+      await tester.pumpAndSettle();
+      final nav = find.byType(FloatingNavigationBar);
+      Future<void> select(String label) async {
+        await tester.tap(find.descendant(of: nav, matching: find.text(label)));
+        await tester.pumpAndSettle();
+      }
+
+      List<Uri> searches() => api.getCalls
+          .map(Uri.parse)
+          .where((uri) => uri.path == '/api/reader/search')
+          .toList();
+
+      await select('Suchen');
+      expect(find.text('Testübersetzung'), findsOneWidget);
+      expect(searches(), isEmpty);
+      final query = find.descendant(
+        of: find.byType(SearchBox),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(query, 'Liebe');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(searches(), hasLength(1));
+      expect(searches().single.queryParameters, {
+        'q': 'Liebe',
+        'resource': 'SEEDDE',
+        'page': '1',
+      });
+
+      await select('Lesen');
+      await tester.drag(find.byType(PageView), const Offset(-350, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('Schlicht Tab · Joh3,16'), findsOneWidget);
+      expect(
+        searches(),
+        hasLength(1),
+        reason: 'Switching Reader tabs must not run a hidden search.',
+      );
+      await select('Suchen');
+      expect(find.text('Testübersetzung schlicht (Schlicht)'), findsOneWidget);
+      expect(tester.widget<TextField>(query).controller!.text, 'Liebe');
+      expect(searches(), hasLength(2));
+      expect(searches().last.queryParameters, {
+        'q': 'Liebe',
+        'resource': 'SEEDPLAIN',
+      });
+      expect(
+        api.pageCalls.any((path) => Uri.parse(path).path == '/search'),
+        isFalse,
+      );
+      expect(
+        searches().every(
+          (uri) => uri.queryParametersAll['resource']!.length == 1,
+        ),
+        isTrue,
+      );
+
+      await select('Lesen');
+      await select('Suchen');
+      expect(
+        searches(),
+        hasLength(2),
+        reason: 'Revisiting the same selected resource retains its result.',
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'notes destination returns from preparations while preserving navigation guards',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final api = _SeedApi();
+      api._seed['user'] = {'id': 'reader'};
+      addTearDown(api.dispose);
+      await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
+      await tester.pumpAndSettle();
+      final nav = find.byType(FloatingNavigationBar);
+      Future<void> select(String label) async {
+        await tester.tap(find.descendant(of: nav, matching: find.text(label)));
+        await tester.pumpAndSettle();
+      }
+
+      await select('Notizen');
+      await tester.tap(find.text('Ausarbeitungen'));
+      await tester.pumpAndSettle();
+      expect(find.text('Meine Ausarbeitung'), findsOneWidget);
+      await select('Notizen');
+      expect(api.pageCalls.last, '/notes?kind=note');
+      expect(find.text('Meine Notizen'), findsOneWidget);
+      expect(find.text('Persönliche Notiz'), findsOneWidget);
+      expect(find.text('Meine Ausarbeitung'), findsNothing);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(DocumentsScreen),
+          matching: find.text('Ausarbeitungen'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Meine Ausarbeitung'), findsOneWidget);
+      final scope = AppScope.of(tester.element(find.byType(DocumentsScreen)));
+      final owner = Object();
+      var allowLeave = false;
+      var guardCalls = 0;
+      scope.setNavigationGuard(owner, () async {
+        guardCalls++;
+        return allowLeave;
+      });
+      final before = api.pageCalls.length;
+      await select('Notizen');
+      expect(guardCalls, 1);
+      expect(api.pageCalls.length, before);
+      expect(find.text('Meine Ausarbeitung'), findsOneWidget);
+      allowLeave = true;
+      await select('Notizen');
+      expect(guardCalls, 2);
+      expect(find.text('Meine Notizen'), findsOneWidget);
+      scope.setNavigationGuard(owner, null);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'removed mobile routes fall back to libraries and help stays app-specific',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final api = _SeedApi();
+      api._seed['user'] = {'id': 'reader'};
+      addTearDown(api.dispose);
+      await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
+      await tester.pumpAndSettle();
+      final scope = AppScope.of(tester.element(find.byType(Scaffold).first));
+      await scope.open('/notes/import?old=1');
+      await tester.pumpAndSettle();
+      expect(api.pageCalls.last, '/notes?kind=note');
+      expect(find.text('Meine Notizen'), findsOneWidget);
+      await scope.open('/sermons/templates');
+      await tester.pumpAndSettle();
+      expect(api.pageCalls.last, '/sermons');
+      expect(find.text('Meine Ausarbeitung'), findsOneWidget);
+      expect(find.byTooltip('Schritt bearbeiten'), findsNothing);
+      expect(
+        api.pageCalls.any(
+          (p) =>
+              p.startsWith('/notes/import') ||
+              p.startsWith('/sermons/templates'),
+        ),
+        isFalse,
+      );
+      await scope.open('/menu');
+      await tester.pumpAndSettle();
+      for (final removed in [
+        'Ausarbeitungen',
+        'Notizen importieren',
+        'Vorlagen',
+        'Datenschutz',
+        'Impressum',
+        'Akribos-Link öffnen',
+      ]) {
+        expect(find.text(removed), findsNothing);
+      }
+      expect(find.text('Über Akribos'), findsOneWidget);
+      await scope.open('/help/reading/old-web-guide');
+      await tester.pumpAndSettle();
+      expect(find.text('Die App-Hilfe entsteht noch'), findsOneWidget);
+      expect(api.pageCalls.any((p) => p.startsWith('/help')), isFalse);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
@@ -170,7 +416,7 @@ void main() {
     },
   );
 
-  testWidgets('late hidden reader redirect is restored on the next visit', (
+  testWidgets('hidden canonical reader redirect preserves the visible search', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -185,10 +431,13 @@ void main() {
     await tester.pumpAndSettle();
     pending.completeError(const AppRedirect('/Joh1'));
     await tester.pumpAndSettle();
-    expect(api.pageCalls, isNot(contains('/Joh1')));
+    expect(find.byType(SearchScreen), findsOneWidget);
+    final loaded = api.pageCalls.length;
+    expect(api.pageCalls.last, contains('/Joh1?layout='));
+    expect(api.pageCalls.last, contains('workspaceDetached=true'));
     await tester.tap(find.text('Lesen'));
     await tester.pumpAndSettle();
-    expect(api.pageCalls, contains('/Joh1'));
+    expect(api.pageCalls.length, loaded);
     expect(find.byType(ReaderScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -216,7 +465,7 @@ void main() {
       scope.setNavigationGuard(owner, null);
       await tester.tap(find.text('Suchen'));
       await tester.pumpAndSettle();
-      expect(api.pageCalls, contains('/search'));
+      expect(find.byType(SearchScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },

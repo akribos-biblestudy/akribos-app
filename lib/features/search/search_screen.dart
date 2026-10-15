@@ -5,108 +5,334 @@ import '../../core/json.dart';
 import '../../widgets/common.dart';
 import '../../widgets/remote_page.dart';
 import '../reader/books.dart';
+import '../reader/reader_controller.dart';
 import '../reader/verse_text.dart';
 import 'morphology_labels.dart';
 
 class SearchScreen extends StatelessWidget {
-  const SearchScreen({super.key, required this.path});
+  const SearchScreen({super.key, required this.path, this.resource});
   final String path;
+  final ReaderSearchResource? resource;
   @override
-  Widget build(BuildContext context) => RemotePage(
-    path: path,
-    builder: (context, data, reload) {
-      final strong = asString(data['strong']);
-      final query = asString(data['query']);
-      final results = asMap(data['results']);
-      final occurrences = asMap(data['occurrences']);
-      final payload = strong.isNotEmpty ? occurrences : results;
-      void navigate({int? page, int? book, String? gloss}) {
-        final parameters = {...Uri.parse(path).queryParameters};
-        if (book != null) {
-          book == 0 ? parameters.remove('book') : parameters['book'] = '$book';
-        }
-        if (gloss != null) {
-          gloss.isEmpty
-              ? parameters.remove('gloss')
-              : parameters['gloss'] = gloss;
-        }
-        final number = page ?? 1;
-        String destination;
-        if (strong.isEmpty) {
-          parameters['page'] = '$number';
-          destination = '/search';
-        } else {
-          destination = '/$strong${number > 1 ? '/$number' : ''}';
-        }
-        AppScope.of(
-          context,
-        ).open(Uri(path: destination, queryParameters: parameters).toString());
-      }
+  Widget build(BuildContext context) => Uri.parse(path).path == '/search'
+      ? _ResourceSearch(path: path, resource: resource)
+      : RemotePage(
+          path: path,
+          builder: (context, data, reload) {
+            final strong = asString(data['strong']);
+            final query = asString(data['query']);
+            final results = asMap(data['results']);
+            final occurrences = asMap(data['occurrences']);
+            final payload = strong.isNotEmpty ? occurrences : results;
+            void navigate({int? page, int? book, String? gloss}) {
+              final parameters = {...Uri.parse(path).queryParameters};
+              if (book != null) {
+                book == 0
+                    ? parameters.remove('book')
+                    : parameters['book'] = '$book';
+              }
+              if (gloss != null) {
+                gloss.isEmpty
+                    ? parameters.remove('gloss')
+                    : parameters['gloss'] = gloss;
+              }
+              final number = page ?? 1;
+              String destination;
+              if (strong.isEmpty) {
+                parameters['page'] = '$number';
+                destination = '/search';
+              } else {
+                destination = '/$strong${number > 1 ? '/$number' : ''}';
+              }
+              AppScope.of(context).open(
+                Uri(path: destination, queryParameters: parameters).toString(),
+              );
+            }
 
-      return ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          SearchBox(
-            initialValue: query.isNotEmpty ? query : strong,
-            onSearch: (value) => AppScope.of(context).open(
-              Uri(path: '/search', queryParameters: {'q': value}).toString(),
-            ),
-          ),
-          if (query.isEmpty && strong.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32),
-              child: Text(
-                'Suche nach Wörtern, einer Bibelstelle oder einer Strong-Nummer. Mit Anführungszeichen suchst du nach einer Wortfolge.',
-              ),
-            ),
-          if (strong.isNotEmpty)
-            StrongDetails(
-              data: data,
-              onGloss: (gloss) => navigate(gloss: gloss),
-            ),
-          if (payload.isNotEmpty) ...[
-            ResultFilters(
-              data: {
-                ...payload,
-                'book': data['book'],
-                'bookCounts': data['bookCounts'] ?? payload['bookCounts'],
-              },
-              onBook: (book) => navigate(book: book),
-            ),
-            if (asString(payload['suggestion']).isNotEmpty)
-              TextButton(
-                onPressed: () => AppScope.of(context).open(
-                  '/search?q=${Uri.encodeComponent(asString(payload['suggestion']))}',
+            return ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                SearchBox(
+                  initialValue: query.isNotEmpty ? query : strong,
+                  onSearch: (value) => AppScope.of(context).open(
+                    Uri(
+                      path: '/search',
+                      queryParameters: {'q': value},
+                    ).toString(),
+                  ),
                 ),
-                child: Text('Meintest du „${payload['suggestion']}“?'),
+                if (query.isEmpty && strong.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
+                    child: Text(
+                      'Suche nach Wörtern, einer Bibelstelle oder einer Strong-Nummer. Mit Anführungszeichen suchst du nach einer Wortfolge.',
+                    ),
+                  ),
+                if (strong.isNotEmpty)
+                  StrongDetails(
+                    data: data,
+                    onGloss: (gloss) => navigate(gloss: gloss),
+                  ),
+                if (payload.isNotEmpty) ...[
+                  ResultFilters(
+                    data: {
+                      ...payload,
+                      'book': data['book'],
+                      'bookCounts': data['bookCounts'] ?? payload['bookCounts'],
+                    },
+                    onBook: (book) => navigate(book: book),
+                  ),
+                  if (asString(payload['suggestion']).isNotEmpty)
+                    TextButton(
+                      onPressed: () => AppScope.of(context).open(
+                        '/search?q=${Uri.encodeComponent(asString(payload['suggestion']))}',
+                      ),
+                      child: Text('Meintest du „${payload['suggestion']}“?'),
+                    ),
+                  ...asMaps(
+                    strong.isNotEmpty
+                        ? payload['occurrences']
+                        : payload['hits'],
+                  ).map(
+                    (hit) => SearchHit(
+                      hit: hit,
+                      resourceTitle: asString(
+                        asMap(data['resource'])['abbrev'],
+                      ),
+                      direction: asMap(data['resource'])['direction'] == 'rtl'
+                          ? TextDirection.rtl
+                          : TextDirection.ltr,
+                      strong: strong.isEmpty ? null : strong,
+                      needles:
+                          (asMap(payload['query'])['highlight'] as List? ?? [])
+                              .whereType<String>()
+                              .toList(),
+                      onOpen: (reference) =>
+                          AppScope.of(context)
+                              .open('/${referenceLabel(reference)}'),
+                    ),
+                  ),
+                  if (asInt(payload['total']) == 0)
+                    const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text('Keine Treffer für diese Auswahl.'),
+                    ),
+                  ResultPagination(
+                    data: payload,
+                    onPage: (page) => navigate(page: page),
+                  ),
+                ],
+              ],
+            );
+          },
+        );
+}
+
+/// Search follows the visible native Reader resource. It never calls the web
+/// search page, whose resource selection belongs to the saved browser workspace.
+class _ResourceSearch extends StatefulWidget {
+  const _ResourceSearch({required this.path, required this.resource});
+  final String path;
+  final ReaderSearchResource? resource;
+  @override
+  State<_ResourceSearch> createState() => _ResourceSearchState();
+}
+
+class _ResourceSearchState extends State<_ResourceSearch> {
+  Json? _data;
+  Object? _error;
+  int _generation = 0;
+  bool _started = false;
+  bool _loading = false;
+  String get _query =>
+      (Uri.parse(widget.path).queryParameters['q'] ?? '').trim();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_started) {
+      _started = true;
+      _load();
+    }
+  }
+
+  @override
+  void didUpdateWidget(_ResourceSearch oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path ||
+        oldWidget.resource != widget.resource) {
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final generation = ++_generation;
+    final resource = widget.resource;
+    _data = null;
+    _error = null;
+    _loading = false;
+    if (resource == null || resource.id.isEmpty || _query.isEmpty) return;
+    _loading = true;
+    final uri = Uri.parse(widget.path);
+    try {
+      final data = asMap(
+        await AppScope.of(context).api.get(
+          Uri(
+            path: resource.kind == 'lexicon'
+                ? '/api/reader/lookup'
+                : '/api/reader/search',
+            queryParameters: {
+              'resource': resource.id,
+              'q': _query,
+              if (resource.kind != 'lexicon') ...{
+                if (uri.queryParameters['page'] != null)
+                  'page': uri.queryParameters['page']!,
+                if (uri.queryParameters['book'] != null)
+                  'book': uri.queryParameters['book']!,
+              },
+            },
+          ).toString(),
+        ),
+      );
+      if (mounted && generation == _generation) setState(() => _data = data);
+    } catch (error) {
+      if (mounted && generation == _generation) setState(() => _error = error);
+    } finally {
+      if (mounted && generation == _generation) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  void _navigate({String? query, int? page, int? book}) {
+    final parameters = {...Uri.parse(widget.path).queryParameters};
+    if (query != null) {
+      parameters['q'] = query;
+      parameters.remove('book');
+    }
+    parameters['page'] = '${page ?? 1}';
+    if (book != null) {
+      book == 0 ? parameters.remove('book') : parameters['book'] = '$book';
+    }
+    AppScope.of(context)
+        .open(Uri(path: '/search', queryParameters: parameters).toString());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final resource = widget.resource;
+    final data = _data;
+    final lexicon = resource?.kind == 'lexicon';
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Text(
+          lexicon ? 'Eintrag suchen in' : 'Suche in',
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        Text(
+          resource?.title ?? 'Kein Werk geöffnet',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 16),
+        if (resource == null)
+          const Text(
+            'Öffne zunächst ein Werk unter Lesen. Die Suche verwendet genau dieses Werk.',
+          )
+        else ...[
+          SearchBox(
+            initialValue: _query,
+            label: lexicon
+                ? 'Lemma, Umschrift oder Strong-Nummer'
+                : resource.kind == 'bible'
+                ? 'Wort oder Strong-Nummer'
+                : 'Wort oder Wortfolge',
+            onSearch: (value) => _navigate(query: value),
+          ),
+          if (_query.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                lexicon
+                    ? 'Öffnet den passenden Lexikoneintrag. Exakte Schreibweisen werden bevorzugt, danach Wortanfänge.'
+                    : 'Suche ausschließlich in diesem Werk. Mit Anführungszeichen suchst du nach einer Wortfolge.',
               ),
-            ...asMaps(
-              strong.isNotEmpty ? payload['occurrences'] : payload['hits'],
-            ).map(
-              (hit) => SearchHit(
+            ),
+        ],
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        if (_error != null) ...[
+          const SizedBox(height: 16),
+          Text('Die Suche konnte nicht geladen werden: $_error'),
+          TextButton.icon(
+            onPressed: () => setState(() {
+              _load();
+            }),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Erneut versuchen'),
+          ),
+        ],
+        if (data != null && lexicon)
+          StrongDetails(
+            data: {'entry': data['entry']},
+            onLookup: (query) => _navigate(query: query),
+          ),
+        if (data != null && !lexicon) ...[
+          if (data['kind'] == 'unsupported')
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('Dieses Werk unterstützt keine Volltextsuche.'),
+            )
+          else ...[
+            ResultFilters(
+              data: data,
+              onBook: (book) => _navigate(book: book),
+            ),
+            if (data['kind'] == 'strong')
+              StrongDetails(
+                data: data,
+                showMissingEntry: false,
+                onLookup: (query) => _navigate(query: query),
+              ),
+            if (asString(data['suggestion']).isNotEmpty)
+              TextButton(
+                onPressed: () => _navigate(query: asString(data['suggestion'])),
+                child: Text('Meintest du „${data['suggestion']}“?'),
+              ),
+            for (final hit in asMaps(data['hits']))
+              SearchHit(
                 hit: hit,
-                strong: strong.isEmpty ? null : strong,
-                needles: (asMap(payload['query'])['highlight'] as List? ?? [])
+                resourceTitle: resource!.title,
+                direction: resource.direction == 'rtl'
+                    ? TextDirection.rtl
+                    : TextDirection.ltr,
+                strong: data['kind'] == 'strong'
+                    ? asString(data['strong'])
+                    : null,
+                needles: (data['needles'] as List? ?? [])
                     .whereType<String>()
                     .toList(),
+                onStrong: (query) => _navigate(query: query),
                 onOpen: (reference) =>
                     AppScope.of(context).open('/${referenceLabel(reference)}'),
               ),
-            ),
-            if (asInt(payload['total']) == 0)
+            if (asInt(data['total']) == 0)
               const Padding(
                 padding: EdgeInsets.all(24),
-                child: Text('Keine Treffer für diese Auswahl.'),
+                child: Text('Keine Treffer in diesem Werk.'),
               ),
             ResultPagination(
-              data: payload,
-              onPage: (page) => navigate(page: page),
+              data: data,
+              onPage: (page) => _navigate(page: page),
             ),
           ],
         ],
-      );
-    },
-  );
+      ],
+    );
+  }
 }
 
 class SearchBox extends StatefulWidget {
@@ -250,8 +476,14 @@ class SearchHit extends StatelessWidget {
     required this.onOpen,
     this.strong,
     this.needles = const [],
+    this.resourceTitle = '',
+    this.direction,
+    this.onStrong,
   });
   final Json hit;
+  final String resourceTitle;
+  final TextDirection? direction;
+  final void Function(String)? onStrong;
   final String? strong;
   final List<String> needles;
   final void Function(Json) onOpen;
@@ -270,6 +502,11 @@ class SearchHit extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (resourceTitle.isNotEmpty)
+              Text(
+                resourceTitle,
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
             TextButton.icon(
               onPressed: () => onOpen(reference),
               icon: const Icon(Icons.menu_book, size: 18),
@@ -281,16 +518,24 @@ class SearchHit extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleSmall,
               ),
             if (hit['bodyHtml'] != null)
-              HtmlContent(html: asString(hit['bodyHtml'])),
+              Directionality(
+                textDirection: direction ?? TextDirection.ltr,
+                child: HtmlContent(html: asString(hit['bodyHtml'])),
+              ),
             if (hit['segments'] is List)
               VerseText(
                 segments: hit['segments'] as List,
+                direction: direction,
                 studiedStrong: strong,
                 needles: needles,
                 onWord: (word, _) {
                   final ids = strongNumbers(word);
                   if (ids.isNotEmpty) {
-                    AppScope.of(context).open('/${ids.first}');
+                    if (onStrong != null) {
+                      onStrong!(ids.first);
+                    } else {
+                      AppScope.of(context).open('/${ids.first}');
+                    }
                   }
                 },
               ),
@@ -302,6 +547,7 @@ class SearchHit extends StatelessWidget {
                 ),
               VerseText(
                 segments: cell['segments'] as List? ?? [],
+                direction: direction,
                 studiedStrong: strong,
                 needles: needles,
               ),
@@ -319,9 +565,16 @@ class SearchHit extends StatelessWidget {
 }
 
 class StrongDetails extends StatefulWidget {
-  const StrongDetails({super.key, required this.data, this.onGloss});
+  const StrongDetails({
+    super.key,
+    required this.data,
+    this.onGloss,
+    this.onLookup,
+    this.showMissingEntry = true,
+  });
   final Json data;
-  final void Function(String)? onGloss;
+  final void Function(String)? onGloss, onLookup;
+  final bool showMissingEntry;
   @override
   State<StrongDetails> createState() => _StrongDetailsState();
 }
@@ -421,7 +674,7 @@ class _StrongDetailsState extends State<StrongDetails> {
         ])
           if (asString(text[key]).isNotEmpty)
             HtmlContent(html: asString(text[key])),
-        if (entry.isEmpty)
+        if (entry.isEmpty && widget.showMissingEntry)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Text('In diesem Lexikon ist kein Eintrag vorhanden.'),
@@ -433,7 +686,9 @@ class _StrongDetailsState extends State<StrongDetails> {
               .map(
                 (id) => ActionChip(
                   label: Text(id),
-                  onPressed: () => AppScope.of(context).open('/$id'),
+                  onPressed: () => widget.onLookup != null
+                      ? widget.onLookup!(id)
+                      : AppScope.of(context).open('/$id'),
                 ),
               )
               .toList(),

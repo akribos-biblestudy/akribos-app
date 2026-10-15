@@ -1,6 +1,8 @@
 # Bauen und auf Geräten prüfen
 
 Der aktuell tatsächlich ausgeführte Prüfstand steht in [VALIDATION.md](VALIDATION.md).
+Vorerst wird ausschließlich Android veröffentlicht. Die Apple-Organisationsanmeldung läuft
+noch; ein bestätigtes Developer-Konto steht derzeit nicht zur Verfügung.
 
 ## Android für akribos.de
 
@@ -24,11 +26,11 @@ Das Skript akzeptiert keine Parameter und legt diese Werte fest:
 | --- | --- |
 | Server | `https://akribos.de` |
 | Anwendung | `de.akribos.app` |
-| Version / Android-Versionscode | `0.2.3` / `6` |
+| Version / Android-Versionscode | `0.2.5` / `8` |
 | Architektur | `android-arm64` |
 | Laufzeit | Optimierter Flutter-Release-Build mit AOT, ohne Debugger |
 | Signatur | Vorhandener lokaler Android-Debugschlüssel; identisch mit Build 2 |
-| APK | `artifacts/akribos-0.2.3-akribos-de-release.apk` |
+| APK | `artifacts/akribos-0.2.5-akribos-de-release.apk` |
 
 `--release` ist für aussagekräftige Bedien- und Leistungstests erforderlich. Die lokale
 Debug-Signatur beeinflusst den Kompilierungsmodus nicht: Diese APK enthält Release-Code.
@@ -52,15 +54,15 @@ Das APK, eine SHA-256-Prüfsumme und ein Bericht des öffentlichen Signaturzerti
 im ignorierten Verzeichnis `artifacts/`. Die abschließende Prüfsumme lässt sich so prüfen:
 
 ```sh
-(cd artifacts && sha256sum -c akribos-0.2.3-akribos-de-release.apk.sha256)
+(cd artifacts && sha256sum -c akribos-0.2.5-akribos-de-release.apk.sha256)
 ```
 
 Die APK wird als Update der vorhandenen App installiert; **nicht vorher deinstallieren
-oder App-Daten löschen**. Gleiche Anwendungs-ID, derselbe Signer und Versionscode 6 erhalten
+oder App-Daten löschen**. Gleiche Anwendungs-ID, derselbe Signer und Versionscode 8 erhalten
 die Android-App-Daten beim Update von Build 2. Die Installation erfolgt ausschließlich als Paketupdate:
 
 ```sh
-adb -s <Geraeteseriennummer> install -r artifacts/akribos-0.2.3-akribos-de-release.apk
+adb -s <Geraeteseriennummer> install -r artifacts/akribos-0.2.5-akribos-de-release.apk
 ```
 
 Kein `adb uninstall`, `pm clear` oder automatischer Fallback durch Löschen von App-Daten.
@@ -75,17 +77,27 @@ Referenzen: [Flutter Android-Release](https://docs.flutter.dev/deployment/androi
 
 ## Store-Verteilung
 
+Die vollständige Schrittfolge und die neuen Android-GitHub-Workflows stehen in
+[PLAY-STORE.md](PLAY-STORE.md). Veröffentlichte `vX.Y.Z`-Releases starten den geschützten
+Workflow auf `main`; nach dem einmaligen manuellen Erstupload veröffentlicht dieser
+ausschließlich nach Google Play Internal Testing. Secrets und Play-Zugang sind noch
+einzurichten.
+
 Die direkte APK verwendet produktiven Server und optimierten Release-Code, ist jedoch
 weiter mit dem bisherigen lokalen Debugschlüssel signiert. Für Google Play sind eine eigene
 Upload-Signatur, sichere CI-Secrets und die tatsächliche Play-Console-Anwendung separat
 einzurichten. Eine andere Signatur erlaubt kein gewöhnliches Update der bereits lokal
 installierten App. Schlüssel und `key.properties` gehören nicht ins Repository.
 Versions-/Buildnummern können für spätere Veröffentlichungen über `--build-name` und
-`--build-number` gesetzt werden; dieses Skript hält den Pixel-Build `0.2.3+6` fest.
+`--build-number` gesetzt werden; dieses Skript hält den Pixel-Build `0.2.5+8` fest.
 
-## iOS
+## iOS – spätere Freigabe
 
-Auf macOS:
+Die folgenden Schritte sind erst nach Bestätigung des Apple-Developer-Kontos und der
+Team-ID für eine Veröffentlichung vorgesehen. Signierung, Associated Domains, Geräteabnahme
+und Verteilung stehen noch aus; siehe [TODO.md](TODO.md).
+
+Ein unsignierter Entwicklungsbuild ist auf macOS möglich:
 
 ```sh
 flutter pub get --enforce-lockfile
@@ -94,8 +106,8 @@ flutter build ios --debug --no-codesign
 
 Für echte Geräte und TestFlight in Xcode das tatsächliche Apple-Team und ein passendes
 Provisioning-Profil für `de.akribos.app` hinterlegen. Keychain-Entitlements sind bereits für
-Debug/Profile/Release gesetzt. Die CI erstellt einen unsignierten Build; sie lädt nichts zu
-App Store Connect hoch. Linux kann diese Schritte nicht verifizieren.
+Debug/Profile/Release gesetzt. Die aktuelle CI prüft ausschließlich Android; es gibt
+keinen iOS-Storeworkflow. Linux kann die Apple-Schritte nicht verifizieren.
 
 ## Passwortmanager
 
@@ -119,22 +131,32 @@ Quellen: [Flutter Autofill](https://api.flutter.dev/flutter/material/TextField/a
 ## App-Links
 
 `akribos://open?path=%2FJoh3%2C16` öffnet eine konkrete Stelle. Nur lokale Pfade bzw. URLs des
-konfigurierten Origins werden übernommen. Gewöhnliche HTTPS-Links öffnen sich erst nach
-korrekter Domainzuordnung automatisch in der App. Dafür sind die echten Android-Zertifikats-
-Fingerprints und die Apple-Team-ID in `assetlinks.json` bzw. `apple-app-site-association` nötig.
-E-Mail-Code-Anmeldung funktioniert ohne diese automatische Linkzuordnung.
+konfigurierten Origins werden übernommen. Android-App-Links sind mit `autoVerify` ausschließlich
+für `akribos.de` eingerichtet, für HTTP und HTTPS sowie alle Pfade, ohne `www` oder Wildcard.
+HTTP-Links werden nur für denselben Host auf dem Standardport intern zu HTTPS aufgewertet.
+`/.well-known/assetlinks.json` ist im Server vorbereitet. Die Zuordnung muss
+Paketname `de.akribos.app`, den tatsächlichen Zertifikatfingerprint und den HTTPS-Host verbinden.
+Konfiguration allein ist keine bestätigte Live-Funktion: Die Domain-Datei muss veröffentlicht
+und vom Betriebssystem auf dem Gerät erfolgreich verifiziert werden. Der bestätigte Stand
+gehört nach [VALIDATION.md](VALIDATION.md).
+
+Für iOS fehlen noch das bestätigte Developer-Konto und die Apple-Team-ID. Das Entitlement
+`applinks:akribos.de` ist vorbereitet; eine passende `apple-app-site-association` wird erst mit
+der echten Team-ID eingerichtet und zusammen mit der Signierung auf einem Gerät geprüft.
+Diese Zuordnung und iOS-Veröffentlichung sind noch offen. E-Mail-Code-Anmeldung
+funktioniert unabhängig von der automatischen HTTPS-Linkzuordnung.
 
 ## Geräteabnahme
 
 | Gerät/Situation | Prüfung |
 | --- | --- |
-| Android-Telefon | Start, Anmeldung/Neustart, Zurück, lange Texte, Tastatur, Dateiauswahl, Teilen, Rücksetzlinks |
-| iPhone | Keychain-Sitzung, Login-Code, Tastatur/Safe Areas, System-Share, Link-Rückkehr |
-| Android-Tablet/iPad | Mehrere Kacheln, Trenner, Querformat, Split View, Tab-Wechsel ohne Positionsverlust |
+| Android-Telefon | Start, Anmeldung/Neustart, Zurück, lange Texte, Tastatur, Dateiauswahl, Teilen, Rücksetzlinks; Suche im aktuellen Werk und Notizen-Einstieg |
+| iPhone, spätere Freigabe | Keychain-Sitzung, Login-Code, Tastatur/Safe Areas, System-Share, Link-Rückkehr |
+| Android-Tablet; iPad später | Flache Tabfolge aller lokalen Werke, Querformat und Fensterwechsel ohne Umordnung; sämtliche Werke und Lesestellen bleiben erreichbar |
 | Boox/E-Ink | Kontrast, Ghosting, Bildschirmblättern, Touch-Reaktion, Lesbarkeit von Markierungen |
 | Barrierefreiheit | Große Systemschrift, Screenreader, Kontrast, Bedienung der Dialoge |
 | Schlechte Verbindung | Sichtbare Fehler, Erhalt von Dokumententwürfen, erneutes Speichern, keine stillen Konfliktüberschreibungen |
-| Mehrere Geräte | Arbeitsbereiche unabhängig öffnen, Lesepositionen folgen, Revisionkonflikte und Rechtewiderruf |
+| Mehrere Geräte/Konten | Lokale Tabs, Stellen und Suchen bleiben beim Neustart erhalten und voneinander getrennt; App-Navigation verändert keine Browser-Arbeitsbereiche; Dokumentrevisionen und Rechtewiderruf |
 
 Automatisierte Tests decken Protokoll-/Cookiegrenzen, Gerätegrößen und zentrale Arbeitsabläufe
 ab. Sie ersetzen weder die komplette Geräteabnahme noch die Freigabe durch Apple/Google.

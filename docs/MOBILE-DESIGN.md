@@ -10,8 +10,8 @@ oder Logos-Funktionsnamen als eigene Akribos-Funktion übernommen.
 | Offizielle Quelle | Belegtes Muster | Entscheidung für Akribos |
 | --- | --- | --- |
 | [Logos v53, 25.08.2026](https://www.logos.com/grow/release-august-2026/) | Fünf Hauptziele; erneuter Tap auf aktives Read öffnet die Panelübersicht; Study bündelt Ressourcen und Werkzeuge, More Einstellungen. | Lesen als stabiler Ausgangspunkt; zweiter Tap öffnet Ansichten. Häufige Ziele direkt erreichbar, weitere Funktionen unter Mehr. |
-| [Logos Mobile Einstieg](https://support.logos.com/hc/en-us/articles/360035659011-Get-Started-with-Logos-Mobile) | Zuletzt gelesene Ressource beim Start; Kontextleiste mit Werktitel, Stelle, Suche und Panelmenü. | Lesen fortsetzen; Werk- und Stellenwahl sowie lokale Aktionen direkt am Pane. |
-| [Logos Layouts, Abschnitt Mobile](https://support.logos.com/hc/en-us/articles/360016599631-Set-Up-Your-Workspace-with-Layouts) | Tabübersicht mit Plus, Split, zweiter Ressourcenauswahl und Linkgruppen; verschiebbarer Trenner; gespeicherte Layouts; zusätzliche Tablet-Vorlagen. | Vorschaukarten mit echten Werken und Stellen; Pane-Auswahl, Teilen und Schließen; zwei sichtbare Bereiche am Smartphone, vorhandene Layouts bis vier am Tablet. |
+| [Logos Mobile Einstieg](https://support.logos.com/hc/en-us/articles/360035659011-Get-Started-with-Logos-Mobile) | Zuletzt gelesene Ressource beim Start; Kontextleiste mit Werktitel, Stelle, Suche und Panelmenü. | Lesen fortsetzen; Werk- und Stellenwahl sowie lokale Aktionen am Ressourcentab; Werksuche im Tabmenü. |
+| [Logos Layouts, Abschnitt Mobile](https://support.logos.com/hc/en-us/articles/360016599631-Set-Up-Your-Workspace-with-Layouts) | Tabübersicht mit Plus, Split, zweiter Ressourcenauswahl und Linkgruppen; verschiebbarer Trenner; gespeicherte Layouts; zusätzliche Tablet-Vorlagen. | Vorschaukarten mit echten Werken und Stellen; eine flache Tabfolge auf Telefon und Tablet. Tabs werden ausschließlich lokal pro Gerät gespeichert; Browser-Arbeitsbereiche, Split und Layouteditor werden nicht übernommen. |
 | [Logos Link Sets, Abschnitt Mobile](https://support.logos.com/hc/en-us/articles/360016827711-How-to-Link-Resources-to-Scroll-Together) | Gleich bezeichnete Gruppen navigieren synchron; zusätzlich einseitiges Follow only. | Vorhandene Akribos-Gruppen A–E sichtbar machen. Einseitiges Folgen ohne eigenes fachliches Modell nicht anbieten. |
 | [Telegram Android, 09.02.2026](https://telegram.org/blog/crafting-android-design-and-more) | Neue Bottom Bar für direkten Wechsel der Hauptbereiche; abschaltbare Effekte. | Kompakte, schwebende Hauptnavigation mit eindeutigem aktiven Ziel und großen Touchflächen. |
 | [Telegram iOS, 03.01.2026](https://telegram.org/blog/new-design-ai-summaries) | Liquid Glass mit Transparenz und Lichtbrechung; Effekte unter Power Saving steuerbar. | Opake Leiste ohne Blur für geringe Renderkosten; E-Ink zusätzlich ohne Bewegungsanimation. |
@@ -19,17 +19,30 @@ oder Logos-Funktionsnamen als eigene Akribos-Funktion übernommen.
 ## Eigenständige Akribos-Regeln
 
 Die Bottom Bar wechselt Hauptbereiche; die Ansichtenübersicht organisiert die geöffneten
-Reader-Inhalte. Panelmenüs verändern nur das jeweilige Panel. Ressourcenwahl, Kopplung und
-Suchkontext müssen sichtbar bleiben. Die bestehenden Arbeitsbereiche, Referenzen und
-Versionsprüfungen bleiben die Datenbasis; ein UI-Wechsel darf keine Inhalte schließen oder
-fremde Gerätestände überschreiben. Akribos behält seine geräteübergreifenden Arbeitsbereiche,
-auch wenn Logos Layouts nur innerhalb derselben Geräteklasse synchronisiert.
+Reader-Inhalte. Tabmenüs verändern nur den jeweiligen Ressourcentab. Ressourcenwahl, Kopplung und
+Suchkontext müssen sichtbar bleiben. Die App speichert ihre Tabs, Referenzen und Suchen lokal,
+getrennt nach Server und Konto. Sie übernimmt keine Browser-Arbeitsbereiche und verändert weder
+deren Tabs noch die Tabs eines anderen App-Geräts. Eine Verwaltung benannter Arbeitsbereiche
+ist nicht Bestandteil der App.
 
-Smartphones zeigen je nach Auswahl einen oder zwei echte Lesebereiche. Tablets nutzen die
-vorhandenen Anordnungen und verschiebbaren Trenner. Bei schmalem Fenster darf der gewählte
-Ausschnitt wechseln, ohne die gespeicherte Anordnung zu verlieren. Vor Eingaben werden
-Dokumententwürfe regulär gesichert; Zurück und Hauptnavigation müssen vorhandene Konflikte
-und ausstehende Änderungen beachten.
+Smartphones und Tablets zeigen denselben einzelnen Lesebereich mit einer flachen Folge aller
+geöffneten Ressourcen. Wischen und Tabkarten erreichen jedes geöffnete Werk. Ein Fensterwechsel
+ordnet die lokalen Tabs nicht um. Die interne Readerstruktur erscheint nicht als zusätzliche
+Kachelhierarchie. Split-, Layout- und Trennerbedienung entfallen. Zurück und Hauptnavigation beachten
+vorhandene Konflikte und sichern ausstehende Dokument- und Readeränderungen.
+
+Beim Öffnen zeigt die Hauptnavigation „Suche“ das aktuell im Reader gewählte Werk samt Titel.
+Nach einem Werkwechsel wird der bisherige Suchbegriff für dieses Werk erneut gesucht; Buchfilter
+und Ergebnisseite werden zurückgesetzt. Beim selben Werk bleibt der Suchstand erhalten. Während
+des Lesens wird keine Hintergrundsuche ausgeführt; das Werk wird ausschließlich im Reader gewählt. Die
+Werksuche im Reader ist über das Tabmenü erreichbar; neben dem Stellenfeld gibt es keinen
+zusätzlichen Suchbutton. „Notizen“ startet immer in der reinen Notizbibliothek; Ausarbeitungen
+haben dort einen eigenen Wechsel. Import und Vorlagen entfallen, Boardspalten sind nur lesbar;
+Dokumente können weiterhin zwischen ihnen verschoben werden.
+
+„Mehr“ enthält weiterhin „Über Akribos“, aber keine Einträge für Datenschutz, Impressum oder
+einen manuellen Linkdialog. Die Hilfe ist vorerst ein lokaler Platzhalter. App-spezifische
+Anleitungen entstehen nach Fertigstellung, siehe [TODO.md](TODO.md).
 
 Abstände, Safe Areas, begrenzte Maximalbreite der Bottom Bar, Tastaturverhalten und
 E-Ink-Darstellung sind Akribos-Entscheidungen. Die Telegram-Beiträge spezifizieren keine
@@ -41,7 +54,7 @@ Symbole und lokal gebündelten Schriften.
 Wortklicks öffnen ausschließlich Lexikoninhalte als fast bildschirmhohen Dialog von unten.
 Der Griff, eine sichtbare Schließen-Schaltfläche und die System-Zurück-Geste führen zurück
 zum unveränderten Bibeltext. Der Dialog nutzt lesende API-Aufrufe statt einen neuen
-Arbeitsbereichstab anzulegen. Andere Werke behalten die normale Tabnavigation; ein bewusst
+Ressourcentab anzulegen. Andere Werke behalten die normale Tabnavigation; ein bewusst
 geöffnetes Lexikon kann ebenfalls als dauerhafter Ressourcentab bestehen bleiben.
 
 A–E nutzen die Web-Gruppenfarben aus `ReaderTabToolbar.svelte`: A `#b9683f`, B `#55759b`,
@@ -52,7 +65,7 @@ keine globale Tagwolke; Filter und Tagbearbeitung bleiben gezielt erreichbar.
 
 [Logos v54 vom 06.10.2026](https://www.logos.com/grow/release-october-2026/) macht Tabs und
 Layouts optional und deaktiviert sie standardmäßig; gespeicherte Stände bleiben erhalten.
-Akribos bietet den ausdrücklich gewünschten Studienmodus direkt an. Die Logos-Quellen
+Akribos bietet die Tabübersicht direkt an, übernimmt jedoch keine Split- oder Layoutbedienung. Die Logos-Quellen
 widersprechen sich bei der Tablet-Maximalzahl: Die Link-Set-Hilfe nennt vier, eine
 [offizielle Mitarbeiterankündigung von 2022](https://community.logos.com/forums/topic/194580-feature-new-layout-options-on-tablet/)
 sechs sichtbare Inhalte. Daraus wird keine neue Akribos-Sechs-Pane-Anforderung abgeleitet.

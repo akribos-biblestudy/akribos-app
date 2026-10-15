@@ -23,6 +23,32 @@ void main() {
     addTearDown(api.dispose);
   }
 
+  test('local reader opt-in reaches bootstrap, page and action requests', () async {
+    setup((_) async => success({'protocolVersion': 1}));
+    const readerPath =
+        '/Joh1?layout=single&tab=1.1:SEEDDE:A:Joh1&active=1.1&focus=1&workspaceDetached=true';
+    await api.loadBootstrap();
+    await api.page(readerPath);
+    await api.action(readerPath, 'setTabLinkSet', {
+      'tileId': 'tile',
+      'tabId': 'tab',
+      'linkSet': 'B',
+    });
+    expect(adapter.requests.map((request) => request.options.uri.path), [
+      '/api/app/bootstrap',
+      '/api/app/page',
+      '/api/app/action',
+    ]);
+    for (final request in adapter.requests) {
+      expect(request.options.headers['x-akribos-app'], '1');
+      expect(
+        request.options.headers['x-akribos-reader-mode'],
+        'local',
+        reason: 'Every first-party load or action must opt out of named browser workspace state.',
+      );
+    }
+  });
+
   test('normalizes native numbers, booleans and repeated fields without losing leading zeroes', () async {
     setup((_) async => success());
     await api.action('/account', 'reader', {

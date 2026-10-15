@@ -1,17 +1,6 @@
 import '../../core/json.dart';
 import 'books.dart';
 
-const readerLayouts = <String, String>{
-  'single': 'Eine Kachel',
-  'columns-2': 'Zwei Spalten',
-  'columns-3': 'Drei Spalten',
-  'columns-4': 'Vier Spalten',
-  'rows-2': 'Zwei Zeilen',
-  'left-full': 'Links groß',
-  'right-full': 'Rechts groß',
-  'grid-4': 'Vier Kacheln',
-};
-
 /// Server output uses activeSaved*; mutation inputs deliberately use workspace*.
 void adoptReaderSelection(Json target, Json response) {
   for (final pair in const {
@@ -32,8 +21,7 @@ Json activeTab(Json tile) => asMaps(tile['tabs']).firstWhere(
   orElse: () => <String, dynamic>{},
 );
 
-/// The activation action changes no structure. Predict its existing link-group
-/// rule locally; only adopt this state after the server returns the same URL.
+/// Local activation follows the existing link-group rule without a server write.
 void activateReaderTab(Json workspace, String tileId, String tabId) {
   final tiles = asMaps(workspace['tiles']);
   final tile = tiles.firstWhere((tile) => tile['id'] == tileId);
@@ -145,18 +133,36 @@ String readerPath(Json workspace, String readerState) {
   return '/${referenceLabel(reference)}${readerState.isEmpty ? '' : '?$readerState'}';
 }
 
+/// Only public Reader state is stored or shared. Ignore account workspace guards
+/// even when they arrived in an old link or a legacy server response.
+String localReaderAddress(String path) {
+  final uri = Uri.parse(path);
+  const fields = {
+    'layout',
+    'tab',
+    'active',
+    'focus',
+    'lookup',
+    'source',
+    'sourceRef',
+    'word',
+    'wordPosition',
+    'search',
+    'notesQuery',
+    'notesTag',
+    'notesFilter',
+  };
+  final state = uri.query
+      .split('&')
+      .where(
+        (part) => fields.contains(Uri.decodeComponent(part.split('=').first)),
+      )
+      .join('&');
+  return '${uri.path.isEmpty ? '/Joh1' : uri.path}${state.isEmpty ? '' : '?$state'}';
+}
+
 String readerActionPath(String path, Json data, {String? readerState}) {
-  final base = Uri.parse(path).path;
   final state = readerState ?? asString(data['readerState']);
-  final parameters = <String>[
-    if (state.isNotEmpty) state,
-    for (final key in [
-      'workspaceId',
-      'workspaceVersion',
-      'workspaceContentVersion',
-    ])
-      if (data[key] != null) '$key=${Uri.encodeComponent('${data[key]}')}',
-    if (data['readerWorkspaceDetached'] == true) 'workspaceDetached=true',
-  ];
-  return '$base?${parameters.join('&')}';
+  final local = localReaderAddress('${Uri.parse(path).path}?$state');
+  return '$local${local.contains('?') ? '&' : '?'}workspaceDetached=true';
 }

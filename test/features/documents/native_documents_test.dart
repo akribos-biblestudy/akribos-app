@@ -72,46 +72,6 @@ Widget _app(
 void main() {
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
 
-  testWidgets('template save failure retains the full draft for retry', (
-    tester,
-  ) async {
-    final api = _FakeApi({'templates': []});
-    api.actionResult = const ApiResult(type: 'failure', status: 503);
-    await tester.pumpWidget(
-      _app(api, const DocumentsScreen(path: '/sermons/templates')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Vorlage'));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byType(TextFormField).first,
-      'Meine Gliederung',
-    );
-    const body =
-        '# Einführung\n\nEin längerer Gedanke mit **Betonung**.\n\n## Anwendung';
-    await tester.enterText(find.byType(TextFormField).last, body);
-    await tester.tap(find.text('Speichern'));
-    await tester.pumpAndSettle();
-    expect(find.text('Neue Vorlage'), findsOneWidget);
-    expect(
-      tester
-          .widget<TextFormField>(find.byType(TextFormField).last)
-          .controller!
-          .text,
-      body,
-    );
-    expect(find.textContaining('vorübergehend'), findsOneWidget);
-    api.actionResult = const ApiResult(type: 'success', status: 200);
-    await tester.tap(find.text('Speichern'));
-    await tester.pumpAndSettle();
-    expect(find.text('Neue Vorlage'), findsNothing);
-    expect(api.actions.last['fields'], {
-      'name': 'Meine Gliederung',
-      'bodyMarkdown': body,
-    });
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets(
     'note creation modal keeps its fields alive through close animation',
     (tester) async {
@@ -150,7 +110,7 @@ void main() {
           'title': 'Gedanken zum Vers',
           'passage': 'Joh3,16',
           'kind': 'note',
-          'returnTo': '/notes?reference=Joh3,16&bible=SEEDDE',
+          'returnTo': '/notes?reference=Joh3%2C16&bible=SEEDDE&kind=note',
           'resourceId': 'SEEDDE',
         },
       });

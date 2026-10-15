@@ -6,7 +6,9 @@ import 'package:akribos_app/features/reader/reader_screen.dart';
 import 'package:akribos_app/features/reader/reader_notes.dart';
 import 'package:akribos_app/features/reader/reader_state.dart';
 import 'package:akribos_app/features/reader/verse_text.dart';
-import 'package:akribos_app/features/reader/workspace_screen.dart';
+import 'package:akribos_app/features/reader/reader_local_store.dart';
+import 'package:akribos_app/features/reader/books.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:akribos_app/features/search/search_screen.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
@@ -102,70 +104,209 @@ Json readerFixture({int tiles = 1}) {
 }
 
 class ReaderApi extends AppApi {
-  ReaderApi(this.data)
-    : super(server: 'https://example.test', cookies: CookieJar());
+  ReaderApi(this.data, {bool seedLocal = true})
+    : super(server: 'https://example.test', cookies: CookieJar()) {
+    bootstrap = asMap(jsonDecode(jsonEncode(data)));
+    if (seedLocal) {
+      FlutterSecureStorage.setMockInitialValues({
+        localStore.storageKey: jsonEncode({
+          'version': 1,
+          'path': readerPath(
+            asMap(data['workspace']),
+            asString(data['readerState']),
+          ),
+          'layoutSizes': asMap(asMap(data['workspace'])['layoutSizes']),
+        }),
+      });
+    }
+  }
   final Json data;
   final actions = <Json>[], requests = <Json>[];
-  final pages = <String>[];
-  @override
-  Future<Json> page(String path) async {
-    pages.add(path);
-    return asMap(jsonDecode(jsonEncode(data)));
+  final pages = <String>[], reads = <String>[];
+  ReaderLocalStore get localStore => ReaderLocalStore(
+    origin: origin,
+    userId: asString(asMap(bootstrap['user'])['id']),
+  );
+
+  // Model only the supplied public URL. Returning the old server fixture here
+  // would silently undo local tab/position restoration and hide real regressions.
+  Json pageData(String path) {
+    final result = asMap(jsonDecode(jsonEncode(data)));
+    final uri = Uri.parse(path),
+        parameters = Uri.parse(path).queryParametersAll;
+    final workspace = asMap(result['workspace']);
+    final tiles = asMaps(workspace['tiles']);
+    final originals = [for (final tile in tiles) ...asMaps(tile['tabs'])];
+    final values = parameters['tab'];
+    if (values != null) {
+      for (final tile in tiles) {
+        tile['tabs'] = <Json>[];
+        tile['activeTabId'] = null;
+      }
+      for (final value in values) {
+        final parts = value.split(':');
+        final coordinate = parts[0].split('.').map(int.parse).toList();
+        while (tiles.length < coordinate[0]) {
+          tiles.add({
+            'id': 'tile${tiles.length}',
+            'tabs': <Json>[],
+            'activeTabId': null,
+          });
+        }
+        final original = originals.firstWhere(
+          (tab) => tab['resourceId'] == parts[1],
+          orElse: () => {'id': 'tab${coordinate.join('_')}'},
+        );
+        final tab = <String, dynamic>{
+          ...original,
+          'resourceId': parts[1],
+          'linkSet': parts[2] == '-' ? null : parts[2],
+          'reference': parseFixtureReference(parts[3]),
+        };
+        (tiles[coordinate[0] - 1]['tabs'] as List).add(tab);
+      }
+      workspace['tiles'] = tiles;
+      workspace['layout'] = parameters['layout']!.single;
+      workspace['focusedTileId'] =
+          tiles[int.parse(parameters['focus']?.single ?? '1') - 1]['id'];
+      for (final tile in tiles) {
+        tile['activeTabId'] = asMaps(tile['tabs']).firstOrNull?['id'];
+      }
+      for (final value in parameters['active'] ?? <String>[]) {
+        final coordinate = value.split('.').map(int.parse).toList();
+        final tile = tiles[coordinate[0] - 1];
+        tile['activeTabId'] = asMaps(tile['tabs'])[coordinate[1] - 1]['id'];
+      }
+      final searches = <String, dynamic>{};
+      for (final value in parameters['search'] ?? <String>[]) {
+        final separator = value.indexOf(':');
+        final coordinate = value
+            .substring(0, separator)
+            .split('.')
+            .map(int.parse)
+            .toList();
+        final tab = asMaps(tiles[coordinate[0] - 1]['tabs'])[coordinate[1] - 1];
+        searches[asString(tab['id'])] = value.substring(separator + 1);
+      }
+      result['searchQueries'] = searches;
+    }
+    final focused = tiles.firstWhere(
+      (tile) => tile['id'] == workspace['focusedTileId'],
+    );
+    if (uri.path != '/' && asMaps(focused['tabs']).isNotEmpty) {
+      updateReadingPosition(
+        workspace,
+        asString(focused['id']),
+        asString(activeTab(focused)['id']),
+        parseFixtureReference(uri.path.substring(1)),
+      );
+    }
+    final initialColumns = asMaps(result['columns']);
+    result['columns'] = [
+      for (final tile in tiles)
+        if (asMaps(tile['tabs']).isNotEmpty)
+          (() {
+            final tab = activeTab(tile);
+            final source = initialColumns
+                .where(
+                  (column) =>
+                      asMap(column['resource'])['id'] == tab['resourceId'],
+                )
+                .firstOrNull;
+            final column = asMap(
+              jsonDecode(jsonEncode(source ?? initialColumns.first)),
+            );
+            column['tileId'] = tile['id'];
+            column['resource'] = asMaps(result['readerResources'])
+                .firstWhere((resource) => resource['id'] == tab['resourceId']);
+            asMap(column['initialChapter'])['reference'] = {
+              ...asMap(tab['reference']),
+            };
+            return column;
+          })(),
+    ];
+    result['readerState'] = encodeReaderState(
+      workspace,
+      asMap(result['searchQueries']),
+      uri.query,
+    );
+    result['_path'] = readerPath(workspace, asString(result['readerState']));
+    result['readerWorkspaceDetached'] = true;
+    return result;
   }
 
   @override
-  Future<dynamic> get(String path) async =>
-      path == '/api/reader/workspaces' ? {'workspaces': []} : {};
+  Future<Json> page(String path) async {
+    pages.add(path);
+    return pageData(path);
+  }
+
+  @override
+  Future<dynamic> get(String path) async {
+    reads.add(path);
+    return {};
+  }
+
   @override
   Future<dynamic> send(String method, String path, {dynamic data}) async {
     requests.add({'method': method, 'path': path, 'data': data});
-    if (path == '/api/reader/workspaces') {
-      return {
-        'ok': true,
-        'workspace': {
-          'id': 'new-id',
-          'name': data['name'],
-          'revision': 1,
-          'isActive': false,
-        },
-      };
-    }
-    if (method == 'PUT') {
-      this.data['readerState'] = asMap(data['snapshot'])['readerState'];
-    }
-    return {
-      'saved': true,
-      'activeSavedWorkspaceId': 'saved',
-      'activeSavedWorkspaceVersion': 4,
-      'activeSavedWorkspaceContentVersion': method == 'PUT' ? 13 : 12,
-      'readerState': this.data['readerState'],
-      'path': '/Joh1',
-    };
+    throw StateError('Unexpected remote Reader write: $method $path');
   }
 
   @override
   Future<ApiResult> action(String path, String action, Json fields) async {
     actions.add({'path': path, 'action': action, 'fields': fields});
-    if (path.startsWith('/workspaces/')) {
-      return const ApiResult(
-        type: 'redirect',
-        status: 303,
-        location: '/Joh1?layout=single',
+    final result = pageData(path);
+    final workspace = asMap(result['workspace']);
+    final tile = asMaps(workspace['tiles']).firstWhere(
+      (tile) => tile['id'] == (fields['tileId'] ?? workspace['focusedTileId']),
+    );
+    final tab = asMaps(tile['tabs']).firstWhere(
+      (tab) => tab['id'] == (fields['tabId'] ?? tile['activeTabId']),
+    );
+    if (action == 'setTabLinkSet') {
+      tab['linkSet'] = fields['linkSet'];
+    } else if (action == 'setTabReference' || action == 'openBibleReference') {
+      updateReadingPosition(
+        workspace,
+        asString(tile['id']),
+        asString(tab['id']),
+        parseFixtureReference(asString(fields['reference'])),
       );
+    } else {
+      throw StateError('Unexpected Reader action: $action');
     }
-    if (action == 'setLayoutSize') {
-      return ApiResult(
-        type: 'success',
-        status: 200,
-        data: {'readerState': data['readerState']},
-      );
-    }
+    final state = encodeReaderState(
+      workspace,
+      asMap(result['searchQueries']),
+      Uri.parse(path).query,
+    );
     return ApiResult(
       type: 'success',
       status: 200,
-      data: {'readerState': data['readerState'], 'path': '/Joh1'},
+      data: {
+        'readerState': state,
+        'path': Uri.parse(readerPath(workspace, state)).path,
+      },
     );
   }
+}
+
+Json parseFixtureReference(String value) {
+  for (final book in [
+    ...bibleBooks,
+  ]..sort((a, b) => b.abbreviation.length.compareTo(a.abbreviation.length))) {
+    if (!value.startsWith(book.abbreviation)) continue;
+    final parts = value.substring(book.abbreviation.length).split(',');
+    final chapter = int.tryParse(parts.first);
+    if (chapter == null) continue;
+    return {
+      'book': book.id,
+      'chapter': chapter,
+      if (parts.length > 1) 'verse': int.parse(parts[1]),
+    };
+  }
+  throw FormatException('Unsupported test reference: $value');
 }
 
 Widget app(
@@ -234,7 +375,7 @@ void main() {
   });
 
   testWidgets(
-    'mobile tab selection publishes focus even when its tile tab is already active',
+    'mobile tab selection stores local focus without a server activation',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -245,79 +386,66 @@ void main() {
       await tester.pumpAndSettle();
       await tester.drag(find.byType(PageView), const Offset(-350, 0));
       await tester.pumpAndSettle();
-      expect(api.actions.single['action'], 'activateTab');
-      expect(asMap(api.actions.single['fields'])['tileId'], 'tile1');
-      expect(asMap(api.actions.single['fields'])['tabId'], 'tab1');
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'workspace deep link reads its name and activates only after explicit open',
-    (tester) async {
-      final api = ReaderApi({'name': 'Meine Wortstudie'});
-      final opened = <String>[];
-      await tester.pumpWidget(
-        app(
-          api,
-          const WorkspaceScreen(path: '/workspaces/selected-id'),
-          open: (path) async {
-            opened.add(path);
-          },
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(api.pages, ['/workspaces/selected-id']);
-      expect(api.requests, isEmpty);
+      final saved = await api.localStore.read();
+      expect(Uri.parse(asString(saved?['path'])).queryParameters['focus'], '2');
       expect(api.actions, isEmpty);
-      expect(opened, isEmpty);
-      expect(find.text('Meine Wortstudie'), findsOneWidget);
-      await tester.tap(find.text('Arbeitsbereich öffnen'));
-      await tester.pumpAndSettle();
-      expect(api.actions.single['path'], '/workspaces/selected-id');
-      expect(api.actions.single['action'], 'default');
-      expect(opened, ['/Joh1?layout=single']);
+      expect(api.requests, isEmpty);
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets(
-    'tablet divider persists ratios and handles size action without a response path',
+    'tablet presents one tab without rewriting the browser layout or divider sizes',
     (tester) async {
       tester.view.physicalSize = const Size(1280, 900);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final api = ReaderApi(readerFixture(tiles: 3));
+      final fixture = readerFixture(tiles: 3);
+      asMap(fixture['workspace'])['layoutSizes'] = {
+        'columns-3': {
+          'columns': [.2, .5, .3],
+          'rows': [1.0],
+        },
+      };
+      final original = jsonDecode(jsonEncode(fixture['workspace']));
+      final api = ReaderApi(fixture);
       await tester.pumpWidget(app(api, const ReaderScreen(path: '/Joh1')));
       await tester.pumpAndSettle();
-      final divider = find
-          .byWidgetPredicate(
-            (widget) =>
-                widget is MouseRegion &&
-                widget.cursor == SystemMouseCursors.resizeColumn,
-          )
-          .first;
-      await tester.drag(divider, const Offset(80, 0));
+      expect(find.byType(PageView), findsOneWidget);
+      expect(find.byType(CustomScrollView), findsOneWidget);
+      expect(find.text('Johannes 1'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is MouseRegion &&
+              [
+                SystemMouseCursors.resizeColumn,
+                SystemMouseCursors.resizeRow,
+              ].contains(widget.cursor),
+        ),
+        findsNothing,
+      );
+      expect(find.byTooltip('In diesem Werk suchen'), findsNothing);
+      await tester.tap(find.text('Tabs (3)'));
       await tester.pumpAndSettle();
-      final action = api.actions.single;
-      expect(action['action'], 'setLayoutSize');
-      final fields = asMap(action['fields']);
-      final columns = asString(fields['columns'])
-          .split(',')
-          .map(double.parse)
-          .toList();
-      expect(columns.length, 3);
-      expect(columns.first, greaterThan(1 / 3));
-      expect(columns.reduce((left, right) => left + right), closeTo(1, .00001));
-      expect(fields['rows'], '1.0');
-      expect(api.pages.last, startsWith('/Joh1?layout='));
+      expect(find.text('Geöffnete Werke'), findsOneWidget);
+      expect(find.byTooltip('Anordnung'), findsNothing);
+      expect(find.text('Geteilter Bildschirm'), findsNothing);
+      await tester.tap(find.byTooltip('Fertig'));
+      await tester.pumpAndSettle();
+      expect(api.data['workspace'], original);
+      expect(api.actions, isEmpty);
+      expect(
+        api.requests.where((request) => request['method'] == 'PUT'),
+        isEmpty,
+      );
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets(
-    'e-ink paging jumps one viewport and persists position with server selection versions',
+    'e-ink paging persists its visible position locally without workspace writes',
     (tester) async {
       tester.view.physicalSize = const Size(600, 900);
       tester.view.devicePixelRatio = 1;
@@ -334,18 +462,12 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 900));
       await tester.pumpAndSettle();
-      final writes = api.requests
-          .where((request) => request['method'] == 'PUT')
-          .toList();
-      expect(writes, hasLength(1));
-      final saved = asMap(writes.single['data']);
-      expect(saved['workspaceVersion'], 4);
-      expect(saved['workspaceContentVersion'], 12);
-      expect(saved['resume'], isTrue);
-      final snapshot = Uri.splitQueryString(
-        asString(asMap(saved['snapshot'])['readerState']),
-      );
+      final saved = await api.localStore.read();
+      final snapshot = Uri.parse(asString(saved?['path'])).queryParameters;
       expect(snapshot['tab'], matches(RegExp(r'Joh1,([2-9]|[12][0-9]|30)$')));
+      expect(api.requests, isEmpty);
+      expect(api.actions, isEmpty);
+      expect(snapshot.keys, isNot(contains('workspaceVersion')));
       expect(tester.takeException(), isNull);
     },
   );
@@ -388,16 +510,17 @@ void main() {
       final action = api.actions.single;
       expect(action['action'], 'setTabLinkSet');
       final query = Uri.parse(asString(action['path'])).queryParameters;
-      expect(query['workspaceId'], 'saved');
-      expect(query['workspaceVersion'], '4');
-      expect(query['workspaceContentVersion'], '12');
+      expect(query['workspaceDetached'], 'true');
+      expect(query.keys, isNot(contains('workspaceId')));
+      expect(query.keys, isNot(contains('workspaceVersion')));
+      expect(query.keys, isNot(contains('workspaceContentVersion')));
       expect(asMap(action['fields'])['linkSet'], 'B');
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets(
-    'tablet shows multiple panes and exact source-word position opens lexicon',
+    'tablet keeps one pane and opens the exact source-word position in the lexicon',
     (tester) async {
       tester.view.physicalSize = const Size(1280, 900);
       tester.view.devicePixelRatio = 1;
@@ -406,7 +529,8 @@ void main() {
       final api = ReaderApi(readerFixture(tiles: 3));
       await tester.pumpWidget(app(api, const ReaderScreen(path: '/Joh1')));
       await tester.pumpAndSettle();
-      expect(find.text('Johannes 1'), findsNWidgets(3));
+      expect(find.text('Johannes 1'), findsOneWidget);
+      expect(find.byType(CustomScrollView), findsOneWidget);
       final verse = tester.widget<VerseText>(find.byType(VerseText).first);
       verse.onWord!({'kind': 'w', 'text': 'Liebe', 'strong': 'G26'}, 0);
       await tester.pumpAndSettle();
@@ -421,40 +545,6 @@ void main() {
       });
       await tester.tap(find.byTooltip('Lexikon schließen'));
       await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'creating a workspace uses nested server workspace result and explicitly activates it',
-    (tester) async {
-      final api = ReaderApi(readerFixture());
-      final opened = <String>[];
-      await tester.pumpWidget(
-        app(
-          api,
-          WorkspaceScreen(
-            snapshot: {
-              'readerState': api.data['readerState'],
-              'layoutSizes': {},
-            },
-          ),
-          open: (path) async {
-            opened.add(path);
-          },
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Neue Ansicht aus aktuellem Reader'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Predigt');
-      await tester.tap(find.text('Speichern'));
-      await tester.pumpAndSettle();
-      expect(api.requests.single['method'], 'POST');
-      expect(asMap(api.requests.single['data'])['name'], 'Predigt');
-      expect(api.actions.single['path'], '/workspaces/new-id');
-      expect(api.actions.single['action'], 'default');
-      expect(opened, ['/Joh1?layout=single']);
       expect(tester.takeException(), isNull);
     },
   );

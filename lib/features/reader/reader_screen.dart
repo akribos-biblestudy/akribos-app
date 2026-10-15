@@ -10,7 +10,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/api_client.dart';
 import '../../core/app_scope.dart';
 import '../../widgets/common.dart';
-import '../../widgets/remote_page.dart';
 import '../search/search_screen.dart';
 import 'books.dart';
 import 'reader_dialogs.dart';
@@ -20,45 +19,166 @@ import 'reader_group_badge.dart';
 import 'reader_tab_card.dart';
 import 'highlight_dialog.dart';
 import 'reader_notes.dart';
-import 'reader_layout.dart';
 import 'reader_state.dart';
 import 'verse_text.dart';
-import 'workspace_screen.dart';
+import 'reader_local_store.dart';
 
-class ReaderScreen extends StatelessWidget {
+class ReaderScreen extends StatefulWidget {
   const ReaderScreen({
     super.key,
     required this.path,
     this.controller,
     this.active = true,
+    this.localStore,
   });
   final String path;
   final ReaderController? controller;
   final bool active;
+  final ReaderLocalStore? localStore;
   @override
-  Widget build(BuildContext context) => RemotePage(
-    path: path,
-    builder: (context, data, reload) => _ReaderView(
-      data: data,
-      path: path,
-      reload: reload,
-      controller: controller,
-      active: active,
-    ),
-  );
+  State<ReaderScreen> createState() => _ReaderScreenState();
+}
+
+class _ReaderScreenState extends State<ReaderScreen> {
+  AppApi? _api;
+  ReaderLocalStore? _store;
+  Json? _data;
+  Object? _error;
+  int _generation = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final api = AppScope.of(context).api;
+    final id = asString(asMap(api.bootstrap['user'])['id']);
+    final store =
+        widget.localStore ??
+        ReaderLocalStore(origin: api.origin, userId: id.isEmpty ? null : id);
+    if (_api != api || _store?.scopeKey != store.scopeKey) {
+      _api = api;
+      _store = store;
+      _load();
+    }
+  }
+
+  @override
+  void didUpdateWidget(ReaderScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path ||
+        oldWidget.localStore != widget.localStore) {
+      if (widget.localStore != null) _store = widget.localStore;
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final generation = ++_generation;
+    final api = _api!, store = _store!;
+    setState(() {
+      _data = null;
+      _error = null;
+    });
+    try {
+      final saved = await store.read();
+      var destination = localReaderStartPath(widget.path, saved, api.bootstrap);
+      for (var redirects = 0; redirects < 6; redirects++) {
+        if (!mounted || generation != _generation) return;
+        try {
+          final data = await api.page(
+            readerActionPath(
+              destination,
+              {},
+              readerState: Uri.parse(destination).query,
+            ),
+          );
+          if (!mounted || generation != _generation) return;
+          if (data.containsKey('user') && !store.acceptsUser(data['user'])) {
+            await AppScope.of(context).authenticationChanged();
+            throw const ApiException(
+              'Die Anmeldung hat sich geändert. Bitte öffne die Leseansicht erneut.',
+            );
+          }
+          if (asMap(data['workspace']).isEmpty) {
+            throw const ApiException(
+              'Die Leseansicht konnte nicht geladen werden.',
+            );
+          }
+          final workspace = asMap(data['workspace']);
+          workspace['layoutSizes'] = asMap(saved?['layoutSizes']);
+          data['readerWorkspaceDetached'] = true;
+          await store.write(
+            readerPath(workspace, asString(data['readerState'])),
+            layoutSizes: asMap(workspace['layoutSizes']),
+          );
+          if (mounted && generation == _generation) {
+            setState(() => _data = data);
+          }
+          return;
+        } on AppRedirect catch (redirect) {
+          final uri = Uri.parse(redirect.location);
+          if (uri.path.startsWith('/search') ||
+              uri.path.startsWith('/login') ||
+              RegExp(r'^/[GH]\d+$').hasMatch(uri.path)) {
+            if (mounted && generation == _generation) {
+              await AppScope.of(context).open(redirect.location);
+            }
+            return;
+          }
+          destination = localReaderStartPath(redirect.location, {
+            'path': destination,
+          }, api.bootstrap);
+        }
+      }
+      throw const ApiException(
+        'Die Reader-Adresse konnte nicht aufgelöst werden.',
+      );
+    } catch (error) {
+      if (mounted && generation == _generation) setState(() => _error = error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('$_error', textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              FilledButton.tonalIcon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Erneut versuchen'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_data == null) return const Center(child: CircularProgressIndicator());
+    return _ReaderView(
+      key: ValueKey(_store!.scopeKey),
+      data: _data!,
+      store: _store!,
+      controller: widget.controller,
+      active: widget.active,
+    );
+  }
 }
 
 class _ReaderView extends StatefulWidget {
   const _ReaderView({
+    super.key,
     required this.data,
-    required this.path,
-    required this.reload,
+    required this.store,
     required this.controller,
     required this.active,
   });
   final Json data;
-  final String path;
-  final Future<void> Function() reload;
+  final ReaderLocalStore store;
   final ReaderController? controller;
   final bool active;
   @override
@@ -67,13 +187,12 @@ class _ReaderView extends StatefulWidget {
 
 class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
   late Json _data, _workspace, _searches;
-  late String _savedState, _savedPath, _filterState;
+  late String _filterState;
   AppScope? _scope;
   Timer? _timer;
   Future<bool>? _saving;
   final _panes = <String, GlobalKey<_ChapterPaneState>>{};
   final _chapterCaches = <String, _ChapterCache>{};
-  final _pendingPositions = <String, Json>{};
   final _columnsByTab = <String, Json>{};
   final _lexiconTabs = <String, Json>{};
   final _displayedTabs = <String, String>{};
@@ -83,24 +202,27 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
   Future<bool>? _switching;
   bool _activationInFlight = false;
   bool _discardPending = false;
-  bool _phoneSplit = false;
-  List<double> _phoneRatios = [.5, .5];
-  List<String> _phoneSplitTiles = [];
   Json? _failedActivation;
   bool _busy = false, _dirty = false;
-  bool _viewFiltersDirty = false;
   int _revision = 0;
   String? _saveError;
   String? _mobileTile;
   void _adopt([Json? incoming]) {
     _data = asMap(jsonDecode(jsonEncode(incoming ?? widget.data)));
-    adoptReaderSelection(_data, _data);
+    _data['readerWorkspaceDetached'] = true;
     _workspace = asMap(_data['workspace']);
     _searches = asMap(_data['searchQueries']);
-    _savedState = asString(_data['readerState']);
-    _filterState = _savedState;
-    _savedPath = '/${referenceLabel(asMap(_data['reference']))}';
+    _filterState = asString(_data['readerState']);
     _mobileTile = asString(_workspace['focusedTileId']);
+    final tiles = asMaps(_workspace['tiles']);
+    if (!tiles.any(
+      (tile) => tile['id'] == _mobileTile && asMaps(tile['tabs']).isNotEmpty,
+    )) {
+      final firstReadable = tiles
+          .where((tile) => asMaps(tile['tabs']).isNotEmpty)
+          .firstOrNull;
+      if (firstReadable != null) _mobileTile = asString(firstReadable['id']);
+    }
     for (final column in asMaps(_data['columns'])) {
       final tile = asMaps(
         _workspace['tiles'],
@@ -109,8 +231,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       _columnsByTab['${tab['id']}:${tab['resourceId']}'] = column;
     }
     _dirty = false;
-    _viewFiltersDirty = false;
-    _pendingPositions.clear();
   }
 
   @override
@@ -123,13 +243,9 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final firstLoad = _scope == null;
     _scope = AppScope.of(context);
     _scope!.setNavigationGuard(this, widget.active ? _flush : null);
     _bindController();
-    if (firstLoad) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _follow());
-    }
   }
 
   @override
@@ -142,7 +258,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     }
     if (oldWidget.active != widget.active) {
       _scope?.setNavigationGuard(this, widget.active ? _flush : null);
-      if (widget.active) unawaited(_follow());
     }
   }
 
@@ -164,16 +279,9 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     if (state == AppLifecycleState.inactive) {
       unawaited(_flush());
     }
-    if (state == AppLifecycleState.resumed) {
-      unawaited(_follow());
-    }
   }
 
   String get _state => encodeReaderState(_workspace, _searches, _filterState);
-  Json get _snapshot => {
-    'readerState': _state,
-    'layoutSizes': _workspace['layoutSizes'] ?? {},
-  };
   void _bindController() {
     widget.controller?.attach(this, showTabs: _showTabs, flush: _flush);
   }
@@ -198,113 +306,26 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
   }
 
   Future<bool> _save() async {
-    if (!_dirty || _data['readerWorkspaceDetached'] == true) return true;
+    if (!_dirty) return true;
     try {
       while (_dirty && mounted) {
         final revision = _revision;
-        Json result;
-        if (_data['workspaceId'] != null && _data['user'] != null) {
-          final snapshot = _snapshot;
-          final positions = _pendingPositions.isNotEmpty;
-          Future<Json> persist({required bool resume}) async {
-            final response = asMap(
-              await _scope!.api.send(
-                'PUT',
-                '/api/reader/workspaces/${_data['workspaceId']}/view',
-                data: {
-                  'snapshot': snapshot,
-                  if (resume) 'resume': true,
-                  'workspaceVersion': _data['workspaceVersion'],
-                  'workspaceContentVersion': _data['workspaceContentVersion'],
-                },
-              ),
-            );
-            if (response['saved'] != true) {
-              throw ApiException(
-                asString(
-                  response['message'],
-                  'Die Ansicht wurde nicht gespeichert. Bitte den aktuellen Stand neu laden.',
-                ),
-              );
-            }
-            adoptReaderSelection(_data, response);
-            return response;
-          }
-
-          // The view API intentionally treats changed references as detached
-          // unless resumed. Resume keeps the server's searches/notes filters;
-          // publish changed filters separately against its returned version.
-          result = await persist(resume: positions);
-          if (positions && _viewFiltersDirty) {
-            result = await persist(resume: false);
-          }
-        } else {
-          // Guests use the same validated mutation as explicit chapter navigation.
-          result = {};
-          final pending = Map<String, Json>.from(_pendingPositions);
-          for (final entry in pending.entries) {
-            final response = await _scope!.api.action(
-              readerActionPath(_savedPath, _data, readerState: _savedState),
-              'setTabReference',
-              entry.value,
-            );
-            if (!response.isSuccess) throw ApiException(response.message);
-            result = response.data;
-            _savedState = asString(result['readerState'], _savedState);
-            _savedPath = asString(result['path'], _savedPath);
-          }
-          if (pending.isEmpty && _searches.isNotEmpty) {
-            // Search URL state remains shareable for guests; named persistence requires an account.
-            result = {};
-          }
-        }
-        adoptReaderSelection(_data, result);
-        if (revision == _revision) {
-          _dirty = false;
-          _viewFiltersDirty = false;
-          _pendingPositions.clear();
-          _savedState = _state;
-          _savedPath = Uri.parse(readerPath(_workspace, _state)).path;
-        }
+        await widget.store.write(
+          readerPath(_workspace, _state),
+          layoutSizes: asMap(_workspace['layoutSizes']),
+        );
+        if (revision == _revision) _dirty = false;
       }
       if (mounted) setState(() => _saveError = null);
       return true;
     } catch (error) {
-      if (mounted) setState(() => _saveError = '$error');
-      return false;
-    }
-  }
-
-  Future<void> _follow() async {
-    if (!mounted ||
-        !widget.active ||
-        _busy ||
-        _data['workspaceId'] == null ||
-        _data['readerWorkspaceDetached'] == true) {
-      return;
-    }
-    if (!await _flush() || !mounted) return;
-    setState(() => _busy = true);
-    try {
-      final result = asMap(
-        await _scope!.api.send(
-          'POST',
-          '/api/reader/workspaces/${_data['workspaceId']}/follow',
-          data: {
-            'workspaceVersion': _data['workspaceVersion'],
-            'workspaceContentVersion': _data['workspaceContentVersion'],
-          },
-        ),
-      );
-      if (!mounted) return;
-      adoptReaderSelection(_data, result);
-      if (result['readerState'] != null && result['readerState'] != _state) {
-        await _reloadView('${result['path']}?${result['readerState']}');
+      if (mounted) {
+        setState(
+          () => _saveError =
+              'Die Tabs konnten auf diesem Gerät nicht gespeichert werden: $error',
+        );
       }
-    } catch (error) {
-      if (mounted) setState(() => _saveError = '$error');
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      return false;
     }
   }
 
@@ -327,11 +348,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       asString(tab['id']),
       reference,
     );
-    _pendingPositions[asString(tab['id'])] = {
-      'tileId': tile['id'],
-      'tabId': tab['id'],
-      'reference': referenceLabel(reference),
-    };
     _dirty = true;
     _revision++;
     _timer?.cancel();
@@ -400,7 +416,11 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     if (_busy) return;
     final tile = asMaps(_workspace['tiles'])
         .firstWhere((item) => item['id'] == tileId);
-    if (_shownTab(tile)['id'] == tabId && _mobileTile == tileId) return;
+    if (_shownTab(tile)['id'] == tabId &&
+        _mobileTile == tileId &&
+        _failedActivation == null) {
+      return;
+    }
     // Capture the departing viewport before replacing it. Saving remains serial.
     for (final pane in _panes.values) {
       pane.currentState?.capturePosition();
@@ -436,34 +456,9 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
         if (!mounted) return false;
         final tileId = asString(selection['tileId']),
             tabId = asString(selection['tabId']);
-        final tile = asMaps(_workspace['tiles'])
-            .firstWhere((item) => item['id'] == tileId);
         final predicted = asMap(jsonDecode(jsonEncode(_workspace)));
         activateReaderTab(predicted, tileId, tabId);
-        final expectedState = encodeReaderState(
-          predicted,
-          _searches,
-          _filterState,
-        );
         _activationInFlight = true;
-        final response = await _scope!.api.action(
-          readerActionPath(
-            readerPath(_workspace, _state),
-            _data,
-            readerState: _state,
-          ),
-          'activateTab',
-          {
-            ...selection,
-            'currentReference': referenceLabel(
-              asMap(activeTab(tile)['reference']),
-            ),
-          },
-        );
-        _activationInFlight = false;
-        if (!mounted) return false;
-        if (!response.isSuccess) throw ApiException(response.message);
-        final returnedState = asString(response.data['readerState']);
         final targetTab = activeTab(
           asMaps(predicted['tiles']).firstWhere((item) => item['id'] == tileId),
         );
@@ -476,33 +471,23 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
             asString(targetTab['lookup']).isNotEmpty &&
             !RegExp(r'^[GH]\d+$').hasMatch(asString(targetTab['lookup'])) &&
             !_columnsByTab.containsKey('$tabId:${targetTab['resourceId']}');
-        if (returnedState == expectedState && !needsArticle) {
-          setState(() {
-            _workspace = predicted;
-            _data['workspace'] = predicted;
-            adoptReaderSelection(_data, response.data);
-            _savedState = returnedState;
-            _savedPath = asString(
-              response.data['path'],
-              Uri.parse(readerPath(predicted, returnedState)).path,
-            );
-            _data['readerState'] = returnedState;
-          });
-        } else {
-          // Resource removal or server normalization must win over the preview.
+        setState(() {
+          _workspace = predicted;
+          _data['workspace'] = predicted;
+          _dirty = true;
+          _revision++;
+        });
+        if (needsArticle) {
           await _reloadView(
-            '${response.data['path']}?$returnedState',
+            readerPath(_workspace, _state),
             mobileTile: _mobileTile,
           );
         }
+        _activationInFlight = false;
         if (_displayedTabs[tileId] == tabId) _displayedTabs.remove(tileId);
         final reference = _deferredPositions.remove(tabId);
         if (reference != null) {
           updateReadingPosition(_workspace, tileId, tabId, reference);
-          _pendingPositions[tabId] = {
-            ...selection,
-            'reference': referenceLabel(reference),
-          };
           _dirty = true;
           _revision++;
         }
@@ -525,20 +510,19 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     }
     final focus = _workspace['focusedTileId'];
     for (final tile in asMaps(_workspace['tiles'])) {
-      final tab = activeTab(tile), tabId = asString(activeTab(tile)['id']);
+      final tabId = asString(activeTab(tile)['id']);
       final reference = _deferredPositions.remove(tabId);
       if (reference == null) continue;
       updateReadingPosition(_workspace, asString(tile['id']), tabId, reference);
-      _pendingPositions[tabId] = {
-        'tileId': tile['id'],
-        'tabId': tab['id'],
-        'reference': referenceLabel(reference),
-      };
       _dirty = true;
       _revision++;
     }
     _workspace['focusedTileId'] = focus;
-    return _flushPositions();
+    if (!await _flushPositions()) return false;
+    // A swipe may arrive while the final disk write is pending. The navigation
+    // guard must drain that choice too before reporting the Reader as saved.
+    if (_activations.isNotEmpty && mounted) return _commitActivations();
+    return true;
   }
 
   Future<void> _retrySave() async {
@@ -554,13 +538,37 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     var destination = path;
     for (var redirects = 0; redirects < 6; redirects++) {
       try {
-        final data = await _scope!.api.page(destination);
+        final data = await _scope!.api.page(
+          readerActionPath(
+            destination,
+            {},
+            readerState: Uri.parse(destination).query,
+          ),
+        );
+        if (data.containsKey('user') &&
+            !widget.store.acceptsUser(data['user'])) {
+          await _scope!.authenticationChanged();
+          throw const ApiException(
+            'Die Anmeldung hat sich geändert. Bitte öffne die Leseansicht erneut.',
+          );
+        }
         if (mounted) {
           setState(() {
+            asMap(data['workspace'])['layoutSizes'] = _workspace['layoutSizes'];
             _adopt(data);
-            if (mobileTile != null) _mobileTile = mobileTile;
+            _dirty = true;
+            _revision++;
+            if (mobileTile != null &&
+                asMaps(_workspace['tiles']).any(
+                  (tile) =>
+                      tile['id'] == mobileTile &&
+                      asMaps(tile['tabs']).isNotEmpty,
+                )) {
+              _mobileTile = mobileTile;
+            }
             _showSelectedPage();
           });
+          await _save();
         }
         return;
       } on AppRedirect catch (redirect) {
@@ -640,7 +648,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
               }
               if (current) parts.add('notesFilter=current');
               _filterState = parts.join('&');
-              _viewFiltersDirty = true;
               _dirty = true;
               _revision++;
               _flush();
@@ -989,7 +996,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
         } else {
           _searches[asString(tab['id'])] = query.trim();
         }
-        _viewFiltersDirty = true;
         _dirty = true;
         _revision++;
       });
@@ -1000,6 +1006,12 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
   Future<void> _tabMenu(Json tile, Json tab, String action) async {
     if (action == 'replace') {
       await _chooseResource(tile, replace: tab);
+    } else if (action == 'search') {
+      final resource = asMaps(_data['readerResources']).firstWhere(
+        (resource) => resource['id'] == tab['resourceId'],
+        orElse: () => {},
+      );
+      await _search(tile, tab, resource);
     } else if (action == 'close') {
       await _mutate('closeTab', {
         'tileId': tile['id'],
@@ -1042,22 +1054,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
           ),
         ),
       );
-    } else if (action == 'earlier' || action == 'later') {
-      final index = asMaps(tile['tabs'])
-          .indexWhere((candidate) => candidate['id'] == tab['id']);
-      await _mutate('moveTab', {
-        'fromTileId': tile['id'],
-        'tabId': tab['id'],
-        'toTileId': tile['id'],
-        'toIndex': index + (action == 'earlier' ? -1 : 2),
-      });
-    } else if (action.startsWith('move:')) {
-      await _mutate('moveTab', {
-        'fromTileId': tile['id'],
-        'tabId': tab['id'],
-        'toTileId': action.substring(5),
-        'toIndex': 0,
-      });
     }
   }
 
@@ -1103,25 +1099,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
         .trim();
   }
 
-  Future<void> _togglePhoneSplit(bool value) async {
-    setState(() {
-      _phoneSplit = value;
-      final tiles = asMaps(_workspace['tiles']);
-      final focused = tiles.indexWhere((tile) => tile['id'] == _mobileTile);
-      final first = focused < 0 ? 0 : focused;
-      _phoneSplitTiles = [
-        if (tiles.isNotEmpty) asString(tiles[first]['id']),
-        if (tiles.length > 1) asString(tiles[(first + 1) % tiles.length]['id']),
-      ];
-    });
-    if (value && asMaps(_workspace['tiles']).length < 2) {
-      await _mutate('setLayout', {'layout': 'rows-2'});
-      if (mounted && asMaps(_workspace['tiles']).length < 2) {
-        setState(() => _phoneSplit = false);
-      }
-    }
-  }
-
   Future<void> _showTabs() async {
     if (!mounted) return;
     await showModalBottomSheet<void>(
@@ -1145,22 +1122,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
-                    PopupMenuButton<String>(
-                      tooltip: 'Anordnung',
-                      icon: const Icon(Icons.view_quilt_outlined),
-                      onSelected: (layout) {
-                        Navigator.pop(sheet);
-                        _mutate('setLayout', {'layout': layout});
-                      },
-                      itemBuilder: (_) => readerLayouts.entries
-                          .map(
-                            (entry) => PopupMenuItem(
-                              value: entry.key,
-                              child: Text(entry.value),
-                            ),
-                          )
-                          .toList(),
-                    ),
                     IconButton(
                       tooltip: 'Fertig',
                       onPressed: () => Navigator.pop(sheet),
@@ -1169,27 +1130,11 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                   ],
                 ),
               ),
-              if (MediaQuery.sizeOf(context).width < 768)
-                SwitchListTile.adaptive(
-                  title: const Text('Geteilter Bildschirm'),
-                  subtitle: const Text('Zwei Werke gleichzeitig lesen'),
-                  value: _phoneSplit,
-                  onChanged: (value) {
-                    Navigator.pop(sheet);
-                    _togglePhoneSplit(value);
-                  },
-                ),
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final tiles = asMaps(_workspace['tiles']);
-                    final choices = <Json>[
-                      for (final tile in tiles)
-                        if (asMaps(tile['tabs']).isEmpty)
-                          {'tile': tile, 'tab': <String, dynamic>{}}
-                        else
-                          ..._flatTabs([tile]),
-                    ];
+                    final choices = _flatTabs(tiles);
                     final scaler = MediaQuery.textScalerOf(context);
                     final columns =
                         constraints.maxWidth < 360 || scaler.scale(14) > 20
@@ -1209,18 +1154,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                       itemBuilder: (_, index) {
                         final tile = asMap(choices[index]['tile']),
                             tab = asMap(choices[index]['tab']);
-                        if (tab.isEmpty) {
-                          return OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(sheet);
-                              _chooseResource(tile);
-                            },
-                            icon: const Icon(Icons.add),
-                            label: Text(
-                              'Werk in Bereich ${tiles.indexOf(tile) + 1} hinzufügen',
-                            ),
-                          );
-                        }
                         final resource = asMaps(_data['readerResources'])
                             .firstWhere(
                               (item) => item['id'] == tab['resourceId'],
@@ -1235,9 +1168,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                           eInk: _scope!.eInk,
                           selected:
                               _shownTab(tile)['id'] == tab['id'] &&
-                              (MediaQuery.sizeOf(this.context).width >= 768 ||
-                                  _phoneSplit ||
-                                  _mobileTile == tile['id']),
+                              _mobileTile == tile['id'],
                           onTap: () {
                             Navigator.pop(sheet);
                             _activateTab(
@@ -1261,6 +1192,14 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                                 value: 'replace',
                                 child: Text('Werk wechseln'),
                               ),
+                              PopupMenuItem(
+                                value: 'search',
+                                child: Text(
+                                  resource['kind'] == 'lexicon'
+                                      ? 'Lexikoneintrag öffnen'
+                                      : 'In diesem Werk suchen',
+                                ),
+                              ),
                               const PopupMenuItem(
                                 value: 'details',
                                 child: Text('Informationen zum Werk'),
@@ -1271,28 +1210,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                                   value: 'link:$group',
                                   child: _groupChoice(tab, group),
                                 ),
-                              for (final other in tiles)
-                                if (other['id'] != tile['id'])
-                                  PopupMenuItem(
-                                    value: 'move:${other['id']}',
-                                    child: Text(
-                                      'In Bereich ${tiles.indexOf(other) + 1} verschieben',
-                                    ),
-                                  ),
-                              PopupMenuItem(
-                                value: 'earlier',
-                                enabled:
-                                    asMaps(tile['tabs']).first['id'] !=
-                                    tab['id'],
-                                child: const Text('Nach vorne'),
-                              ),
-                              PopupMenuItem(
-                                value: 'later',
-                                enabled:
-                                    asMaps(tile['tabs']).last['id'] !=
-                                    tab['id'],
-                                child: const Text('Nach hinten'),
-                              ),
                             ],
                           ),
                         );
@@ -1308,28 +1225,14 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                   child: Wrap(
                     spacing: 4,
                     children: [
-                      PopupMenuButton<String>(
+                      IconButton(
                         tooltip: 'Werk hinzufügen',
-                        icon: const Icon(Icons.add),
-                        onSelected: (id) {
+                        onPressed: () {
                           Navigator.pop(sheet);
-                          _chooseResource(
-                            asMaps(_workspace['tiles'])
-                                .firstWhere((tile) => tile['id'] == id),
-                          );
+                          final tile = _addTargetTile();
+                          if (tile.isNotEmpty) _chooseResource(tile);
                         },
-                        itemBuilder: (_) => asMaps(_workspace['tiles'])
-                            .asMap()
-                            .entries
-                            .map(
-                              (entry) => PopupMenuItem(
-                                value: asString(entry.value['id']),
-                                child: Text(
-                                  'Werk in Bereich ${entry.key + 1} hinzufügen',
-                                ),
-                              ),
-                            )
-                            .toList(),
+                        icon: const Icon(Icons.add),
                       ),
 
                       IconButton(
@@ -1348,20 +1251,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                         },
                         icon: const Icon(Icons.text_increase),
                       ),
-                      if (_data['user'] != null)
-                        IconButton(
-                          tooltip: 'Arbeitsbereiche',
-                          onPressed: () async {
-                            Navigator.pop(sheet);
-                            if (await _flush() && mounted) {
-                              await showWorkspaces(
-                                context,
-                                snapshot: _snapshot,
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.workspaces_outline),
-                        ),
                       if (_data['user'] != null)
                         IconButton(
                           tooltip: 'Eigene Notizen und Dokumente',
@@ -1394,6 +1283,16 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     );
   }
 
+  Json _addTargetTile() {
+    final tiles = asMaps(_workspace['tiles']);
+    return tiles.firstWhere(
+      (tile) => tile['id'] == _mobileTile,
+      orElse: () => tiles.firstOrNull ?? <String, dynamic>{},
+    );
+  }
+
+  // Every resource is one local tab, regardless of device width. Server URL
+  // coordinates remain stable while the native presentation stays flat.
   List<Json> _flatTabs(List<Json> tiles) => [
     for (final tile in tiles)
       for (final tab in asMaps(tile['tabs'])) {'tile': tile, 'tab': tab},
@@ -1405,17 +1304,12 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       for (final entry in _pageControllers.entries) {
         if (!entry.value.hasClients) continue;
         final tiles = asMaps(_workspace['tiles']);
-        final choices = _flatTabs(
-          entry.key == 'mobile'
-              ? tiles
-              : tiles.where((tile) => tile['id'] == entry.key).toList(),
-        );
+        final choices = _flatTabs(tiles);
         final selected = choices.indexWhere(
           (item) =>
               _shownTab(asMap(item['tile']))['id'] ==
                   asMap(item['tab'])['id'] &&
-              (entry.key != 'mobile' ||
-                  asMap(item['tile'])['id'] == _mobileTile),
+              asMap(item['tile'])['id'] == _mobileTile,
         );
         if (selected >= 0 && (entry.value.page ?? -1).round() != selected) {
           entry.value.jumpToPage(selected);
@@ -1424,14 +1318,14 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     });
   }
 
-  Widget _resourcePages(List<Json> tiles, {required bool mobile}) {
+  Widget _resourcePages(List<Json> tiles) {
     final choices = _flatTabs(tiles);
-    if (choices.isEmpty) return _tile(tiles.first, mobile: mobile);
-    final deckKey = mobile ? 'mobile' : asString(tiles.single['id']);
+    if (choices.isEmpty) return _tile(_addTargetTile());
+    const deckKey = 'mobile';
     final selected = choices.indexWhere(
       (item) =>
           _shownTab(asMap(item['tile']))['id'] == asMap(item['tab'])['id'] &&
-          (!mobile || asMap(item['tile'])['id'] == _mobileTile),
+          asMap(item['tile'])['id'] == _mobileTile,
     );
     final controller = _pageControllers.putIfAbsent(
       deckKey,
@@ -1464,7 +1358,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
             tab = asMap(item['tab']);
         return _KeepReaderTab(
           key: ValueKey(asString(tab['id'])),
-          child: _tile(tile, mobile: mobile, selectedTab: tab),
+          child: _tile(tile, selectedTab: tab),
         );
       },
     );
@@ -1485,60 +1379,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     );
   }
 
-  Widget _tabStrip(List<Json> tiles) => SizedBox(
-    height: ReaderGroupBadge.heightFor(MediaQuery.textScalerOf(context)) + 16,
-    child: ListView(
-      scrollDirection: Axis.horizontal,
-      children: [
-        for (final item in _flatTabs(tiles))
-          Builder(
-            builder: (_) {
-              final tile = asMap(item['tile']), tab = asMap(item['tab']);
-              final selected = _shownTab(tile)['id'] == tab['id'];
-              return DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: selected
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                ),
-                child: TextButton(
-                  onPressed: () {
-                    _activateTab(asString(tile['id']), asString(tab['id']));
-                    _showSelectedPage();
-                  },
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ReaderGroupBadge(
-                        linkSet: tab['linkSet'] as String?,
-                        eInk: _scope!.eInk,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _resourceTitle(tab),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w400,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-      ],
-    ),
-  );
-
-  Widget _tile(Json tile, {bool mobile = false, Json? selectedTab}) {
+  Widget _tile(Json tile, {Json? selectedTab}) {
     final tab = selectedTab ?? _shownTab(tile);
     if (tab.isEmpty) {
       return Center(
@@ -1581,13 +1422,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-              IconButton(
-                tooltip: resource['kind'] == 'lexicon'
-                    ? 'Lexikoneintrag öffnen'
-                    : 'In diesem Werk suchen',
-                onPressed: () => _search(tile, tab, resource),
-                icon: const Icon(Icons.search),
-              ),
               PopupMenuButton<String>(
                 tooltip: 'Tab-Einstellungen',
                 onSelected: (action) => _tabMenu(tile, tab, action),
@@ -1600,19 +1434,17 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                     value: 'close',
                     child: Text('Tab schließen'),
                   ),
+                  PopupMenuItem(
+                    value: 'search',
+                    child: Text(
+                      resource['kind'] == 'lexicon'
+                          ? 'Lexikoneintrag öffnen'
+                          : 'In diesem Werk suchen',
+                    ),
+                  ),
                   const PopupMenuItem(
                     value: 'details',
                     child: Text('Informationen zum Werk'),
-                  ),
-                  PopupMenuItem(
-                    value: 'earlier',
-                    enabled: asMaps(tile['tabs']).first['id'] != tab['id'],
-                    child: const Text('Tab nach vorne'),
-                  ),
-                  PopupMenuItem(
-                    value: 'later',
-                    enabled: asMaps(tile['tabs']).last['id'] != tab['id'],
-                    child: const Text('Tab nach hinten'),
                   ),
                   const PopupMenuDivider(),
                   for (final link in ['', 'A', 'B', 'C', 'D', 'E'])
@@ -1620,15 +1452,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                       value: 'link:$link',
                       child: _groupChoice(tab, link),
                     ),
-                  const PopupMenuDivider(),
-                  for (final other in asMaps(_workspace['tiles']))
-                    if (other['id'] != tile['id'])
-                      PopupMenuItem(
-                        value: 'move:${other['id']}',
-                        child: Text(
-                          'In Kachel ${asMaps(_workspace['tiles']).indexOf(other) + 1} verschieben',
-                        ),
-                      ),
                 ],
                 child: Padding(
                   padding: const EdgeInsets.all(12),
@@ -1652,7 +1475,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                   onPressed: () {
                     setState(() {
                       _searches.remove(tab['id']);
-                      _viewFiltersDirty = true;
                       _dirty = true;
                       _revision++;
                     });
@@ -1693,7 +1515,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                     active:
                         widget.active &&
                         _shownTab(tile)['id'] == tab['id'] &&
-                        (!mobile || _mobileTile == tile['id']),
+                        _mobileTile == tile['id'],
                     resource: resource,
                     reference: asMap(tab['reference']),
                     fontScale: asInt(_data['readerFontScale'], 100) / 100,
@@ -1725,9 +1547,29 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       (tile) => tile['id'] == _mobileTile,
       orElse: () => tiles.isEmpty ? {} : tiles.first,
     );
+    final selectedTab = _shownTab(selectedTile);
+    final selectedResource = asMaps(_data['readerResources']).firstWhere(
+      (resource) => resource['id'] == selectedTab['resourceId'],
+      orElse: () => {},
+    );
+    final resourceName = asString(
+      selectedResource['name'],
+      _resourceTitle(selectedTab),
+    );
+    final abbreviation = asString(selectedResource['abbrev']);
     widget.controller?.update(
       tabCount: _flatTabs(tiles).length,
-      activeTitle: _resourceTitle(_shownTab(selectedTile)),
+      activeTitle: _resourceTitle(selectedTab),
+      activeResource: selectedResource.isEmpty
+          ? null
+          : ReaderSearchResource(
+              id: asString(selectedResource['id']),
+              title: abbreviation.isEmpty || abbreviation == resourceName
+                  ? resourceName
+                  : '$resourceName ($abbreviation)',
+              kind: asString(selectedResource['kind']),
+              direction: asString(selectedResource['direction'], 'ltr'),
+            ),
     );
     final colors = Theme.of(context).colorScheme;
     return Column(
@@ -1763,9 +1605,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                         'Die noch nicht gespeicherte Leseposition und Suche werden verworfen.',
                       )) {
                         _dirty = false;
-                        _viewFiltersDirty = false;
                         _failedActivation = null;
-                        _pendingPositions.clear();
                         _deferredPositions.clear();
                         _discardPending = true;
                         try {
@@ -1781,122 +1621,10 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
               ),
             ),
           ),
-        if (_data['readerWorkspaceDetached'] == true)
-          const Padding(
-            padding: EdgeInsets.all(8),
-            child: Text(
-              'Geteilte Ansicht · Dein gespeicherter Arbeitsbereich bleibt erhalten.',
-            ),
-          ),
         Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              if (tiles.isEmpty) {
-                return const Center(child: Text('Kein Werk verfügbar.'));
-              }
-              if (constraints.maxWidth < 768) {
-                if (_phoneSplit && tiles.length > 1) {
-                  final shown = <Json>[];
-                  for (final id in _phoneSplitTiles) {
-                    final tile = tiles
-                        .where((tile) => tile['id'] == id)
-                        .firstOrNull;
-                    if (tile != null) shown.add(tile);
-                  }
-                  for (final tile in tiles) {
-                    if (shown.length < 2 && !shown.contains(tile)) {
-                      shown.add(tile);
-                    }
-                  }
-                  return ReaderSplit(
-                    axis: Axis.vertical,
-                    weights: _phoneRatios,
-                    onResize: (sizes) => setState(() => _phoneRatios = sizes),
-                    children: [
-                      for (final tile in shown)
-                        _resourcePages([tile], mobile: false),
-                    ],
-                  );
-                }
-                return _resourcePages(tiles, mobile: true);
-              }
-              final children = tiles
-                  .map(
-                    (tile) => Column(
-                      children: [
-                        _tabStrip([tile]),
-                        Expanded(child: _resourcePages([tile], mobile: false)),
-                      ],
-                    ),
-                  )
-                  .toList();
-              final layout = asString(_workspace['layout']);
-              final columnCount = layout == 'single' || layout == 'rows-2'
-                  ? 1
-                  : layout == 'columns-3'
-                  ? 3
-                  : layout == 'columns-4'
-                  ? 4
-                  : 2;
-              final rowCount =
-                  [
-                    'rows-2',
-                    'left-full',
-                    'right-full',
-                    'grid-4',
-                  ].contains(layout)
-                  ? 2
-                  : 1;
-              void saveSizes(String axis, List<double> sizes) => _mutate(
-                'setLayoutSize',
-                {
-                  'layout': layout,
-                  'columns':
-                      (axis == 'columns'
-                              ? sizes
-                              : readerTrackSizes(
-                                  _workspace,
-                                  'columns',
-                                  columnCount,
-                                ))
-                          .join(','),
-                  'rows':
-                      (axis == 'rows'
-                              ? sizes
-                              : readerTrackSizes(_workspace, 'rows', rowCount))
-                          .join(','),
-                },
-              );
-              Widget row(List<Widget> items) => ReaderSplit(
-                axis: Axis.horizontal,
-                weights: readerTrackSizes(_workspace, 'columns', items.length),
-                onResize: _busy ? null : (sizes) => saveSizes('columns', sizes),
-                children: items,
-              );
-              Widget column(List<Widget> items) => ReaderSplit(
-                axis: Axis.vertical,
-                weights: readerTrackSizes(_workspace, 'rows', items.length),
-                onResize: _busy ? null : (sizes) => saveSizes('rows', sizes),
-                children: items,
-              );
-              return switch (_workspace['layout']) {
-                'rows-2' => column(children),
-                'left-full' when children.length == 3 => row([
-                  children[0],
-                  column(children.sublist(1)),
-                ]),
-                'right-full' when children.length == 3 => row([
-                  column(children.sublist(0, 2)),
-                  children[2],
-                ]),
-                'grid-4' when children.length == 4 => column([
-                  row(children.sublist(0, 2)),
-                  row(children.sublist(2)),
-                ]),
-                _ => row(children),
-              };
-            },
-          ),
+          child: tiles.isEmpty
+              ? const Center(child: Text('Kein Werk verfügbar.'))
+              : _resourcePages(tiles),
         ),
       ],
     );

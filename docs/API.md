@@ -16,19 +16,24 @@ sind im normalen Betrieb nicht beteiligt.
 
 Die öffentliche Produktionsbasis der App-API ist **`https://akribos.de/api/app`**. In der Flutter-App
 wird als Server **`https://akribos.de`** verwendet. Öffentliche Bibeltexte, verfügbare Werke, Suche und
-öffentliche Hilfeseiten funktionieren ohne Registrierung, Sitzungscookie oder API-Schlüssel.
-`x-akribos-app: 1` bezeichnet lediglich die Protokollversion und ist kein Geheimnis.
+öffentliche Hilfeseiten funktionieren auf Protokollebene ohne Registrierung, Sitzungscookie
+oder API-Schlüssel. Die native Hilfe zeigt derzeit einen lokalen Platzhalter und lädt die
+Webhilfe nicht. `x-akribos-app: 1` bezeichnet lediglich die Protokollversion und ist kein Geheimnis. Die aktuelle
+App setzt zusätzlich `x-akribos-reader-mode: local`, um Readerzustand ausschließlich auf dem
+Gerät zu verwalten.
 
 Diese Anfragen benötigen weder `Authorization` noch einen zuvor angelegten Schlüssel:
 
 ```sh
 curl --fail-with-body --silent --show-error \
   -H 'x-akribos-app: 1' \
+  -H 'x-akribos-reader-mode: local' \
   -H 'Origin: https://akribos.de' \
   'https://akribos.de/api/app/bootstrap'
 
 curl --fail-with-body --silent --show-error --get \
   -H 'x-akribos-app: 1' \
+  -H 'x-akribos-reader-mode: local' \
   -H 'Origin: https://akribos.de' \
   --data-urlencode 'path=/Joh1' \
   'https://akribos.de/api/app/page'
@@ -38,7 +43,7 @@ Der Bootstrap liefert `type: "success"`, `data.protocolVersion: 1` und bei Gäst
 Eine Lesestelle kann zunächst einen kanonischen `redirect`-Umschlag liefern; dessen lokalen
 `location`-Wert lädt der Client erneut über `/api/app/page?path=…`.
 
-Persönliche Notizen, Sammlungen, Markierungen und Arbeitsbereiche benötigen die normale
+Persönliche Notizen, Sammlungen und Markierungen benötigen die normale
 Kontoanmeldung mit Passwort oder E-Mail-Code und den daraus erzeugten Sitzungscookie. Ohne Sitzung
 antworten geschützte App-Seiten mit dem lokalen Anmelde-Redirect; geschützte JSON-Endpunkte wie
 `/api/documents` liefern HTTP 401. Weder der Versions-/Origin-Header noch ein mitgesendeter API-Key
@@ -48,7 +53,7 @@ Die getrennte Schnittstelle `/api/v1` und deren API-Key-/Lizenzregeln bleiben un
 | Endpunkt | Aufgabe |
 | --- | --- |
 | `GET /api/app/bootstrap` | Layout, sichere Sitzungsidentität, Werke, 66 Bücher, Einstellungen und Nutzernavigation |
-| `GET /api/app/page?path=/notes` | Bestehenden serverseitigen Seitenzustand als JSON laden |
+| `GET /api/app/page?path=/notes%3Fkind%3Dnote` | Notizbibliothek als JSON laden; der innere Pfad einschließlich Query wird URL-kodiert |
 | `POST /api/app/action?path=/notes&action=create` | Eine ausdrücklich freigegebene bestehende Formularaktion ausführen |
 
 Alle Anfragen tragen `x-akribos-app: 1`. Native Clients senden den tatsächlichen Server-Origin,
@@ -60,9 +65,12 @@ Der Header ist keine Authentifizierung. API-Schlüssel werden nicht in Sitzungsk
 { "fields": { "kind": "note", "title": "Meine Notiz", "tagPaths": ["Studium/Johannes"] } }
 ```
 
-Formularwerte sind Strings oder Stringlisten. Dateiimporte verwenden `multipart/form-data` mit
-den ursprünglichen Feldnamen. Private Importe prüfen die Sitzung vor dem Einlesen des Anfragekörpers;
-Größenbegrenzungen werden vor der Formularauswertung geprüft.
+Formularwerte sind Strings oder Stringlisten. Dateiübertragungen verwenden `multipart/form-data`
+mit den ursprünglichen Feldnamen. Die Allowlist unterstützt weiterhin bestehende persönliche
+Import- und Vorlagenaktionen sowie die Boardspaltenverwaltung; die aktuelle App-Oberfläche
+bietet diese Abläufe nicht an. Anhänge und Exporte bleiben mobil verfügbar. Private Importe
+prüfen serverseitig die Sitzung vor dem Einlesen des Anfragekörpers; Größenbegrenzungen werden
+vor der Formularauswertung geprüft.
 Antworten verwenden ein stabiles JSON-Format:
 
 ```json
@@ -81,16 +89,33 @@ enthalten `_path` mit der angefragten kanonischen Route einschließlich Query.
 `src/lib/server/app/routes.ts` ist die geschlossene Liste von Routen und Aktionsnamen. Der Adapter
 übernimmt ursprüngliche URL, Parameter, Route und Formularfelder; er erfindet keine zweite Fassung
 der Geschäftsregeln. Neue Serveraktionen brauchen eine bewusste Ergänzung des Protokolls und der
-nativen Oberfläche. Änderungen an gelieferten Feldern müssen mit dem Client abgestimmt werden.
+nativen Oberfläche, wenn die Aktion zum mobilen Umfang gehört. Die Allowlist allein beschreibt
+keine Funktionszusage der App; deren Umfang steht in [FEATURES.md](FEATURES.md). Änderungen an
+gelieferten Feldern müssen mit dem Client abgestimmt werden.
 Verwaltung, Ressourcenimport und reine Adminaktionen sind ausgeschlossen, auch wenn das
 angemeldete Konto Administrator ist. Die Hilfe verwendet die normale Nutzerzielgruppe. Bestehende
 Eigentums- und Mitgliedschaftsprüfungen gelten weiterhin, auch für Administratoren.
 
-Die App hält einen zufälligen `x-reader-browser-tab` pro laufender App-Instanz. Vor dem ersten
-Bootstrap setzt sie `reader-browser-enabled=1` und die passende Klasse `reader-initial-columns`.
-Workspace-Mutationen benötigen weiterhin Auswahl- und Inhaltsversionen; Dokumentänderungen die
-positive aktuelle `revision`. Der Client serialisiert Speichern, erhält Konfliktentwürfe und wartet
-vor Navigation auf ausstehende Änderungen. Ein GET konsumiert keinen Anmelde- oder Einladungstoken.
+Der lokale Reader-Modus setzt das gültige App-Protokoll und den zusätzlichen Header
+`x-akribos-reader-mode: local` voraus. Der Adapter klont den Request-Kontext mit `localReader`.
+Bootstrap und Readerauflösung verwenden nur aktuell lesbare Ressourcen, ohne die aktive
+Browser-/Sessionauswahl, gespeicherte Workspaces oder Legacy-Workspacefelder zu übernehmen.
+Sie legen keinen Standard-Workspace an und schreiben keine Workspace-/Positionscookies.
+Die Antwort enthält keine benannten Arbeitsbereiche und keine aktiven Workspaceversionen.
+Sitzung, Rolle, Schrift-/Darstellungspräferenzen und Ressourcenfreigaben bleiben wirksam.
+
+Die App speichert Tabs, Stellen, Suchen und Filter verschlüsselt pro Server und Konto auf dem
+Gerät; Gäste haben einen eigenen Stand. Sie ruft weder Workspace-View noch Follow auf. Für
+serverseitig berechnete Readeraktionen ist der lokale Modus immer detached, auch bei fehlendem
+Clientflag oder mitgesendeten Workspaceversionen. Diese Aktionen liefern den neuen `readerState`
+und `path` sowie `saved:false, reason:detached`, ohne Workspace-Datenbankzugriff oder Persistierung.
+Die benannten `/workspaces/[id]`-Seiten/-Aktionen liefern in diesem Modus 404; die gemeinsamen
+`/api/reader/workspaces`-REST-Handler lehnen lokale Anfragen mit 403 ab. Gästen fehlt weiterhin
+die Sitzung (401). Web und ältere Clients ohne Opt-in behalten den bestehenden Workspacevertrag.
+
+Dokumentänderungen benötigen unverändert die positive aktuelle `revision`. Der Client
+serialisiert Speichern, erhält Konfliktentwürfe und wartet vor Navigation auf ausstehende
+Änderungen. Ein GET konsumiert keinen Anmelde- oder Einladungstoken.
 
 Für die Code-Anmeldung wird nur der native Challenge-Cookie umbenannt: `app-email-login`, HttpOnly,
 Pfad `/api/app`. Die bestehende Anmeldelogik sieht ihn als `email-login`. Webanmeldung und native
@@ -101,23 +126,41 @@ offenes CORS, keinen frei wählbaren Upstream und keine Umgehung der öffentlich
 
 ## Bestehende JSON- und Binärschnittstellen
 
-Kapitel, Suche, Strong, Workspace-Verwaltung/-View/-Follow und Dokument-Autosave verwenden weiterhin
-`/api/reader/*`, `/api/strong/*` und `/api/documents/*`. Datei-Exporte und Anhänge behalten ihre
+Kapitel, Suche, Strong und Dokument-Autosave verwenden weiterhin `/api/reader/*`, `/api/strong/*`
+und `/api/documents/*`. Workspace-Verwaltung/-View/-Follow bleiben für Web und ältere Clients
+bestehen, werden von der aktuellen App aber nicht verwendet. Datei-Exporte und Anhänge behalten ihre
 bisherigen Adressen. Backupverwaltung und
 Ressourcenimport bleiben ausschließlich Funktionen der Webverwaltung.
+
+Beim Öffnen übernimmt die Hauptnavigation „Suche“ das aktuell gewählte Reader-Werk samt Titel.
+Nach einem Werkwechsel wird ein vorhandener Begriff erneut gesucht und Buchfilter/Seite werden
+zurückgesetzt; beim selben Werk bleibt der Suchstand erhalten. Bibel-, Kommentar- und
+Parallelstellensuche verwenden `/api/reader/search?resource=ID&q=…`. Lexika verwenden
+`GET /api/reader/lookup?resource=ID&q=…`: eine genaue Strong-Nummer oder eine Lemma-/Umschrift-
+Präfixsuche mit bevorzugter exakter Schreibweise liefert einen Lexikoneintrag. Leserechte werden
+auch dort für jede Anfrage geprüft. Die lokale Tab-Suche bleibt im Tabmenü.
 
 ## Prüfung und Betrieb
 
 `src/lib/server/app/adapter.spec.ts` prüft Allowlist, Origins, Adminschutz, Cookie-Übersetzung,
-Antworten und Formulargrenzen. `e2e/app-api.e2e.ts` prüft gegen eine eigene Datenbank echte
+Antworten und Formulargrenzen. `src/lib/server/app/local-reader.spec.ts` prüft den lokalen Modus
+über die echten Adapter-, Layout- und Readerfunktionen mit simulierten Repositories: keine
+Workspaceinitialisierung, keine Persistierung und gesperrte Named-Workspace-Endpunkte.
+`e2e/app-api.e2e.ts` prüft gegen eine eigene Datenbank echte
 Anmeldung, Rollen, private Dokumente, Erstellen, Speichern, Konflikte, Multipart und Abmeldung.
 Zusätzlich gelten die vorhandenen Authentifizierungs- und Ressourcenberechtigungstests.
 
 Die Endpunkte wurden am 14. Oktober 2026 auf akribos.de veröffentlicht und ohne
 Anmeldung/API-Schlüssel live geprüft; siehe [VALIDATION.md](VALIDATION.md).
-Eine Installation gegen einen älteren Server zeigt einen erklärten Fehler.
+Der lokale Reader-Modus muss vor der aktuellen App-Version auf dem Server bereitgestellt sein.
+Ältere Server mit Protokoll v1 kennen den neuen Header noch nicht und können weiterhin einen
+benannten Standard-Workspace initialisieren. Ein Server ohne App-Protokoll wird mit einem
+entsprechenden Fehler gemeldet.
 APK-Build und Serverbereitstellung sind getrennte Schritte; das Buildskript führt kein Deployment
 und keine Store-Veröffentlichung aus. Die direkt installierbare Android-APK verwendet die
-automatische Debug-Signatur. Store-Signierung und verifizierte HTTPS-App-Links benötigen die
-tatsächlichen Android-/Apple-Signieridentitäten. Anmeldung per E-Mail-Code oder Passwort benötigt
-keine verifizierten App-Links.
+bereits vorhandene lokale Android-Debug-Signatur mit geprüftem Fingerprint. Android-App-Links
+werden über Manifest und Domainzuordnung vorbereitet; Veröffentlichung und Geräteverifikation
+bleiben getrennte Prüfschritte. Vorerst wird nur Android veröffentlicht. iOS-Signierung und
+App-Links folgen nach Bestätigung der laufenden Apple-Organisationsanmeldung, siehe
+[RELEASE.md](RELEASE.md). Anmeldung per E-Mail-Code oder Passwort benötigt keine verifizierten
+App-Links.

@@ -1,0 +1,27 @@
+name: Dispatch Android Play Release
+on:
+  release:
+    types: [published]
+permissions:
+  contents: read
+  actions: write
+jobs:
+  dispatch:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # No checkout and no store environment/secrets. The receiving workflow is
+      # always the trusted main version, never code from the released tag.
+      - name: Start the protected store workflow on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          release_tag="$(jq -r '.release.tag_name' "$GITHUB_EVENT_PATH")"
+          [[ "$release_tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
+            printf 'Expected a published vX.Y.Z release.\n' >&2
+            exit 1
+          }
+          gh workflow run android-play.yml --repo "$GITHUB_REPOSITORY" \
+            --ref main -f release_tag="$release_tag"

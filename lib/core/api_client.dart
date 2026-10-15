@@ -190,6 +190,7 @@ class AppApi {
         'Accept': 'application/json',
         'Origin': origin.origin,
         'x-akribos-app': '1',
+        'x-akribos-reader-mode': 'local',
         'x-reader-browser-tab': this.browserTabId,
       },
     );

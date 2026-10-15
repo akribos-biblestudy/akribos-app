@@ -83,7 +83,7 @@ void main() {
       await tester.pumpAndSettle();
       final offset = stream.controller!.offset;
       final previousWrites = api.requests.length;
-      final readerState = api.data['readerState'];
+      final readerState = await api.localStore.read();
       await openWord(tester, position: 13);
       final query = Uri.parse(api.gets.single).queryParameters;
       expect(query['resource'], 'BIBLE0');
@@ -98,7 +98,7 @@ void main() {
       expect(controller.tabCount, 1);
       expect(api.actions, isEmpty);
       expect(api.requests.length, previousWrites);
-      expect(api.data['readerState'], readerState);
+      expect(await api.localStore.read(), readerState);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
@@ -109,7 +109,12 @@ void main() {
       expect(identical(restored.controller, stream.controller), isTrue);
       expect(restored.controller!.offset, offset);
       expect(controller.tabCount, 1);
-      expect(api.pages, ['/Joh1']);
+      expect(api.pages, hasLength(1));
+      final page = Uri.parse(api.pages.single);
+      expect(page.path, '/Joh1');
+      expect(page.queryParameters['tab'], '1.1:BIBLE0:A:Joh1');
+      expect(page.queryParameters['workspaceDetached'], 'true');
+      expect(page.queryParameters.keys, isNot(contains('workspaceId')));
       expect(tester.takeException(), isNull);
     },
   );
@@ -156,7 +161,12 @@ void main() {
       expect(request.queryParameters.containsKey('wordPosition'), isFalse);
       expect(request.queryParameters.containsKey('word'), isFalse);
       expect(api.actions, isEmpty);
-      expect(api.pages, ['/Joh1']);
+      expect(api.pages, hasLength(1));
+      final page = Uri.parse(api.pages.single);
+      expect(page.path, '/Joh1');
+      expect(page.queryParameters['tab'], '1.1:BIBLE0:A:Joh1');
+      expect(page.queryParameters['workspaceDetached'], 'true');
+      expect(page.queryParameters.keys, isNot(contains('workspaceId')));
       await tester.tap(find.byTooltip('Lexikon schließen'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);

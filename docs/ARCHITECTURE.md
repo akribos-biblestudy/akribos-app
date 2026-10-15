@@ -8,9 +8,9 @@ auf ausstehende Reader-/Dokumentspeicherung. Die Nutzeroberfläche enthält kein
 
 Lesen, Suche, Dokumente und weitere Funktionen werden erst bei Bedarf erzeugt und als
 getrennte Bereiche im `IndexedStack` gehalten. Ein bloßer Hauptbereichswechsel baut den
-Reader nicht neu und lädt seine Daten nicht erneut. Explizite Reader-/Workspace-Navigation
-invalidiert ihn hingegen auch bei identischer URL, weil Konto-ID und Auswahlversionen
-nicht in geteilten URLs stehen. Versteckte Redirects werden für den nächsten Besuch
+Reader nicht neu und lädt seine Daten nicht erneut. Explizite Reader-Navigation
+invalidiert ihn hingegen auch bei identischer URL, weil die Kontoidentität
+nicht in geteilten URLs steht. Versteckte Redirects werden für den nächsten Besuch
 vorgemerkt, ohne die aktuelle Ansicht zu übernehmen. Guards gehören zum jeweiligen Bereich.
 
 Anmeldung/Abmeldung invalidieren private Bereiche unmittelbar über
@@ -23,12 +23,12 @@ gezielt den Reader nach einem erfolgreichen Flush; normale Bereichswechsel tun d
 | Pfad | Verantwortung |
 | --- | --- |
 | `lib/core` | Origin-gebundener HTTP-Client, Cookie-Speicher, Protokollumschläge und App-Kontext |
-| `lib/features/reader` | Workspace-Modelle, Layouts, Kapitelstreams, Verse, Markierungen und Notiz-Sidecar |
+| `lib/features/reader` | Workspace-Modelle, flache Ressourcen-Tabs, Kapitelstreams, Verse, Markierungen und Notiz-Sidecar |
 | `lib/features/search` | Suche, Strong, Statistik, Morphologie |
-| `lib/features/documents` | Bibliothek, Ausarbeitungen, Markdown-Editor, Entwürfe, Import |
+| `lib/features/documents` | Notizbibliothek, Ausarbeitungen, Markdown-Editor, Entwürfe, Anhänge und Export |
 | `lib/features/collections` | Sammlungen, Mitglieder, Kommentare |
 | `lib/features/account` | Anmeldung, Konto, Markierungsstile |
-| `lib/features/help` | Native Hilfe, Abbildungen, rechtliche Betreiberlinks |
+| `lib/features/help` | Lokaler Hilfeplatzhalter, Über Akribos und Lizenzen |
 | `lib/widgets` | Gemeinsame Formulare, Lade-/Fehlerzustände und sicherer HTML-Renderer |
 
 ## Sitzung und Transport
@@ -63,37 +63,57 @@ Apple-Plattformregeln abhängig.
 
 ## Reader-Zustand
 
-Ein zufälliger `x-reader-browser-tab` trennt die laufende App-Instanz von anderen Clients.
-Gespeicherte Arbeitsbereiche gehören zum Konto, die aktuelle Arbeitskopie zur Sitzung und
-App-Instanz. Schreibanfragen führen `workspaceId`, `workspaceVersion` und
-`workspaceContentVersion` mit; die Serverantwort wird auf diese drei Clientfelder abgebildet.
-Anfragen werden serialisiert. Eine fremde Ansicht überschreibt keinen benannten Stand allein
-beim Lesen. Ein direkter Arbeitsbereichslink zeigt zuerst eine schreibfreie Öffnungsansicht.
+Die App besitzt ihre Tabs selbst. `ReaderLocalStore` speichert den vollständigen Readerpfad
+mit URL-Snapshot und `layoutSizes` im verschlüsselten Plattform-Speicher, getrennt nach
+Server-Origin und Konto-ID; Gäste verwenden einen eigenen Bereich. Start und Neustart laden
+diesen lokalen Stand. Ohne Stand beginnt die App mit der ersten verfügbaren Bibel bei Johannes 1.
+Browser-Arbeitsbereiche werden nicht importiert. Abmelden macht den bisherigen Kontostand nicht
+für andere Konten oder Gäste sichtbar; er bleibt für eine erneute Anmeldung desselben Kontos erhalten.
 
-`ReaderController` verbindet Shell und Reader mit Tabanzahl, Ansichtenübersicht und Flush.
-Jeder Ressourcentab behält seine Widgets, seinen Kapitelcache, Suchkontext und seine Stelle.
-Tabauswahl wird lokal sofort angezeigt und dann serialisiert mit Serverversionen bestätigt;
-Fehler bleiben sichtbar und können keinen unbestätigten Wechsel still als gespeichert melden.
-Bestätigte reine Tabwechsel benötigen keinen vollständigen Reader-GET. Verse werden in
-Sliver-Listen nur um den Viewport aufgebaut; Referenzanker erhalten den exakten Sprung.
+Die App sendet `x-akribos-app: 1` und `x-akribos-reader-mode: local`. Der Server leitet daraus im
+App-Adapter `locals.localReader` ab. Bootstrap und Seitenauflösung lesen keine benannten
+Arbeitsbereiche und schreiben keine Workspace-/Positionscookies. Der lokale Modus erteilt keine
+Zugriffsrechte: Sitzung, Rolle, persönliche Ressourcenfreigaben und Dokumentrevisionen gelten weiter.
+Strukturaktionen liefern einen bereinigten Reader-Snapshot mit `saved:false, reason:detached`,
+ohne ihn auf dem Server zu speichern. Das gilt auch ohne Client-Detached-Flag und bei mitgesendeten
+Workspaceversionen. Benannte Workspace-Seiten/-Aktionen sind für diesen Modus gesperrt, ebenso
+die Workspace-REST-Endpunkte. Web und ältere App-Clients ohne Opt-in behalten ihr bisheriges Verhalten.
 
-Reine Lesepositionen verwenden die bestehende View-API mit `resume:true`. Filteränderungen
-werden bei Bedarf anschließend mit der zurückgelieferten Version regulär gespeichert.
-Beide Schritte verwenden denselben eingefrorenen Snapshot. Änderungen während laufender
-Anfragen bleiben für den folgenden Speicherdurchgang ausstehend; Suchfilter dürfen durch
-den Positionsabgleich nicht verloren gehen. Die Kopplung A–E gilt
-für aktive und inaktive Tabs derselben Gruppe. Die mobile Darstellung verändert die gespeicherte
-Anordnung nicht. Nach Rückkehr in den Vordergrund wird die Sitzung aktualisiert; Reader-Follow
-verwendet die bestehenden Versionsprüfungen.
+Tabauswahl, Lesepositionen, Suchen und Notizfilter werden lokal gespeichert. Die App verwendet
+weder Workspace-View noch Follow und bietet keine Verwaltung benannter Arbeitsbereiche.
+Ein normaler Stellenlink navigiert innerhalb des lokalen Readerstands. Ein Gerätestand verändert
+weder Browser-Tabs noch ein anderes App-Gerät. Speichern und Navigation bleiben koordiniert,
+damit ein ausstehender lokaler Stand oder Dokumententwurf nicht still verloren geht.
+
+`ReaderController` verbindet Shell und Reader mit Tabanzahl, Ansichtenübersicht, aktuellem Werk
+und Flush. Beim Öffnen übernimmt „Suche“ Ressourcen-ID und Werktitel. Nach einem Werkwechsel
+wird ein vorhandener Suchbegriff für das neue Werk erneut ausgeführt; Buchfilter und Ergebnisseite
+werden zurückgesetzt. Das gleiche Werk behält seinen geladenen Suchstand. Während des Lesens
+läuft keine Hintergrundsuche. Das Werk wird im Reader gewählt; die Suchmaske hat keinen eigenen
+Werkwechsler. Die lokale Tab-Suche bleibt im Tabmenü, ohne Suchbutton neben dem Stellenfeld.
+
+Auf jeder Fensterbreite stellt eine einzige `PageView` alle geöffneten Ressourcen als flache
+Tabfolge dar. Die interne Kachel-/Tabstruktur dient weiterhin dem Reader-URL-Vertrag; leere Kacheln
+erscheinen nicht als leere Seiten oder Tabkarten. Ein Breitenwechsel ordnet die lokalen Tabs nicht
+um. Es gibt keine Split-, Layout- oder Trennerbedienung. Jeder Ressourcentab behält Kapitelcache,
+Suchkontext und Lesestelle; A–E koppelt aktive und inaktive Tabs derselben Gruppe innerhalb dieses
+lokalen Stands. Verse werden in Sliver-Listen um den Viewport aufgebaut, Referenzanker ermöglichen
+den exakten Sprung.
 
 Wortklicks öffnen das Lexikon vorübergehend als fast bildschirmhohen Dialog von unten.
 Die bestehende Strong-API bekommt Quellressource, Stelle, Wort und Wortposition; der
-Dialog legt keinen Tab an und verändert weder Arbeitsbereich noch Bibelposition.
+Dialog legt keinen Tab an und verändert weder lokale Tabs noch Bibelposition.
 Wischen nach unten, Zurück oder Schließen kehren zum weiterhin geladenen Reader zurück.
 Bewusst geöffnete Lexikonressourcen bleiben normale Tabs. Tabgruppen zeigen den Buchstaben
 zusammen mit derselben A–E-Farbpalette wie das Web-Portal; E-Ink verwendet deutliche Konturen.
 
 ## Dokumente
+
+Der Floating-Navigationseintrag „Notizen“ öffnet immer `/notes?kind=note`, auch wenn zuvor
+eine Ausarbeitung geöffnet war. Ein interner Wechsel führt zu `/sermons`. Auch neue Notizen
+kehren zur reinen Notizbibliothek zurück. Die App bietet weder Import noch Vorlagenverwaltung
+oder Vorlagenwahl; alte direkte Import-/Vorlagenpfade führen zur jeweiligen Übersicht.
+Boardspalten werden nur angezeigt, Dokumente lassen sich weiterhin zwischen ihnen verschieben.
 
 Die Notizübersichten rendern keine vollständige Tagwolke. Tagfilter werden bei Bedarf
 geöffnet, Tagdetails am Dokument bleiben eingeklappt und bearbeitbar. Die Zahl vorhandener
@@ -112,4 +132,14 @@ Nur `android/` und `ios/` sind Buildziele. App-ID: `de.akribos.app`. Android ben
 aber keine pauschalen Kamera-/Speicherrechte. Auswahl und Export laufen über Systemdialoge.
 iOS verwendet Keychain-Entitlements und Privacy-Manifeste für lokale Einstellungen.
 Eigenes URL-Schema: `akribos://open?path=<URL-kodierter lokaler Pfad>`.
-Verifizierte HTTPS-App-Links benötigen zusätzlich die spätere Domain-/Signierzuordnung.
+Android-App-Links sind im Manifest mit `autoVerify` ausschließlich für `akribos.de` (HTTP und
+HTTPS, alle Pfade) konfiguriert. Die Zuordnung zum tatsächlichen Android-Signierzertifikat liegt
+serverseitig unter `/.well-known/assetlinks.json`. HTTP-Links desselben Hosts auf dem Standardport
+werden intern zum HTTPS-Origin aufgewertet; fremde Hosts oder Ports werden nicht übernommen.
+Veröffentlichung und Geräteverifikation sind getrennte Schritte; ihr tatsächlicher Stand steht in [VALIDATION.md](VALIDATION.md).
+Vorerst wird nur Android veröffentlicht. Die Apple-Organisationsanmeldung ist noch offen;
+iOS-Team-ID, Signierung und vollständige Domainzuordnung folgen nach deren Bestätigung;
+das Entitlement `applinks:akribos.de` ist bereits vorbereitet.
+
+`HelpScreen` zeigt einen lokalen Platzhalter ohne Laden der Webhilfe. Eine eigenständige
+App-Hilfe nach Fertigstellung sowie die iOS-Freigabe stehen in [TODO.md](TODO.md).
