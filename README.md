@@ -20,13 +20,14 @@ Mit der unten beschriebenen Flutter-/Android-Buildumgebung:
 ./scripts/build-android-production.sh
 ```
 
-Das Skript baut fest für `https://akribos.de`, Android ARM64 und Version `0.1.0+2`.
+Das Skript baut fest für `https://akribos.de`, Android ARM64 und Version `0.2.0+3` als optimierten AOT-Release.
 Die installierbare Datei liegt unter
-`artifacts/akribos-0.1.0-akribos-de-debug.apk`; daneben liegt ihre SHA-256-Prüfsumme.
+`artifacts/akribos-0.2.0-akribos-de-release.apk`; daneben liegt ihre SHA-256-Prüfsumme.
 Sie kann auf dem Pixel als APK geöffnet und installiert werden. Eine bereits installierte
 App mit derselben Android-Debug-Signatur lässt sich damit aktualisieren.
-Die APK verwendet die automatisch erzeugte Android-Debug-Signatur; eigene Schlüssel,
-API-Schlüssel und eine Store-Signierung sind für diesen Build nicht erforderlich.
+Die APK verwendet zur Update-Kompatibilität den bereits vorhandenen lokalen
+Android-Debug-Signierschlüssel. Der App-Code selbst ist ein optimierter, nicht debugbarer
+Release-Build. Das Skript prüft den Signaturfingerabdruck und erzeugt keinen neuen Schlüssel.
 Sie ist für den direkten Betrieb mit akribos.de bestimmt und keine Google-Play-Veröffentlichung.
 
 ## Funktionen
@@ -41,10 +42,15 @@ Sie ist für den direkten Betrieb mit akribos.de bestimmt und keine Google-Play-
 - Gemeinsame Sammlungen, Mitglieder, Einladungen, Kommentare, Antworten und Reaktionen.
 - E-Mail-/Passwortanmeldung, Kontoeinstellungen, API-Schlüssel und Nutzerhilfe.
 
-Auf dem Telefon werden Ressourcen in einer flachen Tab-Leiste angezeigt; auf dem
-Tablet stehen mehrere Kacheln nebeneinander. E-Ink bietet Schwarz-Weiß-Kontrast,
+Die schwebende Hauptnavigation hat Abstand zu den Bildschirmrändern. Lesen, Suche und
+Notizen behalten beim Wechsel ihren Zustand. „Tabs“ oder ein erneuter Tipp auf „Lesen“
+öffnet die visuelle Ressourcenübersicht nach dem Bedienmuster von Logos Mobile. Am Telefon
+wechseln Wischgesten zwischen geöffneten Werken; optional lassen sich zwei Bereiche teilen.
+Tablets zeigen bis zu vier Panes. E-Ink bietet Schwarz-Weiß-Kontrast,
 reduzierte Animationen und seitenweises Blättern. Die vollständige Zuordnung und
 bewusste Unterschiede zur Weboberfläche stehen in [docs/FEATURES.md](docs/FEATURES.md).
+
+Die Recherche und die Übertragung auf Akribos stehen in [docs/MOBILE-DESIGN.md](docs/MOBILE-DESIGN.md).
 
 ## Entwicklung
 
@@ -106,12 +112,13 @@ Details: [API](docs/API.md), [Architektur](docs/ARCHITECTURE.md),
 
 ## Ansichten
 
-Die folgenden Aufnahmen stammen aus echten Flutter-Widgets mit anonymen Daten des
-lokalen E2E-Seeds. Es sind reproduzierbare Widget-Aufnahmen, keine Fotos von Geräten.
+Die folgenden Aufnahmen stammen aus echten Flutter-Widgets mit anonym abgerufenen
+öffentlichen Readerdaten (Akribos Luther und King James, Johannes 3). Es sind Widget-Aufnahmen,
+keine Fotos von Geräten; private Kontodaten werden dafür nicht verwendet.
 
-| Telefon | Tablet | E-Ink |
-| --- | --- | --- |
-| ![Telefon](docs/screenshots/phone.png) | ![Tablet](docs/screenshots/tablet.png) | ![E-Ink](docs/screenshots/eink.png) |
+| Telefon | Geöffnete Tabs | Tablet | E-Ink |
+| --- | --- | --- | --- |
+| ![Telefon](docs/screenshots/phone.png) | ![Tabs](docs/screenshots/phone-tabs.png) | ![Tablet](docs/screenshots/tablet.png) | ![E-Ink](docs/screenshots/eink.png) |
 
 ## Lizenz
 

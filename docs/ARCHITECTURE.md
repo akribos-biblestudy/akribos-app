@@ -1,9 +1,24 @@
 # Architektur
 
-`lib/main.dart` stellt Navigation, responsive Shell, Theme, E-Ink und App-Links bereit.
+`lib/main.dart` stellt Navigation, responsive Shell und App-Links bereit;
+`lib/theme/akribos_theme.dart` übernimmt PWA-Farben, Typografie und E-Ink-Darstellung.
 `AppScope` liegt oberhalb des Navigators, damit auch Dialoge denselben authentifizierten
 Client und dieselben Darstellungseinstellungen verwenden. Ein Navigationsschutz wartet
 auf ausstehende Reader-/Dokumentspeicherung. Die Nutzeroberfläche enthält keine WebView.
+
+Lesen, Suche, Dokumente und weitere Funktionen werden erst bei Bedarf erzeugt und als
+getrennte Bereiche im `IndexedStack` gehalten. Ein bloßer Hauptbereichswechsel baut den
+Reader nicht neu und lädt seine Daten nicht erneut. Explizite Reader-/Workspace-Navigation
+invalidiert ihn hingegen auch bei identischer URL, weil Konto-ID und Auswahlversionen
+nicht in geteilten URLs stehen. Versteckte Redirects werden für den nächsten Besuch
+vorgemerkt, ohne die aktuelle Ansicht zu übernehmen. Guards gehören zum jeweiligen Bereich.
+
+Anmeldung/Abmeldung invalidieren private Bereiche unmittelbar über
+`AppScope.authenticationChanged()`, auch wenn der folgende Bootstrap fehlschlägt. Ein vor
+dem Authwechsel gestarteter Bootstrap darf den alten Kontostand nicht wiederherstellen.
+Die aktive Authform bleibt bis zu ihrem Redirect bestehen. Ein tatsächlicher Kontowechsel
+beim Resume bereinigt ebenfalls alle alten Bereiche. Schriftgrößenänderungen invalidieren
+gezielt den Reader nach einem erfolgreichen Flush; normale Bereichswechsel tun dies nicht.
 
 | Pfad | Verantwortung |
 | --- | --- |
@@ -42,7 +57,18 @@ App-Instanz. Schreibanfragen führen `workspaceId`, `workspaceVersion` und
 Anfragen werden serialisiert. Eine fremde Ansicht überschreibt keinen benannten Stand allein
 beim Lesen. Ein direkter Arbeitsbereichslink zeigt zuerst eine schreibfreie Öffnungsansicht.
 
-Jeder Ressourcentab behält seinen Kapitelcache und seine Stelle. Die Kopplung A–E gilt
+`ReaderController` verbindet Shell und Reader mit Tabanzahl, Ansichtenübersicht und Flush.
+Jeder Ressourcentab behält seine Widgets, seinen Kapitelcache, Suchkontext und seine Stelle.
+Tabauswahl wird lokal sofort angezeigt und dann serialisiert mit Serverversionen bestätigt;
+Fehler bleiben sichtbar und können keinen unbestätigten Wechsel still als gespeichert melden.
+Bestätigte reine Tabwechsel benötigen keinen vollständigen Reader-GET. Verse werden in
+Sliver-Listen nur um den Viewport aufgebaut; Referenzanker erhalten den exakten Sprung.
+
+Reine Lesepositionen verwenden die bestehende View-API mit `resume:true`. Filteränderungen
+werden bei Bedarf anschließend mit der zurückgelieferten Version regulär gespeichert.
+Beide Schritte verwenden denselben eingefrorenen Snapshot. Änderungen während laufender
+Anfragen bleiben für den folgenden Speicherdurchgang ausstehend; Suchfilter dürfen durch
+den Positionsabgleich nicht verloren gehen. Die Kopplung A–E gilt
 für aktive und inaktive Tabs derselben Gruppe. Die mobile Darstellung verändert die gespeicherte
 Anordnung nicht. Nach Rückkehr in den Vordergrund wird die Sitzung aktualisiert; Reader-Follow
 verwendet die bestehenden Versionsprüfungen.

@@ -9,6 +9,7 @@ Widget readerOverlayScope(BuildContext source, Widget child) {
     api: scope.api,
     open: scope.open,
     refreshSession: scope.refreshSession,
+    onAuthenticationChanged: scope.onAuthenticationChanged,
     setNavigationGuard: scope.setNavigationGuard,
     setTheme: scope.setTheme,
     themeMode: scope.themeMode,

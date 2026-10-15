@@ -242,7 +242,7 @@ void main() {
       final api = ReaderApi(readerFixture(tiles: 2));
       await tester.pumpWidget(app(api, const ReaderScreen(path: '/Joh1')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Bibel 1'));
+      await tester.drag(find.byType(PageView), const Offset(-350, 0));
       await tester.pumpAndSettle();
       expect(api.actions.single['action'], 'activateTab');
       expect(asMap(api.actions.single['fields'])['tileId'], 'tile1');
@@ -330,6 +330,7 @@ void main() {
       expect(find.text('Markiert: Verheißung'), findsOneWidget);
       expect(find.byTooltip('Nächste Bildschirmseite'), findsOneWidget);
       await tester.tap(find.byTooltip('Nächste Bildschirmseite'));
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 900));
       await tester.pumpAndSettle();
       final writes = api.requests
@@ -339,6 +340,7 @@ void main() {
       final saved = asMap(writes.single['data']);
       expect(saved['workspaceVersion'], 4);
       expect(saved['workspaceContentVersion'], 12);
+      expect(saved['resume'], isTrue);
       final snapshot = Uri.splitQueryString(
         asString(asMap(saved['snapshot'])['readerState']),
       );
@@ -348,7 +350,7 @@ void main() {
   );
 
   testWidgets(
-    'phone uses one flat tab strip and one visible text pane at large text size',
+    'phone has one reading pane and a flat resource overview at large text size',
     (tester) async {
       tester.view.physicalSize = const Size(320, 844);
       tester.view.devicePixelRatio = 1;
@@ -359,13 +361,24 @@ void main() {
         app(api, const ReaderScreen(path: '/Joh1'), textScale: 1.5),
       );
       await tester.pumpAndSettle();
+      expect(find.text('Bibel 0 · Joh1'), findsOneWidget);
+      expect(find.text('Johannes 1'), findsOneWidget);
+      await tester.tap(find.text('Tabs (4)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Geöffnete Werke'), findsOneWidget);
       expect(find.text('Bibel 0'), findsOneWidget);
-      await tester.drag(find.byType(ListView), const Offset(-700, 0));
+      await tester.scrollUntilVisible(
+        find.text('Bibel 3'),
+        250,
+        scrollable: find.descendant(
+          of: find.byType(GridView),
+          matching: find.byType(Scrollable),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Bibel 3'), findsOneWidget);
-      await tester.drag(find.byType(ListView), const Offset(700, 0));
+      await tester.tap(find.byTooltip('Fertig'));
       await tester.pumpAndSettle();
-      expect(find.text('Johannes 1'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.tap(find.byTooltip('Tab-Einstellungen'));
       await tester.pumpAndSettle();

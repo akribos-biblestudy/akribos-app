@@ -8,6 +8,7 @@ class AppScope extends InheritedWidget {
     required this.api,
     required this.open,
     required this.refreshSession,
+    this.onAuthenticationChanged,
     required this.setNavigationGuard,
     required this.setTheme,
     required this.themeMode,
@@ -18,6 +19,11 @@ class AppScope extends InheritedWidget {
   final AppApi api;
   final Future<void> Function(String path) open;
   final Future<void> Function() refreshSession;
+  final Future<void> Function()? onAuthenticationChanged;
+
+  /// Authentication changes must clear retained private UI before any network wait.
+  Future<void> authenticationChanged() =>
+      (onAuthenticationChanged ?? refreshSession)();
   final void Function(Object owner, Future<bool> Function()? guard)
   setNavigationGuard;
   final void Function(ThemeMode mode) setTheme;
@@ -27,5 +33,14 @@ class AppScope extends InheritedWidget {
   static AppScope of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<AppScope>()!;
   @override
-  bool updateShouldNotify(AppScope oldWidget) => true;
+  bool updateShouldNotify(AppScope oldWidget) =>
+      api != oldWidget.api ||
+      open != oldWidget.open ||
+      refreshSession != oldWidget.refreshSession ||
+      onAuthenticationChanged != oldWidget.onAuthenticationChanged ||
+      setNavigationGuard != oldWidget.setNavigationGuard ||
+      setTheme != oldWidget.setTheme ||
+      themeMode != oldWidget.themeMode ||
+      eInk != oldWidget.eInk ||
+      setEInk != oldWidget.setEInk;
 }

@@ -1,4 +1,56 @@
-# Prüfstand 14. Oktober 2026
+# Prüfstand 15. Oktober 2026
+
+## Neue mobile Oberfläche, Build 3
+
+Version `0.2.0+3` übernimmt die Akribos-PWA-Farben und gebündelte Leseschrift. Die
+Hauptnavigation steht mit seitlichem Abstand am unteren Rand. Geöffnete Werke lassen
+sich über Vorschaukarten und Wischen wechseln; am Telefon ist ein geteilter Bildschirm
+mit zwei Bereichen optional. Die Quellen und konkrete Übertragung der Logos-Mobile-
+Bedienmuster stehen in [MOBILE-DESIGN.md](MOBILE-DESIGN.md).
+
+Gezielte lokale Prüfungen, ohne vollständigen lokalen Testlauf:
+
+- `flutter analyze --no-pub`: keine Befunde; Formatierung und `git diff --check` sauber.
+- Shell und schwebende Navigation: 14 Tests erfolgreich. Bereiche behalten ihren Zustand,
+  versteckte Weiterleitungen werden beim nächsten Öffnen verarbeitet; bewusstes erneutes
+  Öffnen einer Ansicht lädt auch bei identischer URL deren aktuelle Auswahlversion.
+- Anmeldung und Kontoinhalte: 12 Tests erfolgreich. Abmeldung entfernt private Ansichten
+  auch bei anschließendem Netzfehler; verspätete Antworten stellen kein altes Konto wieder
+  her. Änderungen der Schriftgröße erreichen einen bereits geöffneten Reader.
+- Vorschaukarten: drei Tests erfolgreich, einschließlich 160–260 Pixel breiter Karten,
+  100–300 % Textskalierung, getrennter Menübedienung und E-Ink-Darstellung.
+- Reader: 21 gezielte Widget- und Vertragstests erfolgreich. Bei 300 Versen werden weniger als 20
+  `VerseText`-Widgets aufgebaut. Ein Tab wird vor seiner verzögerten Serverbestätigung
+  angezeigt; die Rückkehr verwendet denselben Scrollcontroller und benötigt keine neue
+  Seiten-/Kapitelabfrage. Konflikte bleiben sichtbar und blockieren ungesichertes Verlassen.
+  Rasche Tabwechsel speichern seriell mit aktuellen Versionen.
+- Die Positionsspeicherung verwendet `resume:true`; geänderte Such-/Notizfilter folgen
+  separat mit der zurückgelieferten Version. Genau dieser Ablauf wird gezielt geprüft.
+- Reproduzierbare Flutter-Aufnahmen: Telefon hell/dunkel, Tabübersicht, Tablet und E-Ink
+  mit anonym abgerufenen öffentlichen Daten. Keine privaten Kontodaten in den Bildern.
+
+Die ARM64-APK `artifacts/akribos-0.2.0-akribos-de-release.apk` wurde als optimierter
+AOT-Release gebaut, mit dem vorhandenen Build-2-Schlüssel signiert und am 15. Oktober
+um 08:58 Uhr als Update auf dem angeschlossenen **Pixel 9 Pro** installiert (`adb install
+-r`: `Success`). Android bestätigt `versionName=0.2.0`, `versionCode=3` und fehlendes
+`DEBUGGABLE`-Flag. Die App verwendet weiterhin fest `https://akribos.de`; kein neuer
+Backend-Deploy war nötig.
+
+SHA-256: `08315b848d0281dbaeb912ff4871eda83054a9684d24bf9e22de32cb0aa312f3`.
+
+Direkt am Gerät wurden Start, dunkle Leseransicht, eingerückte Hauptnavigation,
+Tabübersicht mit Textvorschau, Scrollen und Wechsel Suche → Lesen geprüft. Die Position
+blieb nach der Rückkehr erhalten; der vorher sichtbare Speicherfehler erschien nicht.
+Im anschließenden gefilterten Flutter-/Android-Runtime-Fehlerlog standen keine Einträge.
+Der vorhandene Gerätestand enthielt ein geöffnetes Werk; Wechsel zwischen mehreren
+Werken und Smartphone-Split wurden daher über gezielte Widgettests geprüft. Private
+Geräteaufnahmen sind nicht im Repository gespeichert. App-Daten wurden weder gelöscht
+noch die App vor dem Update deinstalliert.
+
+Diese Prüfungen belegen vermiedene Aufbau- und Netzwerkarbeit. Es wurde kein vergleichender
+FPS-Benchmark gegen die PWA durchgeführt. iOS- und Boox-Geräte sind nicht geprüft.
+
+## Vorheriger Prüfstand: 14. Oktober 2026
 
 ## Produktionsverbindung, Build 2
 
@@ -73,6 +125,6 @@ unverändert. Die vollständige Bibel lässt sich über die Ressourcenwahl öffn
 Keine vollständige Abnahme von Notizbearbeitung, System-Dateiauswahl und Teilen auf echten
 Geräten. Kein iOS-Xcode-Build auf dieser Linux-Maschine, kein iPhone-/iPad- oder Boox-Test.
 Die Flutter-GitHub-Workflowdatei wurde angelegt, aber noch nicht auf einem Remote ausgeführt.
-Release-Signierung, verifizierte HTTPS-App-Links und Store-Uploads sind nicht erfolgt.
+Eine eigene Store-Signierung, verifizierte HTTPS-App-Links und Store-Uploads sind nicht erfolgt.
 Vollständige lokale Testläufe sind auf Wunsch keine Release-Voraussetzung mehr; gezielte
 Prüfungen laufen lokal, umfassende Unit-/E2E-Prüfungen in der bestehenden CI.

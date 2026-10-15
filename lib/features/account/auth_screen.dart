@@ -6,6 +6,16 @@ import '../../widgets/action_form.dart';
 import '../../widgets/common.dart';
 import '../../widgets/remote_page.dart';
 
+Future<void> _finishAuthentication(AppScope scope, String destination) async {
+  try {
+    await scope.authenticationChanged();
+  } finally {
+    // The auth response already succeeded; a failed bootstrap must neither keep
+    // the old private screen nor strand the form after its session changed.
+    await scope.open(destination);
+  }
+}
+
 class AuthScreen extends StatelessWidget {
   const AuthScreen({super.key, required this.path});
   final String path;
@@ -24,9 +34,11 @@ class AuthScreen extends StatelessWidget {
             onResult: (result) async {
               if (result.isSuccess || result.isRedirect) {
                 final scope = AppScope.of(context);
-                await scope.api.clearSession();
-                await scope.refreshSession();
-                await scope.open('/Joh1');
+                try {
+                  await scope.api.clearSession();
+                } finally {
+                  await _finishAuthentication(scope, '/Joh1');
+                }
               }
             },
           ),
@@ -125,10 +137,8 @@ class AuthScreen extends StatelessWidget {
                   : 'Link senden',
               onResult: (result) async {
                 if (result.isRedirect) {
-                  await AppScope.of(context).refreshSession();
-                  if (context.mounted) {
-                    await AppScope.of(context).open(result.location!);
-                  }
+                  final scope = AppScope.of(context);
+                  await _finishAuthentication(scope, result.location!);
                 } else if (result.isSuccess && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -192,8 +202,8 @@ class _LoginFormState extends State<_LoginForm> {
       if (result.location!.startsWith('/login')) {
         await AppScope.of(context).open(result.location!);
       } else {
-        await AppScope.of(context).refreshSession();
-        if (mounted) await AppScope.of(context).open(result.location!);
+        final scope = AppScope.of(context);
+        await _finishAuthentication(scope, result.location!);
       }
     } else if (result.data['step'] != null) {
       setState(() {

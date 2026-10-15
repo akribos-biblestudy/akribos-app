@@ -28,7 +28,18 @@ No deployment, store publication, signing-identity setup or remote push is impli
 by editing the local app. Distinguish local checks from device acceptance.
 
 The direct Pixel APK is built by `scripts/build-android-production.sh`: fixed HTTPS
-origin `https://akribos.de`, ARM64, version `0.1.0+2`, Android debug signing. Keep it
+origin `https://akribos.de`, ARM64, version `0.2.0+3`, optimized AOT release with the existing local debug signing identity. Keep it
 independent of local test-server defines and do not install/deploy from the script.
 Ordinary app use requires no API key, USB or ADB. The ignored artifact and its SHA-256
 file are written to `artifacts/`; store signing remains a separate explicit task.
+
+Keep the PWA palette and compact reader chrome; the floating bottom navigation has
+16px side margins, no expensive backdrop blur, and explicit E-Ink behavior. Reader tabs
+are browsable as visual cards and by swipe. Sources are in docs/MOBILE-DESIGN.md.
+Preserve loaded screen/scroll state on ordinary section switches, but invalidate all private
+branches immediately at authentication boundaries, even if bootstrap fails. Delayed hidden
+redirects must resume on the next visit; explicit workspace opening must reload even if its
+URL is identical. Flush document and reader guards before navigation. Position-only saves
+use resume:true; search/filter changes need the separate normal save with fresh versions.
+Do not infer performance from debug builds. Direct device APKs use AOT release and must match
+the already installed certificate; never regenerate the signing key for an update.

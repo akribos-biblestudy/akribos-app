@@ -4,56 +4,77 @@ Der aktuell tatsächlich ausgeführte Prüfstand steht in [VALIDATION.md](VALIDA
 
 ## Android für akribos.de
 
-Der normale Gerätebuild verwendet direkt `https://akribos.de`. Anmeldung und private
-Funktionen laufen über das gewöhnliche Akribos-Konto; es muss kein API-Schlüssel erstellt
-oder eingetragen werden. Nach der Installation benötigt die App nur eine Internetverbindung.
-USB, ADB und ein lokaler Testserver sind für den Betrieb nicht erforderlich.
+Der direkte Gerätebuild verwendet `https://akribos.de`. Anmeldung und private Funktionen
+laufen über das gewöhnliche Akribos-Konto, ohne API-Schlüssel. Nach der Installation braucht
+die App nur Internet; USB, ADB und ein lokaler Testserver sind nicht erforderlich.
 
-Voraussetzungen: Flutter 3.47.0 / Dart 3.13.0, Android SDK und JDK 17 oder eine passende
-Android-Studio-JBR. Aus dem Repository:
+Voraussetzungen: Flutter 3.47.0 / Dart 3.13.0, Android SDK mit aktuellen Build Tools
+(`apksigner`, `zipalign` mit `-P 16`, `aapt2`), ein zur lokalen Gradle-Version passendes JDK
+und der **bereits vorhandene** `~/.android/debug.keystore` des bisherigen Buildrechners.
+Flutter kann ein separat konfiguriertes JDK verwenden; die bereits funktionierende lokale
+JDK-Konfiguration beibehalten. Das Skript benötigt Bash und GNU `sha256sum`/`sort`.
 
 ```sh
 ./scripts/build-android-production.sh
 ```
 
-Die Prüfsumme wird aus dem Artefaktverzeichnis geprüft:
-
-```sh
-(cd artifacts && sha256sum -c akribos-0.1.0-akribos-de-debug.apk.sha256)
-```
-
-Das Skript akzeptiert keine Parameter und legt diese Werte ausdrücklich fest:
+Das Skript akzeptiert keine Parameter und legt diese Werte fest:
 
 | Einstellung | Wert |
 | --- | --- |
 | Server | `https://akribos.de` |
 | Anwendung | `de.akribos.app` |
-| Version / Android-Versionscode | `0.1.0` / `2` |
+| Version / Android-Versionscode | `0.2.0` / `3` |
 | Architektur | `android-arm64` |
-| Build und Signatur | Debug-Build, automatische Android-Debug-Signatur |
-| APK | `artifacts/akribos-0.1.0-akribos-de-debug.apk` |
+| Laufzeit | Optimierter Flutter-Release-Build mit AOT, ohne Debugger |
+| Signatur | Vorhandener lokaler Android-Debugschlüssel; identisch mit Build 2 |
+| APK | `artifacts/akribos-0.2.0-akribos-de-release.apk` |
 
-Es lädt die festgeschriebenen Abhängigkeiten mit `--enforce-lockfile`, baut die APK und
-schreibt eine SHA-256-Prüfsumme daneben. Es installiert nichts und verändert keinen Server.
-Die gleiche Buildkonfiguration ist reproduzierbar; identische APK-Bytes auf anderen Rechnern
-sind wegen lokaler Debug-Zertifikate und Werkzeug-Metadaten nicht zugesagt.
+`--release` ist für aussagekräftige Bedien- und Leistungstests erforderlich. Die lokale
+Debug-Signatur beeinflusst den Kompilierungsmodus nicht: Diese APK enthält Release-Code.
+Gradle bleibt für Release-Artefakte ohne Signaturkonfiguration. Das Skript lädt die
+festgeschriebenen Abhängigkeiten, baut zunächst die unsigned Release-APK, prüft ihr
+16-KiB-Zipalignment und korrigiert es bei Bedarf **vor** dem Signieren. Danach signiert
+`apksigner` mit dem vorhandenen Schlüssel und prüft Signatur, Alignment, Paketname,
+Version, ARM64 und das Fehlen des Debuggable-Flags.
 
-Die APK kann auf dem Pixel direkt als Datei geöffnet und installiert werden. Für Updates
-muss die Android-Signatur zur vorhandenen Installation passen. Auf demselben Buildrechner
-bleibt die automatische Debug-Signatur normalerweise erhalten. Das Buildskript benötigt
-keine privaten Store-Schlüssel und keine Anmeldung bei Google Play.
+Der öffentliche SHA-256-Zertifikatfingerprint wurde gegen die ausgelieferte Build-2-APK
+geprüft und ist im Skript festgehalten:
 
-Der App-Server muss das App-Protokoll v1 anbieten; die Bereitstellung wird unabhängig vom
-APK-Build geprüft. Ein erfolgreicher APK-Build belegt noch keine Live-Server- oder Geräteabnahme.
+```text
+80a5790ab68d738a770fb82a7c0326efad5929d4d63082383c06dc72c2145ccb
+```
+
+Ein fehlender oder abweichender Schlüssel führt zum Abbruch. Das Skript erzeugt keinen
+Schlüssel, kopiert keine Schlüsseldatei und richtet keine Store-Signatur ein. Die Standard-
+Debug-Keystore-Zugangsdaten sind öffentlich; dieser Schlüssel ist keine Store-Identität.
+Das APK, eine SHA-256-Prüfsumme und ein Bericht des öffentlichen Signaturzertifikats liegen
+im ignorierten Verzeichnis `artifacts/`. Die abschließende Prüfsumme lässt sich so prüfen:
+
+```sh
+(cd artifacts && sha256sum -c akribos-0.2.0-akribos-de-release.apk.sha256)
+```
+
+Die APK wird als Update der vorhandenen App installiert; **nicht vorher deinstallieren
+oder App-Daten löschen**. Gleiche Anwendungs-ID, derselbe Signer und Versionscode 3 erhalten
+die Android-App-Daten beim Update von Build 2. Die tatsächliche Geräteabnahme einschließlich
+Sitzungserhalt bleibt separat zu prüfen. Das Skript installiert nichts und verändert keinen
+Server; ein angeschlossenes Gerät ist zum Bauen nicht nötig. Identische APK-Bytes auf anderen
+Rechnern sind wegen Werkzeug-Metadaten nicht zugesagt.
+
+Referenzen: [Flutter Android-Release](https://docs.flutter.dev/deployment/android),
+[Android apksigner](https://developer.android.com/tools/apksigner),
+[Android zipalign](https://developer.android.com/tools/zipalign).
 
 ## Store-Verteilung
 
-Die direkte APK verwendet den produktiven Server, bleibt aber ein Debug-Build. Für Google Play
-müssen eine eigene Upload-Signatur, sichere CI-Secrets und die tatsächliche Play-Console-Anwendung
-eingerichtet werden. Release-Signierung ist bewusst nicht mit einem Debugschlüssel vorkonfiguriert.
-Schlüssel und `key.properties` gehören nicht ins Repository. Für spätere Veröffentlichungen
-können Versions-/Buildnummern über `--build-name` und `--build-number` gesetzt werden; das obige
-Skript hält den konkreten Pixel-Build `0.1.0+2` fest.
+Die direkte APK verwendet produktiven Server und optimierten Release-Code, ist jedoch
+weiter mit dem bisherigen lokalen Debugschlüssel signiert. Für Google Play sind eine eigene
+Upload-Signatur, sichere CI-Secrets und die tatsächliche Play-Console-Anwendung separat
+einzurichten. Eine andere Signatur erlaubt kein gewöhnliches Update der bereits lokal
+installierten App. Schlüssel und `key.properties` gehören nicht ins Repository.
+Versions-/Buildnummern können für spätere Veröffentlichungen über `--build-name` und
+`--build-number` gesetzt werden; dieses Skript hält den Pixel-Build `0.2.0+3` fest.
 
 ## iOS
 
@@ -94,11 +115,19 @@ ab. Sie ersetzen weder die komplette Geräteabnahme noch die Freigabe durch Appl
 
 ## Reproduzierbare Ansichten
 
-Die PNG-Dateien unter `docs/screenshots/` stammen aus dem Flutter-Widget-Test mit anonymen
-Server-Seed-Daten (Johannes 3 enthält dort absichtlich nur zwei Testverse). Sie dokumentieren
-die native Oberfläche, keinen vollständigen Bibelbestand. Optional unter Linux mit
+Die PNG-Dateien unter `docs/screenshots/` stammen aus dem Flutter-Widget-Test mit anonym
+abgerufenen öffentlichen Readerdaten von akribos.de (Johannes 3, Akribos Luther und King
+James). Sie enthalten keine privaten Kontodaten und sind keine Gerätefotos. Der optionale
+Test verwendet ohne externe Daten den kleinen Test-Seed. Unter Linux mit
 `/usr/share/fonts/noto/NotoSans-Regular.ttf`:
 
 ```sh
-flutter test test/app_shell_test.dart --dart-define=AKRIBOS_SCREENSHOTS=true
+flutter test --no-pub test/app_shell_test.dart \
+  --plain-name 'capture reproducible seeded Flutter reading views' \
+  --dart-define=AKRIBOS_SCREENSHOTS=true
 ```
+
+Für öffentliche Produktionsdaten können zusätzlich `AKRIBOS_CAPTURE_BOOTSTRAP` und
+`AKRIBOS_CAPTURE_READER` auf lokale JSON-Dateien zeigen. Die Dateien enthalten jeweils nur
+das `data`-Objekt der anonymen App-API-Antwort, keine Cookies oder Tokens. Die Aufnahme
+führt keine Servermutationen aus; schreibende Antworten sind im Widget-Test simuliert.

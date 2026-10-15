@@ -1,6 +1,6 @@
 # Umfang der nativen Nutzeroberfläche
 
-Stand: 14. Oktober 2026. Nur Android und iOS, Smartphones und Tablets. Alle Einträge
+Stand: 15. Oktober 2026. Nur Android und iOS, Smartphones und Tablets. Alle Einträge
 beziehen sich auf normale Nutzer und auf deren aktuelle serverseitige Leserechte.
 
 | Bereich | Native Umsetzung |
@@ -8,7 +8,7 @@ beziehen sich auf normale Nutzer und auf deren aktuelle serverseitige Leserechte
 | Lesen | Stellenwahl, Bibeln, Kommentare, Lexika, Parallelstellen, strukturierte Verse, Fußnoten, Strong-Wörter und Quellenangaben |
 | Ansichten | Acht Layouts, bis zu vier Kacheln, Ressourcen-Tabs, Verschieben/Sortieren, Trennergrößen, A–E-Kopplung, unabhängige Tabs |
 | Arbeitsbereiche | Erstellen aus aktueller Ansicht, Öffnen, Umbenennen, Löschen, versionsgeschütztes Speichern und Folgen veröffentlichter Lesepositionen |
-| Telefon/Tablet | Flache mobile Tab-Auswahl, mehrere Kacheln bei breitem Fenster; Hoch-/Querformat und verfügbare Fensterbreite |
+| Telefon/Tablet | Floating-Hauptnavigation, visuelle Tabkarten und Wischwechsel, mehrere Kacheln bei breitem Fenster; Hoch-/Querformat und verfügbare Fensterbreite |
 | E-Ink | Kontrastreiche helle Darstellung, reduzierte Animationen, direktes Blättern in Bildschirmabschnitten, erkennbare Markierungen ohne Farberkennung |
 | Suche | Wort-/Phrasensuche, Vorschläge, Buchfilter, Seiten, Suche innerhalb eines Ressourcen-Tabs |
 | Wortstudium | Strong-Artikel, Quellwort/Position, Morphologie, Übersetzungsformen, Häufigkeiten und Fundstellen |

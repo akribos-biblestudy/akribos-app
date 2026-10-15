@@ -32,6 +32,36 @@ Json activeTab(Json tile) => asMaps(tile['tabs']).firstWhere(
   orElse: () => <String, dynamic>{},
 );
 
+/// The activation action changes no structure. Predict its existing link-group
+/// rule locally; only adopt this state after the server returns the same URL.
+void activateReaderTab(Json workspace, String tileId, String tabId) {
+  final tiles = asMaps(workspace['tiles']);
+  final tile = tiles.firstWhere((tile) => tile['id'] == tileId);
+  final source = activeTab(tile);
+  final target = asMaps(tile['tabs']).firstWhere((tab) => tab['id'] == tabId);
+  final group = target['linkSet'];
+  Json? reference;
+  if (group != null) {
+    if (group == source['linkSet']) {
+      reference = asMap(source['reference']);
+    } else {
+      for (final peerTile in tiles) {
+        if (peerTile == tile) continue;
+        final peer = activeTab(peerTile);
+        if (peer['linkSet'] == group) {
+          reference = asMap(peer['reference']);
+          break;
+        }
+      }
+    }
+  }
+  if (reference != null && reference.isNotEmpty) {
+    updateReadingPosition(workspace, tileId, tabId, reference);
+  }
+  tile['activeTabId'] = tabId;
+  workspace['focusedTileId'] = tileId;
+}
+
 /// Matches the server's readable URL format. Repeated parameters and contextual
 /// word positions are preserved; private workspace versions never enter links.
 String encodeReaderState(Json workspace, Json searches, String previousState) {

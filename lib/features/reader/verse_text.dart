@@ -175,6 +175,9 @@ class VerseText extends StatefulWidget {
     this.highlights = const [],
     this.fontSize = 19,
     this.needles = const [],
+    this.verseNumber,
+    this.onVerseNumber,
+    this.selectable = true,
   });
   final List<dynamic> segments;
   final void Function(Json word, int position)? onWord;
@@ -183,12 +186,29 @@ class VerseText extends StatefulWidget {
   final List<Json> highlights;
   final double fontSize;
   final List<String> needles;
+  final String? verseNumber;
+  final VoidCallback? onVerseNumber;
+  final bool selectable;
   @override
   State<VerseText> createState() => _VerseTextState();
 }
 
 class _VerseTextState extends State<VerseText> {
   final _recognizers = <TapGestureRecognizer>[];
+  late List<VerseRun> _runs = verseRuns(
+    widget.segments,
+    studiedStrong: widget.studiedStrong,
+  );
+
+  @override
+  void didUpdateWidget(VerseText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.segments, widget.segments) ||
+        oldWidget.studiedStrong != widget.studiedStrong) {
+      _runs = verseRuns(widget.segments, studiedStrong: widget.studiedStrong);
+    }
+  }
+
   void _clearRecognizers() {
     for (final recognizer in _recognizers) {
       recognizer.dispose();
@@ -208,10 +228,24 @@ class _VerseTextState extends State<VerseText> {
     final colors = Theme.of(context).colorScheme;
     final highContrast = MediaQuery.highContrastOf(context);
     final spans = <InlineSpan>[];
-    for (final run in verseRuns(
-      widget.segments,
-      studiedStrong: widget.studiedStrong,
-    )) {
+    if (widget.verseNumber != null) {
+      final recognizer = TapGestureRecognizer()
+        ..onTap = () => widget.onVerseNumber?.call();
+      _recognizers.add(recognizer);
+      spans.add(
+        TextSpan(
+          text: '${widget.verseNumber} ',
+          recognizer: recognizer,
+          style: TextStyle(
+            fontSize: widget.fontSize * .65,
+            fontWeight: FontWeight.w700,
+            color: colors.primary,
+            fontFamily: Theme.of(context).textTheme.labelSmall?.fontFamily,
+          ),
+        ),
+      );
+    }
+    for (final run in _runs) {
       Color? highlight;
       for (final range in widget.highlights) {
         if (run.wordIndex != null &&
@@ -281,15 +315,18 @@ class _VerseTextState extends State<VerseText> {
         ),
       );
     }
-    return SelectableText.rich(
-      TextSpan(children: spans),
-      textDirection: widget.direction ?? verseDirection(widget.segments),
-      style: TextStyle(
-        fontFamily: 'AkribosText',
-        fontFamilyFallback: const ['NotoSansHebrew'],
-        fontSize: widget.fontSize,
-        height: 1.65,
-      ),
+    final style = TextStyle(
+      fontWeight: FontWeight.w400,
+      fontFamily: 'AkribosText',
+      fontFamilyFallback: const ['NotoSansHebrew'],
+      fontSize: widget.fontSize,
+      height: 1.65,
     );
+    final span = TextSpan(children: spans);
+    final direction = widget.direction ?? verseDirection(widget.segments);
+    if (!widget.selectable) {
+      return Text.rich(span, textDirection: direction, style: style);
+    }
+    return SelectableText.rich(span, textDirection: direction, style: style);
   }
 }
