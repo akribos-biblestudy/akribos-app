@@ -1,5 +1,54 @@
 # Prüfstand 15. Oktober 2026
 
+## Nativer Richtext-Editor und Lesemodus, Build 9
+
+Version `0.2.6+9` ersetzt das Markdown-Textfeld durch FlutterQuill mit einem eigenen
+quellenerhaltenden Markdown-Adapter. Formatierung erscheint an der Textauswahl;
+Überschriften, Listen, Tabellen, Fußnoten und Bibelzitate stehen im Einfügen-Menü.
+Lesen/Bearbeiten verwendet dasselbe Dokument, dieselbe History und Scrollposition.
+Lesen zeigt auch einen aktuellen lokalen Entwurf, ohne Titel- oder Metadatenbearbeitung.
+Details stehen in einem separaten Blatt. Normale Markdown-Trennzeilen werden nicht
+als zusätzliche leere Absätze dargestellt.
+
+Gezielte Prüfung, keine vollständige lokale Testsuite:
+
+- 20 Codec-/Markdown-Regressionen erfolgreich: unveränderte Quellblöcke, Tabellen,
+  Fußnoten, verschachtelte Formatierung, Escapes, HTML-Erweiterungen, Undo, Einfügen,
+  sofortiger Export vor verzögertem Dokumentereignis und unabhängige Speichersnapshots.
+- 15 gezielte Dokument-/Tagtests einschließlich Autosave während weiterer Eingabe,
+  Wiederherstellung mit ursprünglicher Revision, sofortigem Flush, Offline-Lesemodus,
+  320-Pixel-Layout bei großer Schrift und bedienbarem Undo/Redo erfolgreich.
+- Vier Richtext-Widgettests erfolgreich: Auswahlmenü bei 320 Pixeln und großer Schrift,
+  unveränderter Scrollstand/History beim Lesen, Tabellenzellenbearbeitung und Fußnoten
+  ohne Navigation, Tastatur, Netzwerkzugriff oder Inhaltsänderung im Lesemodus.
+- Zehn Konto-/Inhaltstests einschließlich lokaler Dokumentanker erfolgreich.
+- Zehn Release-Guardtests nach Anheben der Versionscode-Untergrenze auf 9 erfolgreich.
+- Statische Flutter-Analyse und Formatprüfung ohne Befunde. Echte DocumentEditor-
+  Widgets mit synthetischer Ausarbeitung unter `docs/screenshots/editor-*.png`
+  aufgenommen und visuell geprüft; keine privaten Kontodaten oder Geräteaufnahmen.
+
+ARM64-AOT-Release für `https://akribos.de` erfolgreich gebaut; Version, bisheriger
+Signer, 16-KiB-Alignment und fehlendes Debuggable-Flag durch das Buildskript geprüft.
+APK: `artifacts/akribos-0.2.6-akribos-de-release.apk`.
+SHA-256: `a4edfa4993811be877d05936ab4bd7a621594d96b6cd8c6c39e9689026b49ad9`.
+Am 15. Oktober um **12:52:30 Uhr** erfolgreich mit `adb install -r` auf dem Pixel
+aktualisiert und gestartet. Android bestätigt `0.2.6`, Code `9` und unveränderte
+Erstinstallation **14. Oktober, 22:28 Uhr**. Keine Datenlöschung oder Deinstallation.
+App Links bleiben `verified`, erlaubt und für `akribos.de` ausgewählt. Der neue
+Editor wurde nicht mit privaten Nutzernotizen am echten Gerät redaktionell abgenommen.
+
+Die App liegt auf GitHub unter `akribos-biblestudy/akribos-app`. Der erste vollständige
+[Android-CI-Lauf](https://github.com/akribos-biblestudy/akribos-app/actions/runs/38720445222)
+für den vorherigen Stand `1d1a7e8` ist erfolgreich einschließlich aller Flutter-Tests
+und APK-Artefakt. Store-Secrets sind weiterhin nicht eingerichtet; kein Play-Upload.
+Die Versionscode-Untergrenze im Environment ist auf 9 angehoben.
+
+Tabellenzellen sind bearbeitbar; Zeilen-/Spaltenumbau ist im Dialog noch nicht enthalten.
+Unbekannte Strukturen bleiben erhalten und werden nur ausdrücklich im Originalformat
+bearbeitet. Es gibt keinen vergleichenden Pixel-/PWA-Performancebenchmark und noch
+keine vollständige redaktionelle Abnahme auf iOS oder Boox. Der Lesemodus verhindert
+kein automatisches Standby des Geräts.
+
 ## Ausarbeitungen nur über Notizen, Build 8
 
 Version `0.2.5+8` entfernt zusätzlich den Eintrag „Ausarbeitungen“ unter „Mehr“.

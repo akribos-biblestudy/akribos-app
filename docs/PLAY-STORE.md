@@ -13,7 +13,7 @@ Apple-Organisationsregistrierung und Einrichtung der tatsächlichen Signierung.
 
 Eine APK aus der normalen CI ist kein Store-Release. Die bestehende direkte
 Pixel-APK aus `scripts/build-android-production.sh` verwendet weiter ihren bisherigen
-Schlüssel; dieser Weg und seine Version `0.2.5+8` bleiben getrennt.
+Schlüssel; dieser Weg und seine Version `0.2.6+9` bleiben getrennt.
 
 ## 1. GitHub vorbereiten
 
@@ -26,7 +26,7 @@ können. Danach unter **Actions → Flutter CI** einen erfolgreichen Lauf des ak
 Das Environment `android-play-internal` ist bereits eingerichtet und seine API-
 Konfiguration geprüft: exakt eine erlaubte Deployment-Regel, Branch `main`, keine
 Tags; Store-Secrets sind noch nicht hinterlegt. Die Variablen
-`PLAY_BOOTSTRAP_ALLOWED=false` und `PLAY_VERSION_CODE_FLOOR=8` sind bereits gesetzt.
+`PLAY_BOOTSTRAP_ALLOWED=false` und `PLAY_VERSION_CODE_FLOOR=9` sind bereits gesetzt.
 Unter **Settings → Environments**
 diesen Zustand vor dem Eintragen der Secrets kontrollieren. Diese Branchbindung
 ist eine Voraussetzung, keine optionale Empfehlung. Ohne sie keine Store-Secrets
@@ -116,7 +116,7 @@ Unter **Settings → Environments → android-play-internal** diese Werte anlege
 | Environment Variable | Anfangswert / Bedeutung |
 | --- | --- |
 | `ANDROID_UPLOAD_CERT_SHA256` | Öffentlicher SHA-256-Fingerabdruck aus Schritt 3, mit oder ohne Doppelpunkte |
-| `PLAY_VERSION_CODE_FLOOR` | `8` bei der neuen Akribos-App; bei bestehender Play-Historie mindestens die höchste jemals verwendete Versionsnummer |
+| `PLAY_VERSION_CODE_FLOOR` | `9` bei der neuen Akribos-App; bei bestehender Play-Historie mindestens die höchste jemals verwendete Versionsnummer |
 | `PLAY_BOOTSTRAP_ALLOWED` | Nur für Schritt 5 auf `true`, anschließend auf `false` setzen |
 
 Base64 ist lediglich eine Kodierung und kein Schutz. Keystore, JSON und Passwörter

@@ -25,7 +25,7 @@ gezielt den Reader nach einem erfolgreichen Flush; normale Bereichswechsel tun d
 | `lib/core` | Origin-gebundener HTTP-Client, Cookie-Speicher, Protokollumschläge und App-Kontext |
 | `lib/features/reader` | Workspace-Modelle, flache Ressourcen-Tabs, Kapitelstreams, Verse, Markierungen und Notiz-Sidecar |
 | `lib/features/search` | Suche, Strong, Statistik, Morphologie |
-| `lib/features/documents` | Notizbibliothek, Ausarbeitungen, Markdown-Editor, Entwürfe, Anhänge und Export |
+| `lib/features/documents` | Notizbibliothek, Ausarbeitungen, Richtext-/Markdown-Editor, Entwürfe, Anhänge und Export |
 | `lib/features/collections` | Sammlungen, Mitglieder, Kommentare |
 | `lib/features/account` | Anmeldung, Konto, Markierungsstile |
 | `lib/features/help` | Lokaler Hilfeplatzhalter, Über Akribos und Lizenzen |
@@ -118,6 +118,32 @@ Boardspalten werden nur angezeigt, Dokumente lassen sich weiterhin zwischen ihne
 Die Notizübersichten rendern keine vollständige Tagwolke. Tagfilter werden bei Bedarf
 geöffnet, Tagdetails am Dokument bleiben eingeklappt und bearbeitbar. Die Zahl vorhandener
 Tags darf den eigentlichen Notizinhalt nicht aus dem sichtbaren Bereich verdrängen.
+
+`RichMarkdownController` projiziert das bestehende Markdown in FlutterQuill 11.6.0 (MIT).
+Markdown bleibt die Speicherquelle; Delta ist ausschließlich das Bearbeitungsmodell.
+Öffnen, Textauswahl und Lesen/Bearbeiten verändern die Originalquelle nicht. Unveränderte
+Blöcke behalten ihre Quelltexte auch bei Änderungen in anderen Absätzen. Tabellen, Fußnoten
+und nicht darstellbare Blöcke werden mit ihrer Quelle in eigenen Embeds erhalten; unbekannte
+Inhalte dürfen beim Speichern nicht still verschwinden. Das Modell ist dokumentgebunden,
+keine globale Ablage zwischen Konten. Echte Inhaltsänderungen aktualisieren den bestehenden
+Draft, reine Auswahl-/Modusänderungen erzeugen weder Autosave noch neue Revisionen.
+
+Die Oberfläche verwendet eine zusammenhängende Schreibfläche und eine Formatleiste an der
+Auswahl. Einfügen und Details sind gesonderte, kompakte Aktionen. Lesen und Bearbeiten
+verwenden denselben Controller und erhalten den Bearbeitungsverlauf. Im Lesemodus ist auch
+der Titel schreibgeschützt; die Metadatenverwaltung bleibt außerhalb der Skriptfläche.
+Es gibt keine WebView. Die Quill-Lokalisierung ist in der App registriert. Externe Bilder
+werden im Editor nicht automatisch geladen; Richtext-Paste aus fremden Apps wird zunächst
+als Text übernommen, damit keine ununterstützten Medien-/Formatattribute hineingelangen.
+
+Der Tabellendialog bearbeitet einzelne Zellen; Zeilen- und Spaltenumbau ist noch
+nicht vorgesehen. Nicht nativ abbildbare Strukturen haben einen ausdrücklich geöffneten
+Originalformat-Dialog. Der Lesemodus verändert die Bildschirm-Standby-Einstellung nicht.
+
+Auswahlgrundlage: [FlutterQuill](https://pub.dev/packages/flutter_quill) und dessen
+[Konfiguration](https://pub.dev/documentation/flutter_quill/latest/flutter_quill/QuillEditorConfig-class.html).
+Der Paketstandard garantiert keinen vollständigen Markdown-Rundlauf; deshalb hat Akribos
+seinen eigenen Adapter mit Regressionen für Tabellen, Fußnoten, Unicode und Formatierung.
 
 Autosave arbeitet mit der aktuellen positiven Dokumentrevision. Ein Bearbeitungsstand wird
 zusätzlich unter einem Schlüssel aus Server, Konto und Dokument sicher gespeichert. Der

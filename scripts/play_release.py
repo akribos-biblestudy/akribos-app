@@ -198,7 +198,7 @@ def write_manifest(data):
 
 def plan():
     result = gate()
-    minimum = max(8, code(secret("PLAY_VERSION_CODE_FLOOR")))
+    minimum = max(9, code(secret("PLAY_VERSION_CODE_FLOOR")))
     if result["mode"] == "publish":
         minimum = max(minimum, store_maximum(Play()))
     result.update(build=reserve(minimum, result["commit"]), storeUploaded=False,

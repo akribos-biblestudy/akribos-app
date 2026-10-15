@@ -12,6 +12,8 @@ import '../../core/api_client.dart';
 import '../../widgets/common.dart';
 import 'document_draft.dart';
 import 'document_widgets.dart';
+import 'rich_markdown_controller.dart';
+import 'rich_markdown_editor.dart';
 import '../reader/books.dart';
 import '../reader/verse_text.dart';
 
@@ -27,6 +29,10 @@ class _DocumentEditorState extends State<DocumentEditor>
     with WidgetsBindingObserver {
   final _title = TextEditingController();
   final _body = TextEditingController();
+  final _rich = RichMarkdownController(markdown: '');
+  final _editorScroll = ScrollController();
+  final _editorFocus = FocusNode();
+  final _detailsRevision = ValueNotifier<int>(0);
   final _storage = const FlutterSecureStorage();
   Json? _data;
   Json _links = {};
@@ -53,7 +59,8 @@ class _DocumentEditorState extends State<DocumentEditor>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _title.addListener(_changed);
-    _body.addListener(_changed);
+    _body.addListener(_bodyChanged);
+    _rich.addListener(_syncRichBody);
   }
 
   @override
@@ -74,6 +81,10 @@ class _DocumentEditorState extends State<DocumentEditor>
     _timer?.cancel();
     _title.dispose();
     _body.dispose();
+    _rich.dispose();
+    _editorScroll.dispose();
+    _editorFocus.dispose();
+    _detailsRevision.dispose();
     super.dispose();
   }
 
@@ -81,6 +92,7 @@ class _DocumentEditorState extends State<DocumentEditor>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
+      _syncRichBody();
       _persistDraft();
       unawaited(_save());
     }
@@ -108,10 +120,14 @@ class _DocumentEditorState extends State<DocumentEditor>
         _loading = false;
         _error = null;
       });
+      _detailsRevision.value++;
       if (recover) await _recoverDraft();
       try {
         final links = asMap(await _scope.api.get('/api/documents/$_id/links'));
-        if (mounted) setState(() => _links = links);
+        if (mounted) {
+          setState(() => _links = links);
+          _detailsRevision.value++;
+        }
       } catch (_) {
         /* Link discovery must not block editing the document. */
       }
@@ -181,8 +197,31 @@ class _DocumentEditorState extends State<DocumentEditor>
     }
   }
 
+  // The source controller is the persistence boundary. Quill selections never
+  // notify this bridge; loads/recovery replace source without starting autosave.
+  void _bodyChanged() {
+    if (_rich.markdown != _body.text) _rich.setMarkdown(_body.text);
+    _changed();
+  }
+
+  void _syncRichBody() {
+    final markdown = _rich.markdown;
+    if (markdown == _body.text) return;
+    _body.value = TextEditingValue(
+      text: markdown,
+      selection: TextSelection.collapsed(offset: markdown.length),
+    );
+  }
+
+  void _setBusy(bool value) {
+    if (!mounted) return;
+    setState(() => _busy = value);
+    _detailsRevision.value++;
+  }
+
   void _changed() {
     if (_recovering || _draft == null) return;
+    if (_draft!.title == _title.text && _draft!.markdown == _body.text) return;
     _draft!.title = _title.text;
     _draft!.markdown = _body.text;
     _persistDraft();
@@ -218,6 +257,9 @@ class _DocumentEditorState extends State<DocumentEditor>
   }
 
   Future<bool> _save() async {
+    // Read the current editor synchronously before capturing the request, also
+    // when a lifecycle event/navigation follows the last keystroke immediately.
+    _syncRichBody();
     _timer?.cancel();
     while (_saving != null) {
       if (!await _saving!) return false;
@@ -391,7 +433,7 @@ class _DocumentEditorState extends State<DocumentEditor>
 
   Future<void> _mutate(String action, Json fields) async {
     if (_busy) return;
-    setState(() => _busy = true);
+    _setBusy(true);
     try {
       if (!await _flush() || !mounted) return;
       final result = await runAction(context, widget.path, action, {
@@ -400,7 +442,7 @@ class _DocumentEditorState extends State<DocumentEditor>
       });
       if (result?.isSuccess == true && mounted) await _load();
     } finally {
-      if (mounted) setState(() => _busy = false);
+      _setBusy(false);
     }
   }
 
@@ -451,7 +493,7 @@ class _DocumentEditorState extends State<DocumentEditor>
       ),
     ]);
     if (fields == null || !mounted) return;
-    setState(() => _busy = true);
+    _setBusy(true);
     try {
       if (!await _flush()) return;
       await _scope.api.send(
@@ -469,22 +511,14 @@ class _DocumentEditorState extends State<DocumentEditor>
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
     } finally {
-      if (mounted) setState(() => _busy = false);
+      _setBusy(false);
     }
   }
 
-  void _insert(String before, [String after = '']) {
-    if (_busy) return;
-    final selection = _body.selection;
-    final start = selection.isValid ? selection.start : _body.text.length;
-    final end = selection.isValid ? selection.end : start;
-    final selected = _body.text.substring(start, end);
-    _body.value = TextEditingValue(
-      text: _body.text.replaceRange(start, end, '$before$selected$after'),
-      selection: TextSelection.collapsed(
-        offset: start + before.length + selected.length,
-      ),
-    );
+  void _insert(String markdown) {
+    if (_busy || _preview) return;
+    _rich.insertMarkdown(markdown);
+    _editorFocus.requestFocus();
   }
 
   Future<void> _quoteBible() async {
@@ -603,7 +637,7 @@ class _DocumentEditorState extends State<DocumentEditor>
     if (!await _save() || !mounted) return;
     final result = await FilePicker.pickFiles();
     if (result.isEmpty || !mounted) return;
-    setState(() => _busy = true);
+    _setBusy(true);
     try {
       if (!await _flush()) return;
       for (final file in result) {
@@ -635,7 +669,7 @@ class _DocumentEditorState extends State<DocumentEditor>
         );
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      _setBusy(false);
     }
   }
 
@@ -660,7 +694,7 @@ class _DocumentEditorState extends State<DocumentEditor>
     );
     if (approved != true) return;
     if (!mounted) return;
-    setState(() => _busy = true);
+    _setBusy(true);
     try {
       if (!await _flush()) return;
       await _scope.api.send(
@@ -671,7 +705,7 @@ class _DocumentEditorState extends State<DocumentEditor>
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
     } finally {
-      if (mounted) setState(() => _busy = false);
+      _setBusy(false);
     }
   }
 
@@ -914,6 +948,275 @@ class _DocumentEditorState extends State<DocumentEditor>
     );
   }
 
+  Future<void> _showDetails() async {
+    _editorFocus.unfocus();
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: .75,
+        minChildSize: .35,
+        maxChildSize: .95,
+        builder: (context, scrollController) => ValueListenableBuilder<int>(
+          valueListenable: _detailsRevision,
+          builder: (context, _, child) => AbsorbPointer(
+            absorbing: _busy,
+            child: SingleChildScrollView(
+              controller: scrollController,
+              padding: EdgeInsets.fromLTRB(
+                16,
+                0,
+                16,
+                24 + MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: _details(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _insertMenu() => PopupMenuButton<Object>(
+    tooltip: 'Einfügen',
+    enabled: !_busy,
+    icon: const Icon(Icons.add),
+    onSelected: (value) async {
+      if (_busy || _preview) return;
+      if (value == 'bible') {
+        await _quoteBible();
+      } else if (value == 'document') {
+        await _linkDocument();
+      } else if (value is RichMarkdownBlock) {
+        await insertRichMarkdownBlock(context, _rich, value);
+      }
+    },
+    itemBuilder: (_) => const [
+      PopupMenuItem(value: RichMarkdownBlock.paragraph, child: Text('Absatz')),
+      PopupMenuItem(
+        value: RichMarkdownBlock.heading1,
+        child: Text('Überschrift 1'),
+      ),
+      PopupMenuItem(
+        value: RichMarkdownBlock.heading2,
+        child: Text('Überschrift 2'),
+      ),
+      PopupMenuItem(
+        value: RichMarkdownBlock.heading3,
+        child: Text('Überschrift 3'),
+      ),
+      PopupMenuItem(
+        value: RichMarkdownBlock.bulletedList,
+        child: Text('Aufzählung'),
+      ),
+      PopupMenuItem(
+        value: RichMarkdownBlock.numberedList,
+        child: Text('Nummerierte Liste'),
+      ),
+      PopupMenuItem(value: RichMarkdownBlock.quote, child: Text('Zitat')),
+      PopupMenuItem(value: RichMarkdownBlock.code, child: Text('Codeblock')),
+      PopupMenuItem(value: RichMarkdownBlock.rule, child: Text('Trennlinie')),
+      PopupMenuItem(value: RichMarkdownBlock.table, child: Text('Tabelle')),
+      PopupMenuItem(value: RichMarkdownBlock.footnote, child: Text('Fußnote')),
+      PopupMenuDivider(),
+      PopupMenuItem(value: 'bible', child: Text('Bibeltext zitieren')),
+      PopupMenuItem(value: 'document', child: Text('Eigene Notiz verknüpfen')),
+    ],
+  );
+
+  Widget _optionsMenu() => PopupMenuButton<String>(
+    tooltip: 'Dokumentoptionen',
+    enabled: !_busy,
+    onSelected: (value) async {
+      if (value == 'undo' || value == 'redo') {
+        if (_preview || _busy) return;
+        if (value == 'undo') {
+          _rich.quill.undo();
+        } else {
+          _rich.quill.redo();
+        }
+      } else if (value == 'kind') {
+        await _form('Dokumentart ändern', 'changeKind', [
+          FeatureField(
+            'kind',
+            'Dokumentart',
+            value: _isSermon ? 'sermon' : 'note',
+            options: const {'note': 'Notiz', 'sermon': 'Ausarbeitung'},
+          ),
+        ]);
+      } else {
+        await _export(value);
+      }
+    },
+    itemBuilder: (_) => [
+      if (!_preview) ...[
+        PopupMenuItem(
+          value: 'undo',
+          enabled: _rich.quill.hasUndo,
+          child: const Text('Rückgängig'),
+        ),
+        PopupMenuItem(
+          value: 'redo',
+          enabled: _rich.quill.hasRedo,
+          child: const Text('Wiederholen'),
+        ),
+        const PopupMenuDivider(),
+      ],
+      const PopupMenuItem(value: 'md', child: Text('Markdown exportieren')),
+      const PopupMenuItem(value: 'docx', child: Text('Word exportieren')),
+      const PopupMenuItem(value: 'pdf', child: Text('PDF exportieren')),
+      if (!_preview)
+        const PopupMenuItem(value: 'kind', child: Text('Dokumentart ändern')),
+    ],
+  );
+
+  Widget _errorBanner() => ConstrainedBox(
+    constraints: const BoxConstraints(maxHeight: 180),
+    child: SingleChildScrollView(
+      child: Card(
+        color: Theme.of(context).colorScheme.errorContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_error!),
+              Wrap(
+                spacing: 8,
+                children: [
+                  if (!_preview) ...[
+                    TextButton(
+                      onPressed: _save,
+                      child: const Text('Speichern wiederholen'),
+                    ),
+                    if (_conflict)
+                      TextButton(
+                        onPressed: _resolveConflict,
+                        child: const Text('Fassungen vergleichen'),
+                      ),
+                  ],
+                  TextButton(
+                    onPressed: () async {
+                      await Clipboard.setData(
+                        ClipboardData(text: _rich.markdown),
+                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Entwurf kopiert.')),
+                        );
+                      }
+                    },
+                    child: const Text('Entwurf kopieren'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  Widget _header(String saveLabel) {
+    final titleStyle = Theme.of(context).textTheme.headlineSmall;
+    final titleHeight =
+        MediaQuery.textScalerOf(context).scale(titleStyle?.fontSize ?? 24) *
+            (titleStyle?.height ?? 1.3) *
+            2 +
+        40;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SegmentedButton<bool>(
+              key: const Key('document-mode'),
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: false, label: Text('Bearbeiten')),
+                ButtonSegment(value: true, label: Text('Lesen')),
+              ],
+              selected: {_preview},
+              onSelectionChanged: _busy
+                  ? null
+                  : (values) {
+                      FocusScope.of(context).unfocus();
+                      // Read the same local model, even offline. Switching view
+                      // neither changes its content nor replaces its history.
+                      setState(() => _preview = values.single);
+                    },
+            ),
+            // Reserve the action slots in reading mode so switching
+            // modes keeps the editor at the same vertical position.
+            if (_preview)
+              const SizedBox(width: 48, height: 48)
+            else
+              _insertMenu(),
+            if (_preview)
+              const SizedBox(width: 48, height: 48)
+            else
+              IconButton(
+                tooltip: 'Details',
+                onPressed: _busy ? null : _showDetails,
+                icon: const Icon(Icons.tune),
+              ),
+            _optionsMenu(),
+          ],
+        ),
+        SizedBox(
+          height: titleHeight,
+          child: Row(
+            children: [
+              Expanded(
+                child: _preview
+                    ? Text(
+                        _title.text,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      )
+                    : TextField(
+                        controller: _title,
+                        enabled: !_busy,
+                        minLines: 1,
+                        maxLines: 2,
+                        keyboardType: TextInputType.text,
+                        textInputAction: TextInputAction.done,
+                        decoration: InputDecoration(
+                          labelText: _isSermon
+                              ? 'Titel der Ausarbeitung'
+                              : 'Titel',
+                        ),
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+              ),
+              if (_preview)
+                const SizedBox(width: 48, height: 48)
+              else
+                IconButton(
+                  tooltip: saveLabel,
+                  onPressed: _saving != null || _busy ? null : _save,
+                  icon: Icon(
+                    _saving != null
+                        ? Icons.sync
+                        : _draft!.dirty
+                        ? Icons.save_outlined
+                        : Icons.cloud_done_outlined,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (_error != null) _errorBanner(),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -931,222 +1234,42 @@ class _DocumentEditorState extends State<DocumentEditor>
         ),
       );
     }
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        FeatureHeading(
-          _isSermon ? 'Ausarbeitung' : 'Notiz',
-          actions: [
-            TextButton.icon(
-              onPressed: _saving != null ? null : _save,
-              icon: Icon(
-                _saving != null
-                    ? Icons.sync
-                    : _draft!.dirty
-                    ? Icons.save_outlined
-                    : Icons.cloud_done_outlined,
-              ),
-              label: Text(
-                _saving != null
-                    ? 'Speichert …'
-                    : _draft!.dirty
-                    ? 'Speichern'
-                    : 'Gespeichert',
-              ),
-            ),
-            IconButton(
-              tooltip: _preview ? 'Bearbeiten' : 'Leseansicht',
-              onPressed: () async {
-                if (!_preview && !await _flush()) return;
-                if (mounted) setState(() => _preview = !_preview);
-              },
-              icon: Icon(
-                _preview
-                    ? Icons.edit_outlined
-                    : Icons.chrome_reader_mode_outlined,
-              ),
-            ),
-            PopupMenuButton<String>(
-              tooltip: 'Dokumentoptionen',
-              onSelected: (value) async {
-                if (value == 'kind') {
-                  await _form('Dokumentart ändern', 'changeKind', [
-                    FeatureField(
-                      'kind',
-                      'Dokumentart',
-                      value: _isSermon ? 'sermon' : 'note',
-                      options: const {
-                        'note': 'Notiz',
-                        'sermon': 'Ausarbeitung',
-                      },
-                    ),
-                  ]);
-                } else {
-                  await _export(value);
-                }
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'md', child: Text('Markdown exportieren')),
-                PopupMenuItem(value: 'docx', child: Text('Word exportieren')),
-                PopupMenuItem(value: 'pdf', child: Text('PDF exportieren')),
-                PopupMenuItem(value: 'kind', child: Text('Dokumentart ändern')),
-              ],
-            ),
-          ],
-        ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Card(
-              color: Theme.of(context).colorScheme.errorContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_error!),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        TextButton(
-                          onPressed: _save,
-                          child: const Text('Speichern wiederholen'),
-                        ),
-                        if (_conflict)
-                          TextButton(
-                            onPressed: _resolveConflict,
-                            child: const Text('Fassungen vergleichen'),
-                          ),
-                        TextButton(
-                          onPressed: () async {
-                            await Clipboard.setData(
-                              ClipboardData(text: _body.text),
-                            );
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Entwurf kopiert.'),
-                                ),
-                              );
-                            }
-                          },
-                          child: const Text('Entwurf kopieren'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 1000;
-            final editor = Column(
+    final saveLabel = _saving != null
+        ? 'Speichert …'
+        : _draft!.dirty
+        ? 'Speichern'
+        : 'Gespeichert';
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1100),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: LayoutBuilder(
+            builder: (context, constraints) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextField(
-                  controller: _title,
-                  enabled: !_busy,
-                  decoration: const InputDecoration(labelText: 'Titel'),
-                  style: Theme.of(context).textTheme.headlineSmall,
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: constraints.maxHeight * .6,
+                  ),
+                  child: SingleChildScrollView(child: _header(saveLabel)),
                 ),
-                const SizedBox(height: 16),
-                if (!_preview) ...[
-                  Card(
-                    child: Wrap(
-                      children: [
-                        IconButton(
-                          tooltip: 'Überschrift',
-                          onPressed: () => _insert('\n## '),
-                          icon: const Icon(Icons.title),
-                        ),
-                        IconButton(
-                          tooltip: 'Fett',
-                          onPressed: () => _insert('**', '**'),
-                          icon: const Icon(Icons.format_bold),
-                        ),
-                        IconButton(
-                          tooltip: 'Kursiv',
-                          onPressed: () => _insert('*', '*'),
-                          icon: const Icon(Icons.format_italic),
-                        ),
-                        IconButton(
-                          tooltip: 'Liste',
-                          onPressed: () => _insert('\n- '),
-                          icon: const Icon(Icons.format_list_bulleted),
-                        ),
-                        IconButton(
-                          tooltip: 'Zitat',
-                          onPressed: () => _insert('\n> '),
-                          icon: const Icon(Icons.format_quote),
-                        ),
-                        IconButton(
-                          tooltip: 'Bibeltext zitieren',
-                          onPressed: _quoteBible,
-                          icon: const Icon(Icons.menu_book),
-                        ),
-                        IconButton(
-                          tooltip: 'Eigene Notiz verknüpfen',
-                          onPressed: _linkDocument,
-                          icon: const Icon(Icons.add_link),
-                        ),
-                        IconButton(
-                          tooltip: 'Link',
-                          onPressed: () => _insert('[', '](https://)'),
-                          icon: const Icon(Icons.link),
-                        ),
-                        IconButton(
-                          tooltip: 'Tabelle',
-                          onPressed: () => _insert(
-                            '\n| Spalte 1 | Spalte 2 |\n| --- | --- |\n| Inhalt | Inhalt |\n',
-                          ),
-                          icon: const Icon(Icons.table_chart_outlined),
-                        ),
-                        IconButton(
-                          tooltip: 'Fußnote',
-                          onPressed: () => _insert('[^1]\n\n[^1]: '),
-                          icon: const Icon(Icons.superscript),
-                        ),
-                      ],
-                    ),
+                Expanded(
+                  child: RichMarkdownEditor(
+                    key: const Key('document-rich-editor'),
+                    controller: _rich,
+                    readOnly: _preview || _busy,
+                    scrollController: _editorScroll,
+                    focusNode: _editorFocus,
+                    fontScale: (asInt(_data!['readerFontScale'], 100) / 100)
+                        .clamp(.7, 2),
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _body,
-                    enabled: !_busy,
-                    minLines: 20,
-                    maxLines: null,
-                    keyboardType: TextInputType.multiline,
-                    decoration: const InputDecoration(
-                      hintText: 'Deine Gedanken …\n\nMarkdown, Tabellen und Fußnoten werden vollständig gespeichert.',
-                      alignLabelWithHint: true,
-                    ),
-                    style: const TextStyle(fontSize: 17, height: 1.65),
-                  ),
-                ] else
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: HtmlContent(
-                      html: asString(asMap(_data!['document'])['bodyHtml']),
-                    ),
-                  ),
-                const SizedBox(height: 20),
+                ),
               ],
-            );
-            return wide
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: editor),
-                      const SizedBox(width: 24),
-                      SizedBox(width: 320, child: _details()),
-                    ],
-                  )
-                : Column(children: [editor, _details()]);
-          },
+            ),
+          ),
         ),
-      ],
+      ),
     );
   }
 }

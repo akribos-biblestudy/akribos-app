@@ -241,6 +241,66 @@ void main() {
     },
   );
   testWidgets(
+    'HTML footnote anchors scroll within the document and return without navigation',
+    (tester) async {
+      setup((_) async => success());
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        host(
+          SingleChildScrollView(
+            controller: scroll,
+            child: HtmlContent(
+              html:
+                  '<p id="reference"><a href="#note">Zur Fußnote</a></p>'
+                  '${List.generate(40, (index) => '<p>Absatz $index</p>').join()}'
+                  '<p id="note">Erläuterung.</p><p><a href="#reference">Zurück zum Text</a></p>',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(scroll.offset, 0);
+      await tester.tapAt(
+        tester.getTopLeft(find.text('Zur Fußnote', findRichText: true)) +
+            const Offset(20, 8),
+      );
+      await tester.pumpAndSettle();
+      expect(opened, isEmpty);
+      expect(scroll.offset, greaterThan(500));
+      expect(
+        find.textContaining('Erläuterung.', findRichText: true).hitTestable(),
+        findsOneWidget,
+      );
+      await tester.tapAt(
+        tester.getTopLeft(find.text('Zurück zum Text', findRichText: true)) +
+            const Offset(20, 8),
+      );
+      await tester.pumpAndSettle();
+      expect(opened, isEmpty);
+      expect(scroll.offset, lessThan(30));
+      expect(adapter.requests, isEmpty);
+    },
+  );
+  testWidgets(
+    'HTML links to other internal pages retain their query and fragment',
+    (tester) async {
+      setup((_) async => success());
+      await tester.pumpWidget(
+        host(
+          const HtmlContent(
+            html: '<a href="/notes/next?mode=read#footnote-2">Andere Notiz</a>',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Andere Notiz', findRichText: true));
+      await tester.pumpAndSettle();
+      expect(opened, ['/notes/next?mode=read#footnote-2']);
+      expect(adapter.requests, isEmpty);
+    },
+  );
+  testWidgets(
     'HTML images use authenticated same-origin requests and external images stay unloaded',
     (tester) async {
       final png = base64Decode(

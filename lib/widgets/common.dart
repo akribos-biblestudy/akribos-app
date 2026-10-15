@@ -28,9 +28,15 @@ class HtmlContent extends StatelessWidget {
               uri.userInfo.isNotEmpty) {
             return false;
           }
+          // Let HtmlWidget resolve same-document anchors inside its own scroll
+          // view. Reporting them as handled would instead leave this document.
+          if (uri.hasFragment && uri.removeFragment() == scope.api.origin) {
+            return false;
+          }
           if (uri.scheme != 'mailto' && uri.origin == scope.api.origin.origin) {
             await scope.open(
-              '${uri.path}${uri.hasQuery ? '?${uri.query}' : ''}',
+              '${uri.path}${uri.hasQuery ? '?${uri.query}' : ''}'
+              '${uri.hasFragment ? '#${uri.fragment}' : ''}',
             );
             return true;
           }

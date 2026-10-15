@@ -29,7 +29,7 @@ No deployment, store publication, signing-identity setup or remote push is impli
 by editing the local app. Distinguish local checks from device acceptance.
 
 The direct Pixel APK is built by `scripts/build-android-production.sh`: fixed HTTPS
-origin `https://akribos.de`, ARM64, version `0.2.5+8`, optimized AOT release with the existing local debug signing identity. Keep it
+origin `https://akribos.de`, ARM64, version `0.2.6+9`, optimized AOT release with the existing local debug signing identity. Keep it
 independent of local test-server defines and do not install/deploy from the script.
 Ordinary app use requires no API key, USB or ADB. The ignored artifact and its SHA-256
 file are written to `artifacts/`; store signing remains a separate explicit task.
@@ -88,3 +88,14 @@ reservation after failure. Bootstrap builds only an AAB for the mandatory first 
 Play upload. Automatic uploads target `internal` only. Keep pinned Actions/dependency
 hashes, artifact checksums and actual upload/readback status. Setup is documented in
 `docs/PLAY-STORE.md`; the existing Pixel signing identity and script stay unchanged.
+
+The native document editor uses FlutterQuill 11.6 with an Akribos Markdown adapter.
+Markdown remains authoritative; never replace it with generic HTML/Delta conversion.
+Opening, selection and Read/Edit switches must preserve the original source and produce
+no PATCH. Unchanged source blocks, tables, footnotes and unsupported structures survive
+edits elsewhere. Formatting is contextual, not a permanently wrapped toolbar. Keep one
+controller across Read/Edit to retain undo and position; Read mode cannot edit the title
+or mutate metadata. Keep existing DocumentDraft revisions, serialized saves, encrypted
+account/origin/document drafts and navigation guards. Only content changes update drafts.
+External images/media are not automatically fetched or added by clipboard operations.
+HTML fragment links must stay in the current document; other internal links retain fragments.
