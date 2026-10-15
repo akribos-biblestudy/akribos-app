@@ -980,58 +980,71 @@ class _DocumentEditorState extends State<DocumentEditor>
     );
   }
 
-  Widget _insertMenu() => PopupMenuButton<Object>(
-    tooltip: 'Einfügen',
-    enabled: !_busy,
-    icon: const Icon(Icons.add),
-    onSelected: (value) async {
-      if (_busy || _preview) return;
-      if (value == 'bible') {
-        await _quoteBible();
-      } else if (value == 'document') {
-        await _linkDocument();
-      } else if (value is RichMarkdownBlock) {
-        await insertRichMarkdownBlock(context, _rich, value);
-      }
-    },
-    itemBuilder: (_) => const [
-      PopupMenuItem(value: RichMarkdownBlock.paragraph, child: Text('Absatz')),
-      PopupMenuItem(
-        value: RichMarkdownBlock.heading1,
-        child: Text('Überschrift 1'),
+  Future<void> _showInsertMenu() async {
+    _editorFocus.unfocus();
+    final value = await showModalBottomSheet<Object>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: .65,
+        minChildSize: .35,
+        maxChildSize: .9,
+        builder: (context, scroll) => ListView(
+          controller: scroll,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Einfügen',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            for (final entry in const <(Object, String)>[
+              (RichMarkdownBlock.paragraph, 'Absatz'),
+              (RichMarkdownBlock.heading1, 'Überschrift 1'),
+              (RichMarkdownBlock.heading2, 'Überschrift 2'),
+              (RichMarkdownBlock.heading3, 'Überschrift 3'),
+              (RichMarkdownBlock.bulletedList, 'Aufzählung'),
+              (RichMarkdownBlock.numberedList, 'Nummerierte Liste'),
+              (RichMarkdownBlock.quote, 'Zitat'),
+              (RichMarkdownBlock.code, 'Codeblock'),
+              (RichMarkdownBlock.rule, 'Trennlinie'),
+              (RichMarkdownBlock.table, 'Tabelle'),
+              (RichMarkdownBlock.footnote, 'Fußnote'),
+              ('bible', 'Bibeltext zitieren'),
+              ('document', 'Eigene Notiz verknüpfen'),
+            ])
+              ListTile(
+                title: Text(entry.$2),
+                onTap: () => Navigator.pop(context, entry.$1),
+              ),
+          ],
+        ),
       ),
-      PopupMenuItem(
-        value: RichMarkdownBlock.heading2,
-        child: Text('Überschrift 2'),
-      ),
-      PopupMenuItem(
-        value: RichMarkdownBlock.heading3,
-        child: Text('Überschrift 3'),
-      ),
-      PopupMenuItem(
-        value: RichMarkdownBlock.bulletedList,
-        child: Text('Aufzählung'),
-      ),
-      PopupMenuItem(
-        value: RichMarkdownBlock.numberedList,
-        child: Text('Nummerierte Liste'),
-      ),
-      PopupMenuItem(value: RichMarkdownBlock.quote, child: Text('Zitat')),
-      PopupMenuItem(value: RichMarkdownBlock.code, child: Text('Codeblock')),
-      PopupMenuItem(value: RichMarkdownBlock.rule, child: Text('Trennlinie')),
-      PopupMenuItem(value: RichMarkdownBlock.table, child: Text('Tabelle')),
-      PopupMenuItem(value: RichMarkdownBlock.footnote, child: Text('Fußnote')),
-      PopupMenuDivider(),
-      PopupMenuItem(value: 'bible', child: Text('Bibeltext zitieren')),
-      PopupMenuItem(value: 'document', child: Text('Eigene Notiz verknüpfen')),
-    ],
-  );
+    );
+    if (!mounted || _busy || _preview) return;
+    if (value == 'bible') {
+      await _quoteBible();
+    } else if (value == 'document') {
+      await _linkDocument();
+    } else if (value is RichMarkdownBlock) {
+      await insertRichMarkdownBlock(context, _rich, value);
+    }
+  }
 
   Widget _optionsMenu() => PopupMenuButton<String>(
     tooltip: 'Dokumentoptionen',
     enabled: !_busy,
     onSelected: (value) async {
-      if (value == 'undo' || value == 'redo') {
+      if (value == 'insert') {
+        await _showInsertMenu();
+      } else if (value == 'details') {
+        await _showDetails();
+      } else if (value == 'undo' || value == 'redo') {
         if (_preview || _busy) return;
         if (value == 'undo') {
           _rich.quill.undo();
@@ -1053,6 +1066,9 @@ class _DocumentEditorState extends State<DocumentEditor>
     },
     itemBuilder: (_) => [
       if (!_preview) ...[
+        const PopupMenuItem(value: 'insert', child: Text('Einfügen …')),
+        const PopupMenuItem(value: 'details', child: Text('Details')),
+        const PopupMenuDivider(),
         PopupMenuItem(
           value: 'undo',
           enabled: _rich.quill.hasUndo,
@@ -1130,41 +1146,35 @@ class _DocumentEditorState extends State<DocumentEditor>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
+        Row(
+          key: const Key('document-header-actions'),
           children: [
-            SegmentedButton<bool>(
-              key: const Key('document-mode'),
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: false, label: Text('Bearbeiten')),
-                ButtonSegment(value: true, label: Text('Lesen')),
-              ],
-              selected: {_preview},
-              onSelectionChanged: _busy
-                  ? null
-                  : (values) {
-                      FocusScope.of(context).unfocus();
-                      // Read the same local model, even offline. Switching view
-                      // neither changes its content nor replaces its history.
-                      setState(() => _preview = values.single);
-                    },
-            ),
-            // Reserve the action slots in reading mode so switching
-            // modes keeps the editor at the same vertical position.
-            if (_preview)
-              const SizedBox(width: 48, height: 48)
-            else
-              _insertMenu(),
-            if (_preview)
-              const SizedBox(width: 48, height: 48)
-            else
-              IconButton(
-                tooltip: 'Details',
-                onPressed: _busy ? null : _showDetails,
-                icon: const Icon(Icons.tune),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: SegmentedButton<bool>(
+                  key: const Key('document-mode'),
+                  showSelectedIcon: false,
+                  style: const ButtonStyle(
+                    padding: WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(horizontal: 10),
+                    ),
+                  ),
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Bearbeiten')),
+                    ButtonSegment(value: true, label: Text('Lesen')),
+                  ],
+                  selected: {_preview},
+                  onSelectionChanged: _busy
+                      ? null
+                      : (values) {
+                          FocusScope.of(context).unfocus();
+                          // Keep the same local model and geometry in both modes.
+                          setState(() => _preview = values.single);
+                        },
+                ),
               ),
+            ),
             _optionsMenu(),
           ],
         ),

@@ -177,7 +177,9 @@ void main() {
       expect(find.byType(Chip), findsNothing);
       expect(find.text('Tag0999'), findsNothing);
 
-      await tester.tap(find.byTooltip('Details'));
+      await tester.tap(find.byTooltip('Dokumentoptionen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Details'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Tags'));
       await tester.pumpAndSettle();

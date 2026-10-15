@@ -1,5 +1,56 @@
 # Prüfstand 15. Oktober 2026
 
+## Notizlisten, Tippkürzel und kompakte Kopfleiste, Build 10
+
+Version `0.2.7+10` richtet das Dokumentmenü am rechten Rand aus und entfernt den
+separaten Plus-Button sowie leere reservierte Aktionsplätze. Einfügen und Details
+bleiben im Dokumentmenü erreichbar. Listenmarkierungen und Einzüge verwenden die
+skalierte Geometrie der Leseschrift; Punkte stehen mittig zur ersten Textzeile.
+
+Der gemeldete Unterlistenfehler wurde mit einem synthetischen HTML-Beispiel durch
+den tatsächlichen Web-Serializer `documentHtmlToMarkdown()` reproduziert. Dessen
+Ausgabe enthält `-   `, Leerzeilen zwischen Einträgen und vier Leerzeichen vor
+Unterpunkten. Vor der Korrektur ergab der App-Parser zwei Hauptpunkte und Codeblöcke;
+nach der Korrektur erhält er beide Hauptpunkte und vier echte Unterpunkte, auch nach
+Bearbeiten und erneutem Öffnen. Unveränderte Quellen bleiben bytegenau erhalten.
+
+Tippkürzel `- `, `* `, `+ `, `1. `, `> ` sowie `# ` bis `###### ` wandeln eine noch
+unformatierte Zeile nach einem einzelnen eingegebenen Leerzeichen um. Der Adapter
+bedient sowohl native Bildschirmtastatureingabe als auch Hardware-Tasten. Bulk-Paste,
+Laden, Wiederherstellen, Code, aktive Komposition und Lesen lösen keine Umwandlung aus.
+
+Gezielte Prüfungen, keine vollständige lokale Testsuite:
+
+- 27 Codec-/Markdown-Tests erfolgreich, darunter das echte Web-Ausgabeformat,
+  gemischte und lose Listen, mehrstellige Nummerierung, Fortsetzungsabsätze und
+  echte Codeblöcke innerhalb von Listen.
+- 19 Tippkürzeltests erfolgreich: native Texteingabe, Hardware, Undo/Redo, Cursor,
+  Export/Reload, Schutzfälle und Verdrahtung im tatsächlichen RichMarkdownEditor.
+- 21 Dokument-/Editor-/Tagtests erfolgreich: Menü am rechten Rand bei 320 Pixeln
+  und 200 % OS-Textgröße, erreichbare Einfüge-/Detailfunktionen, mehrzeilige Listen,
+  100/160 % Leseschrift, OS-Skalierung, Autosave, Lesemodus und Scrollposition.
+- Zehn Release-Guardtests nach Anheben des Versionscodes auf 10 erfolgreich.
+- Gesamte statische Flutter-Analyse ohne Befunde.
+
+Fünf echte DocumentEditor-Aufnahmen mit synthetischen Inhalten aktualisiert und visuell
+geprüft: Smartphone Bearbeiten/Lesen jeweils hell/dunkel sowie Tablet. Punkte stehen
+an der ersten Zeile, Unterpunkte sind eingerückt und Folgezeilen bündig zum Text.
+Keine privaten Nutzernotizen oder Geräteaufnahmen wurden gespeichert.
+
+ARM64-AOT-Build für `https://akribos.de` erfolgreich; bisherige Signatur, Version,
+16-KiB-Alignment und fehlendes Debuggable-Flag geprüft.
+APK: `artifacts/akribos-0.2.7-akribos-de-release.apk`.
+SHA-256: `6b1bbcfd75b2a76ba346fbec72def140498410702e3a532bdcaf6f292a8d78d9`.
+Am 15. Oktober um **13:21:41 Uhr** erfolgreich per `adb install -r` auf dem Pixel
+aktualisiert und gestartet. Android bestätigt `0.2.7`, Code `10` sowie unverändert
+**14. Oktober, 22:28 Uhr** als Erstinstallation. Keine Datenlöschung/Deinstallation.
+Die reale Bedienung der neuen Tippkürzel wurde durch native Texteingabe im Widgettest,
+noch nicht durch manuelles Tippen in einer privaten Notiz auf dem Pixel geprüft.
+
+Der vollständige GitHub-CI-Lauf des vorigen Editorstands `8023d60` ist inzwischen
+[erfolgreich abgeschlossen](https://github.com/akribos-biblestudy/akribos-app/actions/runs/38723469755),
+einschließlich Tests und Android-Prüf-APK.
+
 ## Nativer Richtext-Editor und Lesemodus, Build 9
 
 Version `0.2.6+9` ersetzt das Markdown-Textfeld durch FlutterQuill mit einem eigenen

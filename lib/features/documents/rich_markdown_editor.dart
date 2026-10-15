@@ -10,6 +10,7 @@ import '../../core/app_scope.dart';
 import '../../theme/akribos_theme.dart';
 import '../../widgets/common.dart';
 import 'rich_markdown_controller.dart';
+import 'rich_markdown_shortcuts.dart';
 
 /// Block actions live in the document header, never in a permanent editor toolbar.
 enum RichMarkdownBlock {
@@ -104,6 +105,8 @@ class RichMarkdownEditor extends StatefulWidget {
 class _RichMarkdownEditorState extends State<RichMarkdownEditor> {
   late final ScrollController _ownedScroll = ScrollController();
   late final FocusNode _ownedFocus = FocusNode();
+  final _editorKey = GlobalKey<q.EditorState>();
+  late RichMarkdownShortcuts _shortcuts;
   ScrollController get _scroll => widget.scrollController ?? _ownedScroll;
   FocusNode get _focus => widget.focusNode ?? _ownedFocus;
 
@@ -111,12 +114,26 @@ class _RichMarkdownEditorState extends State<RichMarkdownEditor> {
   void initState() {
     super.initState();
     widget.controller.quill.readOnly = widget.readOnly;
+    _bindShortcuts();
+  }
+
+  void _bindShortcuts() {
+    _shortcuts = RichMarkdownShortcuts(
+      controller: widget.controller.quill,
+      editorKey: _editorKey,
+      focusNode: _focus,
+    );
   }
 
   @override
   void didUpdateWidget(RichMarkdownEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     widget.controller.quill.readOnly = widget.readOnly;
+    if (oldWidget.controller != widget.controller ||
+        oldWidget.focusNode != widget.focusNode) {
+      _shortcuts.dispose();
+      _bindShortcuts();
+    }
     if (widget.readOnly && !oldWidget.readOnly) {
       ContextMenuController.removeAny();
       _focus.unfocus();
@@ -125,6 +142,7 @@ class _RichMarkdownEditorState extends State<RichMarkdownEditor> {
 
   @override
   void dispose() {
+    _shortcuts.dispose();
     _ownedScroll.dispose();
     _ownedFocus.dispose();
     super.dispose();
@@ -228,6 +246,41 @@ class _RichMarkdownEditorState extends State<RichMarkdownEditor> {
       null,
     );
     final defaults = q.DefaultStyles.getInstance(context);
+    final textScaler = MediaQuery.textScalerOf(context);
+    final scaledFontSize = textScaler.scale(text.fontSize!);
+    final firstLine = TextPainter(
+      text: TextSpan(text: 'M', style: text),
+      textDirection: Directionality.of(context),
+      textScaler: textScaler,
+      strutStyle: StrutStyle.fromTextStyle(text),
+    )..layout();
+    final firstLineHeight = firstLine.height;
+    firstLine.dispose();
+    double markerWidth(double _, int count) =>
+        scaledFontSize * math.max(2.0, 1 + '$count'.length * .55);
+    q.HorizontalSpacing listIndent(
+      q.Block block,
+      BuildContext context,
+      int count,
+      q.LeadingBlockNumberPointWidth _,
+    ) {
+      final attributes = block.style.attributes;
+      if (!attributes.containsKey(q.Attribute.list.key) &&
+          !attributes.containsKey(q.Attribute.indent.key)) {
+        return q.TextBlockUtils.defaultIndentWidthBuilder(
+          block,
+          context,
+          count,
+          markerWidth,
+        );
+      }
+      final depth = attributes[q.Attribute.indent.key]?.value as int? ?? 0;
+      final base = attributes.containsKey(q.Attribute.list.key)
+          ? markerWidth(scaledFontSize, count)
+          : 0.0;
+      return q.HorizontalSpacing(base + depth * scaledFontSize * 2, 0);
+    }
+
     final styles = q.DefaultStyles(
       paragraph: block(text),
       h1: block(
@@ -257,7 +310,13 @@ class _RichMarkdownEditorState extends State<RichMarkdownEditor> {
       h4: block(text.copyWith(fontWeight: FontWeight.w700), before: 12),
       h5: block(text.copyWith(fontWeight: FontWeight.w600), before: 10),
       h6: block(text.copyWith(fontWeight: FontWeight.w600), before: 8),
-      lists: defaults.lists?.copyWith(style: text),
+      lists: defaults.lists?.copyWith(
+        style: text,
+        indentWidthBuilder: listIndent,
+        numberPointWidthBuilder: markerWidth,
+      ),
+      leading: block(text, after: 0),
+      indent: block(text, after: 0),
       quote: block(text.copyWith(color: tokens.muted)).copyWith(
         horizontalSpacing: const q.HorizontalSpacing(18, 0),
         decoration: BoxDecoration(
@@ -289,6 +348,9 @@ class _RichMarkdownEditorState extends State<RichMarkdownEditor> {
               scrollController: _scroll,
               focusNode: _focus,
               config: q.QuillEditorConfig(
+                editorKey: _editorKey,
+                // ignore: experimental_member_use
+                spaceShortcutEvents: _shortcuts.spaceEvents,
                 expands: true,
                 autoFocus: false,
                 showCursor: !widget.readOnly,
@@ -297,6 +359,43 @@ class _RichMarkdownEditorState extends State<RichMarkdownEditor> {
                 customStyles: styles,
                 scrollPhysics: const ClampingScrollPhysics(),
                 showCodeBlockLineNumbers: false,
+                // Quill's default bullet uses an independently styled glyph.
+                // Align the dot to the real first line, including OS text scale.
+                // ignore: experimental_member_use
+                customLeadingBlockBuilder: (node, config) {
+                  if (config.attribute != q.Attribute.ul) return null;
+                  return SizedBox(
+                    width: config.width,
+                    child: Align(
+                      alignment: AlignmentDirectional.topEnd,
+                      child: Padding(
+                        padding: EdgeInsetsDirectional.only(
+                          end: scaledFontSize * .55,
+                        ),
+                        child: SizedBox(
+                          height: firstLineHeight,
+                          width: scaledFontSize * .2,
+                          child: Center(
+                            child: Semantics(
+                              label: 'Aufzählungspunkt',
+                              child: Container(
+                                key: ValueKey(
+                                  'document-list-marker-${node.documentOffset}',
+                                ),
+                                width: scaledFontSize * .2,
+                                height: scaledFontSize * .2,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
                 contextMenuBuilder: _selectionMenu,
                 transformLink: (link) => link,
                 onLaunchUrl: (link) => _openLink(context, link),

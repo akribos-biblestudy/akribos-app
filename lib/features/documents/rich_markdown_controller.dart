@@ -16,6 +16,8 @@ const richMarkdownFootnoteEmbedType = 'akribos-footnote-ref';
 const _sourceId = 'akribos-source-id';
 const _sourcePart = 'akribos-source-part';
 const _listNumber = 'akribos-list-number';
+const _listContinuation = 'akribos-list-continuation';
+const _listLoose = 'akribos-list-loose';
 const _codeLanguage = 'akribos-code-language';
 const _linkTitle = 'akribos-link-title';
 
@@ -260,6 +262,22 @@ class RichMarkdownController extends ChangeNotifier {
       if (original != null && line.attributes[_sourcePart] == 0) {
         out.write(original.leading);
       }
+      if (line.attributes['list'] != null) {
+        final listLines = <_Line>[];
+        final sourceId = line.attributes[_sourceId];
+        while (i < lines.length &&
+            lines[i].attributes[_sourceId] == sourceId &&
+            (lines[i].attributes['list'] != null ||
+                lines[i].attributes[_listContinuation] != null)) {
+          listLines.add(lines[i++]);
+        }
+        out.write(_encodeListLines(listLines));
+        if (original != null &&
+            (i == lines.length || lines[i].attributes[_sourceId] != sourceId)) {
+          out.write(original.separator);
+        }
+        continue;
+      }
       if (line.attributes['code-block'] == true) {
         final code = <String>[];
         final language = line.attributes[_codeLanguage] as String? ?? '';
@@ -428,8 +446,11 @@ Iterable<String> _sourceBlocks(String source) sync* {
   while (i < lines.length) {
     final start = i;
     final text = lines[i].trimRight();
+    final listEnd = _listBlockEnd(lines, i);
     final fence = RegExp(r'^ {0,3}(`{3,}|~{3,})').firstMatch(text);
-    if (fence != null) {
+    if (listEnd != null) {
+      i = listEnd;
+    } else if (fence != null) {
       final token = fence[1]!;
       i++;
       while (i < lines.length) {
@@ -459,6 +480,7 @@ Iterable<String> _sourceBlocks(String source) sync* {
     } else {
       i++;
       while (i < lines.length && lines[i].trim().isNotEmpty) {
+        if (_listBlockEnd(lines, i, interruptParagraph: true) != null) break;
         if (RegExp(r'^ {0,3}(?:#{1,6}\s|`{3,}|~{3,}|\[\^[^\]]+\]:)')
             .hasMatch(lines[i])) {
           break;
@@ -468,6 +490,44 @@ Iterable<String> _sourceBlocks(String source) sync* {
     }
     yield lines.sublist(start, i).join();
   }
+}
+
+/// Let Markdown determine whether indentation belongs to a list or to code.
+/// Splitting on blank lines first loses that parent context (notably Turndown's
+/// `-   parent\n\n    -   child` output). Public parser APIs also handle varying
+/// ordered-marker widths and the exact termination rules for loose lists.
+int? _listBlockEnd(
+  List<String> rawLines,
+  int start, {
+  bool interruptParagraph = false,
+}) {
+  if (!RegExp(r'^ {0,3}(?:[-+*]|\d{1,9}[.)])(?:[ \t]+|$)')
+      .hasMatch(rawLines[start].trimRight())) {
+    return null;
+  }
+  final lines = rawLines
+      .skip(start)
+      .map((raw) => md.Line(raw.replaceFirst(RegExp(r'[\r\n]+$'), '')))
+      .toList();
+  final parser = md.BlockParser(lines, _markdownDocument());
+  const syntaxes = <md.ListSyntax>[
+    md.UnorderedListWithCheckboxSyntax(),
+    md.OrderedListWithCheckboxSyntax(),
+  ];
+  for (final syntax in syntaxes) {
+    if (!syntax.canParse(parser) ||
+        (interruptParagraph && !syntax.canEndBlock(parser))) {
+      continue;
+    }
+    syntax.parse(parser);
+    var consumed = parser.isDone ? lines.length : lines.indexOf(parser.current);
+    // Trailing blank lines are raw separators, not visible empty list items.
+    while (consumed > 1 && rawLines[start + consumed - 1].trim().isEmpty) {
+      consumed--;
+    }
+    return start + consumed;
+  }
+  return null;
 }
 
 Delta _sourceEmbed(String raw, String kind, String label, {String? id}) =>
@@ -560,43 +620,89 @@ void _appendBlock(
     case 'ul':
     case 'ol':
       var ordinal = int.tryParse(node.attributes['start'] ?? '') ?? 1;
+      final loose = children.whereType<md.Element>().any(
+        (item) => (item.children ?? []).any(
+          (part) => part is md.Element && part.tag == 'p',
+        ),
+      );
       for (final item in children) {
         if (item is! md.Element || item.tag != 'li') {
           throw _UnsupportedMarkdown();
         }
-        final parts = item.children ?? [];
-        final inline = <md.Node>[];
-        final nested = <md.Element>[];
-        for (final part in parts) {
-          if (part is md.Element && (part.tag == 'ul' || part.tag == 'ol')) {
-            nested.add(part);
-          } else if (part is md.Element && part.tag == 'p') {
-            if (inline.isNotEmpty) throw _UnsupportedMarkdown();
-            inline.addAll(part.children ?? []);
-          } else {
-            inline.add(part);
+        final itemNumber = ordinal++;
+        var firstParagraph = true;
+        final pending = <md.Node>[];
+        void paragraph(List<md.Node> content) {
+          final inline = List<md.Node>.of(content);
+          // Markdown list-marker padding can remain in the AST text (e.g.
+          // Turndown emits '-   '). It is syntax, not visible item content.
+          while (inline.isNotEmpty && inline.first is md.Text) {
+            final text = (inline.first as md.Text).text.replaceFirst(
+              RegExp(r'^[ \t]+'),
+              '',
+            );
+            inline.removeAt(0);
+            if (text.isNotEmpty) {
+              inline.insert(0, md.Text(text));
+              break;
+            }
+          }
+          var list = node.tag == 'ol' ? 'ordered' : 'bullet';
+          if (inline.isNotEmpty &&
+              inline.first is md.Element &&
+              (inline.first as md.Element).tag == 'input') {
+            final input = inline.removeAt(0) as md.Element;
+            list = input.attributes.containsKey('checked')
+                ? 'checked'
+                : 'unchecked';
+          }
+          for (final part in inline) {
+            _appendInline(part, delta);
+          }
+          delta.insert(
+            '\n',
+            firstParagraph
+                ? {
+                    'list': list,
+                    if (indent > 0) 'indent': indent,
+                    if (list == 'ordered') _listNumber: itemNumber,
+                    if (loose) _listLoose: true,
+                  }
+                : {'indent': indent + 1, _listContinuation: indent},
+          );
+          firstParagraph = false;
+        }
+
+        void flush() {
+          if (pending.isNotEmpty) {
+            paragraph(pending);
+            pending.clear();
           }
         }
-        var list = node.tag == 'ol' ? 'ordered' : 'bullet';
-        if (inline.isNotEmpty &&
-            inline.first is md.Element &&
-            (inline.first as md.Element).tag == 'input') {
-          final input = inline.removeAt(0) as md.Element;
-          list = input.attributes.containsKey('checked')
-              ? 'checked'
-              : 'unchecked';
+
+        for (final part in item.children ?? <md.Node>[]) {
+          if (part is md.Element && part.tag == 'p') {
+            flush();
+            paragraph(part.children ?? []);
+          } else if (part is md.Element &&
+              (part.tag == 'ul' || part.tag == 'ol')) {
+            flush();
+            if (firstParagraph) paragraph([]);
+            _appendBlock(part, delta, indent: indent + 1);
+          } else if (part is md.Element && part.tag == 'pre') {
+            flush();
+            if (firstParagraph) paragraph([]);
+            _appendBlock(
+              part,
+              delta,
+              block: {'indent': indent + 1, _listContinuation: indent},
+            );
+          } else {
+            pending.add(part);
+          }
         }
-        for (final child in inline) {
-          _appendInline(child, delta);
-        }
-        delta.insert('\n', {
-          'list': list,
-          if (indent > 0) 'indent': indent,
-          if (list == 'ordered') _listNumber: ordinal++,
-        });
-        for (final child in nested) {
-          _appendBlock(child, delta, indent: indent + 1);
-        }
+        flush();
+        if (firstParagraph) paragraph([]);
       }
     case 'blockquote':
       if (children.any((child) => child is! md.Element || child.tag != 'p')) {
@@ -621,6 +727,7 @@ void _appendBlock(
       for (final line in lines) {
         if (line.isNotEmpty) delta.insert(line);
         delta.insert('\n', {
+          ...block,
           'code-block': true,
           if (language.isNotEmpty) _codeLanguage: language,
         });
@@ -743,6 +850,85 @@ String _encodeLine(_Line line) {
       (match) => '${match[1]}\\${match[2]}${match[3]}',
     ),
   };
+}
+
+String _encodeListLines(List<_Line> lines) {
+  final output = StringBuffer();
+  final contentColumns = <int, int>{};
+  var endsWithNewline = false;
+  var endsWithBlankLine = false;
+  void write(String value) {
+    output.write(value);
+    if (value.isEmpty) return;
+    endsWithBlankLine =
+        value.endsWith('\n\n') || (value == '\n' && endsWithNewline);
+    endsWithNewline = value.endsWith('\n');
+  }
+
+  void blankLine() {
+    if (output.isNotEmpty && !endsWithBlankLine) write('\n');
+  }
+
+  var index = 0;
+  while (index < lines.length) {
+    final line = lines[index];
+    final attributes = line.attributes;
+    final kind = attributes['list'];
+    if (kind != null) {
+      final depth = (attributes['indent'] as num?)?.toInt() ?? 0;
+      final column = depth == 0 ? 0 : contentColumns[depth - 1] ?? depth * 2;
+      final prefix = ' ' * column;
+      final number = attributes[_listNumber] ?? 1;
+      final marker = switch (kind) {
+        'ordered' => '$number. ',
+        'checked' => '- [x] ',
+        'unchecked' => '- [ ] ',
+        _ => '- ',
+      };
+      contentColumns.removeWhere((key, _) => key > depth);
+      contentColumns[depth] =
+          column + (kind == 'ordered' ? '$number. '.length : 2);
+      final previous = index > 0 ? lines[index - 1].attributes : null;
+      final followsLooseParent =
+          previous?['list'] != null &&
+          previous?[_listLoose] == true &&
+          depth > ((previous?['indent'] as num?)?.toInt() ?? 0);
+      if (attributes[_listLoose] == true || followsLooseParent) blankLine();
+      write('$prefix$marker${_encodeInline(line.content)}\n');
+      index++;
+      continue;
+    }
+    final ownerDepth = (attributes[_listContinuation] as num).toInt();
+    final column = contentColumns[ownerDepth] ?? (ownerDepth + 1) * 2;
+    final prefix = ' ' * column;
+    blankLine();
+    if (attributes['code-block'] == true) {
+      final code = <String>[];
+      final language = attributes[_codeLanguage] as String? ?? '';
+      while (index < lines.length &&
+          lines[index].attributes['code-block'] == true &&
+          lines[index].attributes[_listContinuation] == ownerDepth) {
+        code.add(_plainText(lines[index++].content));
+      }
+      final longest = RegExp(r'`+')
+          .allMatches(code.join('\n'))
+          .fold<int>(
+            2,
+            (length, match) =>
+                match[0]!.length > length ? match[0]!.length : length,
+          );
+      final fence = '`' * (longest + 1);
+      write('$prefix$fence$language\n');
+      for (final value in code) {
+        write('$prefix$value\n');
+      }
+      write('$prefix$fence\n');
+    } else {
+      write('$prefix${_encodeInline(line.content)}\n');
+      index++;
+    }
+  }
+  return output.toString();
 }
 
 class _Delimiter {

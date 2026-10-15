@@ -129,12 +129,25 @@ keine globale Ablage zwischen Konten. Echte Inhaltsänderungen aktualisieren den
 Draft, reine Auswahl-/Modusänderungen erzeugen weder Autosave noch neue Revisionen.
 
 Die Oberfläche verwendet eine zusammenhängende Schreibfläche und eine Formatleiste an der
-Auswahl. Einfügen und Details sind gesonderte, kompakte Aktionen. Lesen und Bearbeiten
+Auswahl. Der Modusschalter steht links, das Dokumentmenü rechts; Einfügen und Details
+liegen im Dokumentmenü, ohne eigenen Plus-Button. Lesen und Bearbeiten
 verwenden denselben Controller und erhalten den Bearbeitungsverlauf. Im Lesemodus ist auch
 der Titel schreibgeschützt; die Metadatenverwaltung bleibt außerhalb der Skriptfläche.
 Es gibt keine WebView. Die Quill-Lokalisierung ist in der App registriert. Externe Bilder
 werden im Editor nicht automatisch geladen; Richtext-Paste aus fremden Apps wird zunächst
 als Text übernommen, damit keine ununterstützten Medien-/Formatattribute hineingelangen.
+
+Listen werden als zusammenhängende Markdown-Blöcke geparst, einschließlich der vom
+Web-Editor erzeugten Leerzeilen und vier Leerzeichen vor Unterpunkten. Vorzeitiges
+Aufteilen würde diese Unterpunkte fälschlich zu Codeblöcken machen. Fortsetzungsabsätze
+bleiben ihren Listeneinträgen zugeordnet; echte Codeblöcke behalten ihre Bedeutung.
+Listeneinzüge und Markierungen folgen Schriftgröße und erster Textzeile.
+
+`RichMarkdownShortcuts` ergänzt Eingaberegeln für `- `, `* `, `+ `, `1. `, `> ` und
+`# ` bis `###### `. Quills Hardware-Shortcuts allein reichen für Android/iOS nicht;
+der Adapter berücksichtigt auch einzelne Leerzeichen aus der nativen Texteingabe.
+Laden, Einfügen aus der Zwischenablage, aktive IME-Komposition und Lesen lösen keine
+Umwandlung aus. Rückgängig stellt das eingegebene Präfix samt Leerzeichen wieder her.
 
 Der Tabellendialog bearbeitet einzelne Zellen; Zeilen- und Spaltenumbau ist noch
 nicht vorgesehen. Nicht nativ abbildbare Strukturen haben einen ausdrücklich geöffneten

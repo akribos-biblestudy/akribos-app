@@ -421,6 +421,51 @@ void main() {
     },
   );
 
+  testWidgets(
+    'document actions stay at the right edge and insertion remains available without a plus button',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final api = _FakeApi(_documentData(markdown: 'Gedanke\n'));
+      await tester.pumpWidget(
+        _app(api, const DocumentEditor(path: '/notes/one'), textScale: 2.0),
+      );
+      await tester.pumpAndSettle();
+      final header = find.byKey(const Key('document-header-actions'));
+      final menu = find.byWidgetPredicate(
+        (widget) =>
+            widget is PopupMenuButton<String> &&
+            widget.tooltip == 'Dokumentoptionen',
+      );
+      expect(find.byIcon(Icons.add), findsNothing);
+      expect(
+        tester.getRect(menu).right,
+        closeTo(tester.getRect(header).right, 1),
+      );
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Einfügen …'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Überschrift 2'));
+      await tester.pumpAndSettle();
+      expect(_editor(tester).controller.markdown, contains('## Gedanke'));
+      await tester.tap(find.text('Lesen'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(menu).right,
+        closeTo(tester.getRect(header).right, 1),
+      );
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      expect(find.text('Einfügen …'), findsNothing);
+      expect(find.text('PDF exportieren'), findsOneWidget);
+      await tester.tapAt(const Offset(8, 500));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 2));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('selection and title cursor movements never start autosave', (
     tester,
   ) async {

@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 import 'package:akribos_app/core/api_client.dart';
 import 'package:akribos_app/core/app_scope.dart';
 import 'package:akribos_app/features/documents/document_editor.dart';
-import 'package:akribos_app/features/documents/rich_markdown_editor.dart';
 import 'package:akribos_app/theme/akribos_theme.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
@@ -15,17 +14,20 @@ import 'package:flutter_quill/flutter_quill.dart' as q;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-const _sermon = '''## Ein Gedanke zum Anfang
+const _sermon = '''## Was uns trägt
 
-Hoffnung beginnt oft **mit einem kleinen Schritt**. Wir müssen den ganzen Weg noch nicht sehen, um heute weiterzugehen.[^1]
+-   **Hoffnung** wächst, wenn wir uns Zeit zum Zuhören nehmen. Ein kleiner Schritt kann vieles verändern.[^1]
 
-> Wir dürfen mit offenen Fragen leben und trotzdem Vertrauen üben.
+    -   Raum für ehrliche Fragen schaffen und aufmerksam bleiben.
 
-### Drei Gedanken für den Alltag
+    -   Die nächste Begegnung bewusst gestalten.
 
-- Wahrnehmen, was uns trägt.
-- Zeit füreinander schaffen.
-- Mit Zuversicht den nächsten Schritt gehen.
+-   **Vertrauen** schenkt Mut für den nächsten Schritt.
+
+### Eine Einladung für heute
+
+1. Zur Ruhe kommen.
+2. Einen Gedanken mitnehmen.
 
 | Gedanke | Einladung |
 | :--- | :--- |
@@ -87,9 +89,11 @@ void main() {
       await Future.wait([reading.load(), controls.load(), icons.load()]);
     });
     for (final entry in [
-      ('editor-phone', const Size(390, 844), false),
-      ('editor-reading', const Size(390, 844), true),
-      ('editor-tablet', const Size(1280, 900), false),
+      ('editor-phone', const Size(390, 844), false, Brightness.light),
+      ('editor-phone-dark', const Size(390, 844), false, Brightness.dark),
+      ('editor-reading', const Size(390, 844), true, Brightness.light),
+      ('editor-reading-dark', const Size(390, 844), true, Brightness.dark),
+      ('editor-tablet', const Size(1280, 900), false, Brightness.light),
     ]) {
       tester.view.physicalSize = entry.$2;
       tester.view.devicePixelRatio = 1;
@@ -104,7 +108,9 @@ void main() {
             refreshSession: () async {},
             setNavigationGuard: (_, _) {},
             setTheme: (_) {},
-            themeMode: ThemeMode.light,
+            themeMode: entry.$4 == Brightness.dark
+                ? ThemeMode.dark
+                : ThemeMode.light,
             child: MaterialApp(
               debugShowCheckedModeBanner: false,
               locale: const Locale('de'),
@@ -115,7 +121,7 @@ void main() {
                 GlobalCupertinoLocalizations.delegate,
                 GlobalWidgetsLocalizations.delegate,
               ],
-              theme: buildAkribosTheme(Brightness.light),
+              theme: buildAkribosTheme(entry.$4),
               home: const Scaffold(
                 body: SafeArea(
                   child: DocumentEditor(path: '/notes/screenshot-sermon'),
@@ -128,23 +134,6 @@ void main() {
       await tester.pumpAndSettle();
       if (entry.$3) {
         await tester.tap(find.text('Lesen'));
-        await tester.pumpAndSettle();
-      } else if (entry.$1 == 'editor-phone') {
-        final editor = tester.widget<RichMarkdownEditor>(
-          find.byType(RichMarkdownEditor),
-        );
-        final index = editor.controller.quill.document.toPlainText().indexOf(
-          'Hoffnung',
-        );
-        editor.focusNode!.requestFocus();
-        editor.controller.quill.updateSelection(
-          TextSelection(baseOffset: index, extentOffset: index + 8),
-          q.ChangeSource.local,
-        );
-        await tester.pumpAndSettle();
-        tester
-            .state<q.QuillRawEditorState>(find.byType(q.QuillRawEditor))
-            .showToolbar();
         await tester.pumpAndSettle();
       }
       expect(tester.takeException(), isNull);

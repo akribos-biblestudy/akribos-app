@@ -29,7 +29,7 @@ No deployment, store publication, signing-identity setup or remote push is impli
 by editing the local app. Distinguish local checks from device acceptance.
 
 The direct Pixel APK is built by `scripts/build-android-production.sh`: fixed HTTPS
-origin `https://akribos.de`, ARM64, version `0.2.6+9`, optimized AOT release with the existing local debug signing identity. Keep it
+origin `https://akribos.de`, ARM64, version `0.2.7+10`, optimized AOT release with the existing local debug signing identity. Keep it
 independent of local test-server defines and do not install/deploy from the script.
 Ordinary app use requires no API key, USB or ADB. The ignored artifact and its SHA-256
 file are written to `artifacts/`; store signing remains a separate explicit task.
@@ -99,3 +99,13 @@ or mutate metadata. Keep existing DocumentDraft revisions, serialized saves, enc
 account/origin/document drafts and navigation guards. Only content changes update drafts.
 External images/media are not automatically fetched or added by clipboard operations.
 HTML fragment links must stay in the current document; other internal links retain fragments.
+
+Markdown list blocks must be delimited with the Markdown parser, not at every blank
+line: the web editor emits loose nested lists with four-space indentation. Preserve
+list hierarchy, continuation paragraphs, real code blocks and original source on
+read-only loads. List markers use the same scaled first-line geometry as reading text.
+The document header has mode selection at the left and its options menu at the right;
+no separate plus button. Additional insertion actions and details remain in that menu.
+Markdown typing shortcuts must work through native software-keyboard input as well as
+hardware keys. They apply only to typed block prefixes followed by a space, never
+loads/recovery, paste, IME composition or Read mode; Undo must restore the literal input.

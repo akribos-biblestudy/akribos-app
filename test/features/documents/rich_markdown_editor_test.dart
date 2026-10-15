@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:akribos_app/core/api_client.dart';
 import 'package:akribos_app/core/app_scope.dart';
 import 'package:akribos_app/features/documents/rich_markdown_controller.dart';
@@ -6,6 +8,7 @@ import 'package:akribos_app/theme/akribos_theme.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart' as q;
 import 'package:flutter_test/flutter_test.dart';
@@ -157,6 +160,96 @@ void main() {
       expect(find.byTooltip('Fett'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'loose nested list markers align with the first text line and hanging indents scale',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const source =
+          '-   **Elternpunkt** mit einem längeren Gedanken, der auf dem Telefon über mehrere Zeilen geht.\n\n'
+          '    -   Unterpunkt mit weiterer Erklärung für die nächste Zeile.\n\n'
+          '    -   Zweiter Unterpunkt.\n\n'
+          '-   Geschwisterpunkt.\n';
+      for (final scale in [(1.0, 1.0), (1.6, 1.0), (1.0, 1.6)]) {
+        final rich = RichMarkdownController(markdown: source);
+        await tester.pumpWidget(
+          host(
+            RichMarkdownEditor(
+              controller: rich,
+              readOnly: true,
+              fontScale: scale.$1,
+            ),
+            textScale: scale.$2,
+          ),
+        );
+        await tester.pumpAndSettle();
+        Finder line(String prefix) => find.byWidgetPredicate(
+          (widget) =>
+              widget is RichText &&
+              widget.text.toPlainText().startsWith(prefix),
+        );
+        final parent = line('Elternpunkt');
+        final child = line('Unterpunkt');
+        final sibling = line('Geschwisterpunkt');
+        expect(parent, findsOneWidget);
+        expect(child, findsOneWidget);
+        expect(sibling, findsOneWidget);
+        for (final prefix in [
+          'Elternpunkt',
+          'Unterpunkt',
+          'Zweiter Unterpunkt',
+          'Geschwisterpunkt',
+        ]) {
+          final finder = line(prefix);
+          final paragraph = tester.renderObject<RenderParagraph>(finder);
+          final first = paragraph
+              .getBoxesForSelection(
+                const TextSelection(baseOffset: 0, extentOffset: 1),
+                boxHeightStyle: ui.BoxHeightStyle.strut,
+              )
+              .first
+              .toRect();
+          final offset = rich.quill.document.toPlainText().indexOf(prefix);
+          final marker = find.byKey(ValueKey('document-list-marker-$offset'));
+          expect(marker, findsOneWidget);
+          final expectedY = paragraph.localToGlobal(first.center).dy;
+          expect(tester.getCenter(marker).dy, closeTo(expectedY, 1.5));
+        }
+        expect(
+          tester.getTopLeft(child).dx - tester.getTopLeft(parent).dx,
+          greaterThan(25 * scale.$1 * scale.$2),
+        );
+        expect(
+          tester.getTopLeft(sibling).dx,
+          closeTo(tester.getTopLeft(parent).dx, 1),
+        );
+        final parentRender = tester.renderObject<RenderParagraph>(parent);
+        final boxes = parentRender.getBoxesForSelection(
+          TextSelection(
+            baseOffset: 0,
+            extentOffset: parentRender.text.toPlainText().length,
+          ),
+        );
+        final starts = <double, double>{};
+        for (final box in boxes) {
+          starts.update(
+            box.top,
+            (left) => left < box.left ? left : box.left,
+            ifAbsent: () => box.left,
+          );
+        }
+        expect(starts.length, greaterThan(1));
+        for (final left in starts.values) {
+          expect(left, closeTo(0, 1));
+        }
+        expect(rich.markdown, source);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        rich.dispose();
+      }
     },
   );
 

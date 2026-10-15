@@ -52,7 +52,7 @@ done < <(printf '%s\n' "$android_sdk"/build-tools/* | LC_ALL=C sort -V)
 
 flutter pub get --enforce-lockfile
 flutter build apk --no-pub --release --target-platform android-arm64 \
-  --build-name=0.2.6 --build-number=9 \
+  --build-name=0.2.7 --build-number=10 \
   --dart-define=AKRIBOS_SERVER=https://akribos.de
 
 unsigned_apk='build/app/outputs/flutter-apk/app-release.apk'
@@ -84,14 +84,14 @@ signed_sha256="$(sed -n 's/^.*certificate SHA-256 digest: //p' \
   fail 'Die signierte APK besitzt nicht die erwartete Build-2-Signatur.'
 
 apk_metadata="$("$android_build_tools/aapt2" dump badging "$signed_apk")"
-[[ "$apk_metadata" == *"package: name='de.akribos.app' versionCode='9' versionName='0.2.6'"* ]] || \
-  fail 'Paketname oder Version der APK entspricht nicht de.akribos.app / 0.2.6+9.'
+[[ "$apk_metadata" == *"package: name='de.akribos.app' versionCode='10' versionName='0.2.7'"* ]] || \
+  fail 'Paketname oder Version der APK entspricht nicht de.akribos.app / 0.2.7+10.'
 [[ "$apk_metadata" != *'application-debuggable'* ]] || \
   fail 'Die erzeugte APK ist unerwartet debuggable.'
 [[ "$apk_metadata" == *"native-code: 'arm64-v8a'"* ]] || \
   fail 'Die erzeugte APK hat nicht die erwartete ARM64-Architektur.'
 
-artifact_name='akribos-0.2.6-akribos-de-release.apk'
+artifact_name='akribos-0.2.7-akribos-de-release.apk'
 install -m 644 "$signed_apk" "artifacts/$artifact_name"
 install -m 644 "$packaging_directory/signer.txt" "artifacts/$artifact_name.signer.txt"
 (
@@ -99,5 +99,5 @@ install -m 644 "$packaging_directory/signer.txt" "artifacts/$artifact_name.signe
   sha256sum "$artifact_name" > "$artifact_name.sha256"
   cat "$artifact_name.sha256"
 )
-printf 'AOT-Release 0.2.6+9 für https://akribos.de fertig; Signatur entspricht Build 2.\n'
+printf 'AOT-Release 0.2.7+10 für https://akribos.de fertig; Signatur entspricht Build 2.\n'
 printf 'APK: %s/artifacts/%s\n' "$app_root" "$artifact_name"
