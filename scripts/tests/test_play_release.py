@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -9,6 +10,123 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import play_release as release
+
+
+class CIWaitTests(unittest.TestCase):
+    @staticmethod
+    def ci_run(status='completed', conclusion='success', **fields):
+        return {'id': 1, 'head_sha': 'sha', 'head_branch': 'main', 'event': 'push',
+                'status': status, 'conclusion': conclusion, **fields}
+
+    @contextmanager
+    def workflow(self, runs):
+        state = {'main': 'sha', 'tag': 'sha', 'release_id': 5, 'draft': False,
+                 'elapsed': 0, 'waits': [], 'ci_reads': 0, 'after_sleep': lambda: None,
+                 'api_error': None}
+
+        def github(method, path, body=None):
+            self.assertEqual(method, 'GET')
+            if path == '/git/ref/heads/main':
+                return {'object': {'sha': state['main']}}
+            if path == '/releases/tags/v1.2.3':
+                return {'id': state['release_id'], 'published_at': 'now',
+                        'draft': state['draft'], 'prerelease': False}
+            if path == '/git/ref/tags/v1.2.3':
+                return {'object': {'sha': state['tag'], 'type': 'commit'}}
+            self.assertEqual(path, '/actions/workflows/ci.yml/runs?branch=main&event=push&head_sha=sha&per_page=100')
+            if state['api_error']:
+                raise state['api_error']
+            index = min(state['ci_reads'], len(runs) - 1)
+            state['ci_reads'] += 1
+            return {'workflow_runs': runs[index]}
+
+        def sleep(seconds):
+            state['waits'].append(seconds)
+            state['elapsed'] += seconds
+            state['after_sleep']()
+
+        with patch.dict(os.environ, {'GITHUB_SHA': 'sha', 'GITHUB_EVENT_NAME': 'workflow_dispatch',
+                                    'GITHUB_REF': 'refs/heads/main', 'RELEASE_TAG': 'v1.2.3',
+                                    'BOOTSTRAP_VERSION': ''}), \
+                patch.object(release, 'gh', github), \
+                patch.object(release.subprocess, 'check_output', return_value='sha\n'), \
+                patch.object(release.time, 'monotonic', lambda: state['elapsed']), \
+                patch.object(release.time, 'sleep', sleep):
+            yield state
+
+    def test_waits_for_delayed_ci_and_all_pending_statuses_before_success(self):
+        pending = [[self.ci_run(status, None)] for status in
+                   ['requested', 'waiting', 'pending', 'queued', 'in_progress']]
+        with self.workflow([[], *pending, [self.ci_run()]]) as state:
+            result = release.wait_for_ci()
+        self.assertEqual(state['waits'], [30] * 6)
+        self.assertEqual(result['version'], '1.2.3')
+        self.assertEqual(result['commit'], 'sha')
+
+    def test_green_ci_returns_without_sleep(self):
+        with self.workflow([[self.ci_run()]]) as state:
+            release.wait_for_ci()
+        self.assertEqual(state['waits'], [])
+
+    def test_completed_unsuccessful_runs_fail_without_sleep(self):
+        for conclusion in ['failure', 'cancelled', 'timed_out', 'action_required', 'neutral', 'skipped', None]:
+            with self.subTest(conclusion=conclusion), self.workflow([[self.ci_run(conclusion=conclusion)]]) as state:
+                with self.assertRaisesRegex(release.ReleaseError, 'finished without success'):
+                    release.wait_for_ci()
+                self.assertEqual(state['waits'], [])
+
+    def test_unknown_ci_status_does_not_wait(self):
+        with self.workflow([[self.ci_run('unknown', None)]]) as state:
+            with self.assertRaisesRegex(release.ReleaseError, 'unexpected status'):
+                release.wait_for_ci()
+            self.assertEqual(state['waits'], [])
+
+    def test_wait_has_a_deadline_and_does_not_oversleep_it(self):
+        for runs in [[[]], [[self.ci_run('in_progress', None)]]]:
+            with self.subTest(runs=runs), self.workflow(runs) as state:
+                with self.assertRaisesRegex(release.ReleaseError, 'Timed out'):
+                    release.wait_for_ci(timeout_seconds=45)
+                self.assertEqual(state['waits'], [30, 15])
+                self.assertEqual(state['elapsed'], 45)
+
+    def test_newer_run_must_succeed_even_when_older_run_is_green(self):
+        with self.workflow([[self.ci_run(), self.ci_run('queued', None, id=2)],
+                            [self.ci_run(), self.ci_run(conclusion='failure', id=2)]]) as state:
+            with self.assertRaisesRegex(release.ReleaseError, 'finished without success'):
+                release.wait_for_ci()
+            self.assertEqual(state['waits'], [30])
+
+    def test_other_sha_branch_and_event_do_not_satisfy_ci(self):
+        foreign = [self.ci_run(id=20, head_sha='other'), self.ci_run(id=30, head_branch='feature'),
+                   self.ci_run(id=40, event='pull_request'), self.ci_run(id=50, event='workflow_dispatch')]
+        with self.workflow([foreign, [*foreign, self.ci_run()]]) as state:
+            release.wait_for_ci()
+            self.assertEqual(state['waits'], [30])
+
+    def test_release_identity_is_rechecked_between_polls(self):
+        for key, value in [('main', 'advanced'), ('tag', 'moved'), ('release_id', 6), ('draft', True)]:
+            with self.subTest(key=key), self.workflow([[self.ci_run('queued', None)], [self.ci_run()]]) as state:
+                state['after_sleep'] = lambda: state.update({key: value})
+                with self.assertRaises(release.ReleaseError):
+                    release.wait_for_ci()
+                self.assertEqual(state['ci_reads'], 1)
+                self.assertEqual(state['waits'], [30])
+
+    def test_api_errors_are_not_treated_as_pending_ci(self):
+        with self.workflow([[]]) as state:
+            error = release.ReleaseError('GitHub API GET failed (HTTP 403).')
+            state['api_error'] = error
+            with self.assertRaises(release.ReleaseError) as raised:
+                release.wait_for_ci()
+            self.assertIs(raised.exception, error)
+            self.assertEqual(state['waits'], [])
+
+    def test_later_gates_still_fail_immediately_for_missing_or_running_ci(self):
+        for runs in [[[]], [[self.ci_run('queued', None)]], [[self.ci_run('in_progress', None)]]]:
+            with self.subTest(runs=runs), self.workflow(runs) as state:
+                with self.assertRaises(release.ReleaseError):
+                    release.gate()
+                self.assertEqual(state['waits'], [])
 
 
 class ReleaseTests(unittest.TestCase):

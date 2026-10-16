@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -76,7 +77,7 @@ def commit_for_tag(tag):
     raise ReleaseError("Release tag nesting is too deep.")
 
 
-def gate():
+def release_identity():
     sha = secret("GITHUB_SHA")
     require(subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip() == sha,
             "Checkout differs from the event commit.")
@@ -104,16 +105,53 @@ def gate():
                 "Bootstrap is disabled. Enable only for the first manual Play bundle.")
         name = version(bootstrap)
         mode, tag = "bootstrap", None
+    return {"mode": mode, "version": name, "commit": sha, "tag": tag,
+            "package": PACKAGE, "origin": ORIGIN, "track": "internal", "releaseId": release_id}
+
+
+def latest_ci_run(sha):
     runs = gh("GET", "/actions/workflows/ci.yml/runs?branch=main&event=push&head_sha="
               + sha + "&per_page=100").get("workflow_runs", [])
     matching = [r for r in runs if r.get("head_sha") == sha and r.get("event") == "push"
                 and r.get("head_branch") == "main"]
-    require(matching, "No push CI exists for this exact main commit; wait for Flutter CI.")
-    latest = max(matching, key=lambda r: r["id"])
+    return max(matching, key=lambda r: r["id"]) if matching else None
+
+
+def gate():
+    result = release_identity()
+    latest = latest_ci_run(result["commit"])
+    require(latest is not None, "No push CI exists for this exact main commit; wait for Flutter CI.")
     require(latest.get("status") == "completed" and latest.get("conclusion") == "success",
             "Latest Flutter CI for this exact main commit has not succeeded.")
-    return {"mode": mode, "version": name, "commit": sha, "tag": tag,
-            "package": PACKAGE, "origin": ORIGIN, "track": "internal", "releaseId": release_id}
+    return result
+
+
+def wait_for_ci(timeout_seconds=45 * 60, poll_seconds=30):
+    """Wait only at workflow entry; all later publication gates stay immediate."""
+    require(timeout_seconds > 0 and poll_seconds > 0, "CI wait intervals must be positive.")
+    deadline = time.monotonic() + timeout_seconds
+    initial = None
+    while True:
+        # Recheck checkout, main, tag and published release before every CI poll.
+        current = release_identity()
+        if initial is None:
+            initial = current
+        require(current == initial, "Release identity changed while waiting for Flutter CI.")
+        latest = latest_ci_run(current["commit"])
+        if latest is not None:
+            status = latest.get("status")
+            if status == "completed":
+                require(latest.get("conclusion") == "success",
+                        "Latest Flutter CI for this exact main commit finished without success.")
+                print("Flutter CI succeeded for the exact release commit.")
+                return current
+            require(status in {"requested", "waiting", "pending", "queued", "in_progress"},
+                    "Latest Flutter CI has an unexpected status; inspect its run before retrying.")
+        remaining = deadline - time.monotonic()
+        require(remaining > 0,
+                "Timed out waiting for Flutter CI for this exact main commit; inspect its run and retry the release workflow.")
+        print("Waiting for Flutter CI for the exact release commit.", flush=True)
+        time.sleep(min(poll_seconds, remaining))
 
 
 class Play:
@@ -318,10 +356,10 @@ def publish():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["gate", "plan", "sign", "publish"])
+    parser.add_argument("action", choices=["gate", "wait-for-ci", "plan", "sign", "publish"])
     args = parser.parse_args()
     try:
-        {"gate": gate, "plan": plan, "sign": sign, "publish": publish}[args.action]()
+        {"gate": gate, "wait-for-ci": wait_for_ci, "plan": plan, "sign": sign, "publish": publish}[args.action]()
     except ReleaseError as error:
         print(f"Release stopped: {error}", file=sys.stderr)
         return 1

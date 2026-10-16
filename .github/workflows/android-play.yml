@@ -23,7 +23,7 @@ jobs:
   release:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90 # Includes up to 45 minutes waiting for the exact main CI.
     environment: android-play-internal
     permissions:
       contents: write # Atomic, permanent version-code reservation refs only.
@@ -44,8 +44,9 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Require the exact published tag, current main and successful CI
-        run: python3 scripts/play_release.py gate
+      - name: Validate the published tag and wait for the exact main CI
+        timeout-minutes: 46
+        run: python3 scripts/play_release.py wait-for-ci
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
