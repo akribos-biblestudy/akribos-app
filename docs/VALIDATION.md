@@ -1,4 +1,197 @@
-# Prüfstand 15. Oktober 2026
+# Prüfstand 16. Oktober 2026
+
+## Folgeänderung: Einzeiliges Versmenü ohne eigenen Kopierbutton
+
+Das Versmenü enthält jetzt vier Aktionen: Markieren, Sammlungen, Notiz und Teilen.
+Icon und Beschriftung stehen in einer Zeile; tatsächliche Schriftbreiten bestimmen
+die Spaltenzahl, statt Beschriftungen umzubrechen oder abzuschneiden. Touchziele
+bleiben mindestens 48 Pixel groß. Der eigene Kopierbutton und Handler sind entfernt;
+der System-Teilen-Dialog übernimmt Kopieren. Teilen selbst behält Vers, Referenz, URL
+und den iPad-Popover-Anker. Die iOS-Kopiermöglichkeit wurde anhand der offiziellen
+Apple-Dokumentation (`copyToPasteboard`) und des installierten `share_plus`-Codes
+bestätigt, nicht an einem iOS-Gerät.
+
+19 gezielte Versmenütests erfolgreich: vier sichtbare Hauptaktionen ohne Scrollbedarf
+auf sechs Phone-/Tabletgrößen, einzeilige unbeschnittene Glyphen und nebeneinander
+liegende Icons/Texte mit echter lokaler Roboto-Schrift, auch bei 250 % Systemschrift.
+Gastgrenze und bestehende Teilmarkierungs-Löschung bleiben geprüft. Synthetische
+Telefon-/Querformat-/Tabletaufnahmen wurden aktualisiert und visuell geprüft.
+Vollständiges `flutter analyze`, Format- und Diffprüfung ohne Befund.
+
+Release `0.2.9+12` für `https://akribos.de` erfolgreich gebaut; bestehende Signatur,
+Paket/Version, 16-KiB-Alignment und fehlendes Debuggable-Flag geprüft.
+APK: `artifacts/akribos-0.2.9-akribos-de-release.apk`.
+SHA-256: `78b3b812f83cad8ff8913bd3b52151a0c3a888897565100776c84626b999042d`.
+Am 16. Oktober um **11:17:58 Uhr** per `adb install -r` auf dem Pixel 9 Pro
+installiert (`Success`). Die tatsächlich installierte `base.apk` besitzt exakt
+diese Prüfsumme. Erstinstallation (**14. Oktober, 22:28 Uhr**) und Datenverzeichnis-
+Inodes (`1063395`/`1057251`) unverändert; keine Deinstallation oder Datenlöschung.
+Der anschließende Öffnungsaufruf meldet `Status: ok`; Akribos lief bereits im
+Vordergrund, daher kein erneuter Kaltstart. Prozess `29776` läuft, ohne Fatal-,
+Unhandled-, Flutter-Error-, ANR- oder Native-Fatal-Signaturen im geprüften Prozesslog.
+Keine separate Menü-Sichtprüfung auf dem Gerät; die Layoutprüfung erfolgte mit den
+oben genannten Widgettests und synthetischen Aufnahmen. Die folgenden
+Installationsbelege beschreiben frühere Stände.
+
+## Folgeänderung: Wortmarkierung aus dem Versmenü entfernt
+
+Auf ausdrücklichen Wunsch sind „Wörter markieren“ und der aktive Erzeugungspfad
+für Wort-/Teilmarkierungen entfernt. Das Hauptmenü enthält fünf gleich breite
+Aktionen; die letzte unvollständige Reihe wird zentriert. Neue Markierungen betreffen
+ganze Verse. Vorhandene Teilmarkierungen bleiben mit ihren gespeicherten Grenzen
+sichtbar und gezielt löschbar; keine Datenmigration oder Löschung. Normale
+Strong-Wortaktionen bleiben erhalten.
+
+20 gezielte Menütests erfolgreich, einschließlich fünf sichtbarer Aktionen ohne
+Scrollbedarf auf sechs Phone-/Tabletgrößen, fehlendem Wortmarkierungs-Einstieg,
+Gastgrenze und quellgebundener Löschung vorhandener Teilmarkierungen. Die vollständige
+Flutter-Analyse ist ohne Befund; Format-/Diffprüfung erfolgreich. Synthetische
+Menübilder wurden mit realen lokalen Schriften aktualisiert; das Telefonbild wurde
+visuell geprüft.
+
+Der neue Release-Build `0.2.9+12` für `https://akribos.de` ist erfolgreich gebaut.
+APK: `artifacts/akribos-0.2.9-akribos-de-release.apk`.
+SHA-256: `7e7481dc09e445d438ba96e02b9e9cb030043de658005e5179352b65d4688ce9`.
+Am 16. Oktober um **11:08:52 Uhr** erfolgreich per `adb install -r` auf dem
+Pixel 9 Pro installiert (`Success`). Android bestätigt weiterhin `0.2.9`, Code `12`,
+die ursprüngliche Erstinstallation **14. Oktober, 22:28 Uhr** sowie unveränderte
+CE-/DE-Datenverzeichnis-Inodes (`1063395`/`1057251`). Keine Datenlöschung oder
+Deinstallation. Der anschließende Start meldet `Status: ok`, `LaunchState: COLD`.
+Die tatsächlich installierte `base.apk` hat exakt die oben genannte SHA-256;
+Prozess `28671` läuft. Keine Fatal-, Unhandled-, Flutter-Error-, ANR- oder
+Native-Fatal-Signaturen im aktuellen Prozesslog (jeweils 0).
+Eine separate Menü-Sichtprüfung dieser letzten APK wurde nicht durchgeführt.
+Die unten dokumentierten Builds `65d2ab9…` und `48a8556…` sind frühere Gerätestände.
+
+## Bereits installierter Stand: Reader, Einstellungen und kompaktes Versmenü
+
+Die Änderungen umfassen durchgehende Markerflächen, „Versweise“/„Fließtext“,
+eine zusätzliche Plus-Karte in der Tabübersicht, den abschaltbaren Kapitelfilter in
+der Notizbibliothek und größere Überschriften. Textdarstellung liegt unter
+Mehr → Einstellungen; Fließtext verwendet Blocksatz. Marker bleiben auf die
+Absatzbreite begrenzt. Keine Servermigration oder neue API.
+
+Einstellungen bündeln Darstellung, Leseschrift, Standardbibel und Markierungsfarben;
+das Personen-Icon führt zum Konto. „Konto & Darstellung“ entfällt unter Mehr,
+API-Themen entfallen aus der mobilen Kontoansicht. Das Versmenü zeigt sechs feste
+Hauptaktionen. Farben/Entfernen und Sammlungen liegen in eigenen Unterauswahlen,
+deren Umfang das Hauptmenü nicht verlängert. Zurück kehrt ohne Änderung zur
+Aktionsübersicht zurück. Bestehende Aktionen und Ressourcen-/Kontogrenzen bleiben.
+
+Gezielte lokale Prüfung des endgültigen Stands:
+
+- 44 Einstellungen-/Konto-/Aktualisierungsprüfungen erfolgreich.
+- 20 Versmenütests erfolgreich: alle Hauptaktionen ohne Scrollbedarf bei 320×568,
+  390×844, 568×320, 844×390, 768×1024 und 1024×768; tatsächliche sichtbare Bounds und
+  Touchziele geprüft. 120 Farben/Sammlungen verlängern nur ihre Unterauswahl.
+  Bei 250 % Systemschrift bleiben alle Aktionen ohne Abschneiden scrollbar erreichbar.
+  Actioncodes, Gastgrenze, Auswahl/Zurück und quellgebundene Teilmarkierung geprüft.
+- 12 angrenzende Reader-/Darstellungsregressionen erfolgreich.
+- Format-/Diffprüfung und vollständiges `flutter analyze` ohne Befunde.
+- Vorangegangene Readeränderungen: 50 gezielte Flutter-Tests; anschließende
+  Blocksatz-/Einstellungsänderungen: 51 gezielte Flutter-Prüfungen erfolgreich.
+- Synthetische Menübilder auf sechs Größen mit tatsächlichen lokalen Roboto- und
+  MaterialIcons-Schriften visuell geprüft; Markerbilder mit lokalen deutschen und
+  hebräischen Leseschriften geprüft. Dies ersetzt keine Geräteabnahme.
+
+Endgültiger Android-Neubau mit bestehender Version `0.2.9+12` für `https://akribos.de`;
+das Buildskript prüft vorhandene Signatur, ARM64, Paket/Version, Alignment und
+fehlendes Debuggable-Flag. APK: `artifacts/akribos-0.2.9-akribos-de-release.apk`.
+SHA-256: `65d2ab9ff256a9637f0e6ae06a58d1cc06f3b835c7cf9407b9baeb1e16869e2a`.
+Der endgültige Build wurde am 16. Oktober um **11:02:21 Uhr** erfolgreich per
+`adb install -r` auf dem Pixel 9 Pro installiert. Die SHA-256 der tatsächlich
+installierten `base.apk` stimmt exakt mit dem oben genannten Artefakt überein.
+Android bestätigt Version `0.2.9`, Code `12`, unveränderte Signatur, unveränderte
+CE-/DE-Datenverzeichnis-Inodes und die ursprüngliche Erstinstallation
+**14. Oktober, 22:28 Uhr**. Keine Deinstallation, Datenlöschung oder Abmeldung;
+App Links für `akribos.de` bleiben verifiziert.
+
+Der Start meldet `Status: ok` und `LaunchState: COLD`; der App-Prozess läuft.
+Keine Fatal-, Unhandled-, Flutter-Error-, ANR- oder Native-Fatal-Signaturen im
+zugehörigen Prozesslog. Anschließend war bereits ein Markierungsdialog durch
+laufende Bedienung geöffnet. Deshalb wurden keine weiteren UI-Eingaben ausgeführt
+und weder Dialog noch Lesestelle verändert. Die neue Einstellungen-/Versmenü-
+Sichtprüfung dieses Builds bleibt gegenüber den erfolgreichen Widget-/Layouttests
+separat offen; die funktionale Geräteprüfung des Zwischenstands steht unten.
+
+### Bereits installierter Zwischenstand desselben Tages
+
+Die ältere APK mit SHA-256
+`48a85569a483ec80bf0119101e61ff88458ed7d4a956bfce42baed9050abc5a9`
+wurde am 16. Oktober um **09:21:26 Uhr** erfolgreich per `adb install -r` auf dem
+Pixel 9 Pro aktualisiert. Android bestätigt Version `0.2.9`, Code `12`, unveränderte
+Signatur und Datenverzeichnis-Inodes sowie die ursprüngliche Erstinstallation
+**14. Oktober, 22:28 Uhr**. App Links für `akribos.de` bleiben verifiziert.
+
+Um **09:27 Uhr** am tatsächlichen Gerät geprüft: Mehr → Einstellungen bietet
+Versweise/Fließtext; Fließtext lässt sich auswählen, die Rückkehr zum Reader erhält
+die Lesestelle. Blocksatz und durchgehende Marker innerhalb der Absatzbreite wurden
+visuell bestätigt. Fließtext blieb aktiv. Die Tabübersicht enthält die Plus-Karte,
+keinen Textdarstellungsschalter und keinen Notizen-Button. In einem früheren Build
+desselben Tages öffnete die Plus-Karte die Ressourcenauswahl; Abbruch erhielt alle
+drei Tabs. Keine Fatal-, Unhandled-, Flutter-Error-, ANR- oder Native-Fatal-Signaturen
+im Prozesslog des geprüften Zwischenstands. Diese Prüfungen bestätigen noch nicht
+die anschließend neu gestalteten Einstellungen und das kompakte Versmenü.
+
+### Webrelease
+
+[PR #326](https://github.com/akribos-biblestudy/akribos/pull/326) ist als `98a5488`
+zusammengeführt. Die [Main-CI](https://github.com/akribos-biblestudy/akribos/actions/runs/38867306655)
+ist einschließlich 311 Browser-E2E, Image-Veröffentlichung und Deployment erfolgreich.
+Produktiv geprüft: Health HTTP 200/ok; Blocksatz und 1,2-fache Abschnittsüberschriften
+in drei Breiten-/Schriftskalierungskombinationen ohne Browserfehler oder horizontalen
+Überlauf. Die isolierte App-Editorroute weist Gäste mit HTTP 401 und
+`private, no-store` ab. Die authentifizierte Editor-Geräteprüfung bleibt offen.
+Vor dem Release acht gezielte Web-Browsertests erfolgreich; `pnpm check` ohne Fehler,
+mit 14 bestehenden Warnungen in der Backupverwaltung; geänderte Dateien lintfrei.
+
+Keine privaten Notizen bearbeitet. Temporäre Geräte-/synthetische Aufnahmen liegen
+nur außerhalb des Repositories unter `/tmp`. iOS-/Boox-Abnahme und
+Store-Veröffentlichung bleiben separat.
+
+## Vorheriger Prüfstand: 15. Oktober 2026
+
+## Gemeinsamer Akribos-Webeditor, Build 12
+
+Version `0.2.9+12` verwendet die echte Webkomponente auf einer isolierten HTTPS-Seite
+in der System-WebView. Verschachtelte Listen, Tabellen, Fußnoten, Markdown-Kürzel und
+Auswahlformatierung stammen aus demselben Editor wie im Webportal. Bearbeiten/Lesen,
+Navigation und Dokumentmenü bleiben nativ. Die bisherigen nativen Markdown-Widgets
+sind nicht mehr die aktive Dokumentfläche.
+
+Gezielte lokale Prüfungen, keine vollständige lokale Testsuite:
+
+- 25 Sitzungs-/Authentifizierungsprüfungen: HttpOnly-Übergabe über native Kanäle,
+  Konto- und Servertrennung, Race-/Fehlerfälle und Wiederverwendung gleicher Sitzungen.
+- 28 Bridge-/Dokument-/Tagprüfungen: echte Backendtranskripte, Ursprungsrevision,
+  409-Konflikt, letzter Tastendruck während laufendem Save, sichere Entwürfe,
+  Tab-/Hintergrundwechsel, Metadatenrevision und sichtbarer Autosave-Status.
+- Backend: 23 Layout-/Initialisierungs-/Reader-Isolationsprüfungen, 18 neue
+  Bridge-/Routen-/Editorprüfungen und zwei bestehende echte Editorprüfungen grün.
+- Drei echte Browser-E2E gegen isolierte Konten im vorhandenen E2E-Datenbestand:
+  Öffnen/Lesen ohne PATCH oder Readerzustandsänderung, echte Eingabekürzel,
+  verschachtelte Listen/Zitate, Tabellen/Fußnoten, Metadaten und Bridge-Lifecycle.
+- Zehn Release-Guardtests grün; Formatprüfung und vollständige statische Flutter-
+  Analyse ohne Befunde. Backend `pnpm check`: keine Fehler, 14 bestehende Warnungen.
+
+Die lokale E2E-Datenbank wurde nicht zurückgesetzt. Synthetische Browseraufnahmen
+prüfen Smartphone und dunkles Tablet; dabei wurde ein zu dunkler Zitattext korrigiert.
+Keine privaten Produktionsnotizen wurden bearbeitet. Der Webeditor benötigt eine
+Verbindung zum Öffnen; verschlüsselte Entwürfe ersetzen keinen vollständigen Offline-
+Editor. Android-IME-, iOS- und Boox-Bedienabnahme bleiben gerätespezifisch.
+
+Die Android-Environment-Versionsgrenze wurde auf 12 gesetzt und zurückgelesen.
+Kein Google-Play-Upload. Der finale ARM64-AOT-Release wurde erfolgreich gebaut;
+Signatur, Paket/Version, 16-KiB-Alignment und fehlendes Debuggable-Flag sind geprüft.
+APK: `artifacts/akribos-0.2.9-akribos-de-release.apk`.
+SHA-256: `5120fc8ac45944511212bc5cea82ec0093e04a64288d5221994204fe57f91d67`.
+Die bisherigen Anmeldedaten bleiben bei Installation als Update erhalten.
+USB-Installation ist offen: Das Pixel ist derzeit nicht verbunden. Die Backend-
+Produktionsroute wird über PR #326 und die bestehende CI/Deploymentkette eingeführt.
+
+Rein synthetische Aufnahmen des Editorstands vom 15. Oktober: [Telefon](screenshots/web-editor-phone.png),
+[dunkles Tablet](screenshots/web-editor-tablet-dark.png). Ältere `editor-*.png` und
+der opt-in Capturetest dokumentieren die vorherige native Implementierung.
 
 ## Einfacher Markdown-Editor und native Lesedarstellung, Build 11
 

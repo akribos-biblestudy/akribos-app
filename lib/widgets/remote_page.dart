@@ -4,7 +4,13 @@ import '../core/api_client.dart';
 import '../core/app_scope.dart';
 
 class RemotePage extends StatefulWidget {
-  const RemotePage({super.key, required this.path, required this.builder});
+  const RemotePage({
+    super.key,
+    required this.path,
+    required this.builder,
+    this.embedded = false,
+  });
+  final bool embedded;
   final String path;
   final Widget Function(
     BuildContext context,
@@ -100,7 +106,10 @@ class _RemotePageState extends State<RemotePage> {
             ),
           ),
         if (_data != null)
-          Expanded(child: widget.builder(context, _data!, _load)),
+          if (widget.embedded)
+            widget.builder(context, _data!, _load)
+          else
+            Expanded(child: widget.builder(context, _data!, _load)),
       ],
     );
   }

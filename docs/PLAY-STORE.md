@@ -1,6 +1,6 @@
 # Android über Google Play veröffentlichen
 
-Stand: 15. Oktober 2026. Dieses Repository veröffentlicht zunächst ausschließlich
+Stand: 16. Oktober 2026. Dieses Repository veröffentlicht zunächst ausschließlich
 Android nach **Google Play Internal Testing**. iOS folgt erst nach Abschluss der
 Apple-Organisationsregistrierung und Einrichtung der tatsächlichen Signierung.
 
@@ -13,7 +13,7 @@ Apple-Organisationsregistrierung und Einrichtung der tatsächlichen Signierung.
 
 Eine APK aus der normalen CI ist kein Store-Release. Die bestehende direkte
 Pixel-APK aus `scripts/build-android-production.sh` verwendet weiter ihren bisherigen
-Schlüssel; dieser Weg und seine Version `0.2.8+11` bleiben getrennt.
+Schlüssel; dieser Weg und seine Version `0.2.9+12` bleiben getrennt.
 
 ## 1. GitHub vorbereiten
 
@@ -25,12 +25,16 @@ können. Danach unter **Actions → Flutter CI** einen erfolgreichen Lauf des ak
 
 Das Environment `android-play-internal` ist bereits eingerichtet und seine API-
 Konfiguration geprüft: exakt eine erlaubte Deployment-Regel, Branch `main`, keine
-Tags; Store-Secrets sind noch nicht hinterlegt. Die Variablen
-`PLAY_BOOTSTRAP_ALLOWED=false` und `PLAY_VERSION_CODE_FLOOR=11` sind bereits gesetzt.
-Unter **Settings → Environments**
-diesen Zustand vor dem Eintragen der Secrets kontrollieren. Diese Branchbindung
-ist eine Voraussetzung, keine optionale Empfehlung. Ohne sie keine Store-Secrets
-hinterlegen und nicht ersatzweise Repository-Secrets verwenden.
+Tags. Am 16. Oktober 2026 sind alle fünf Secrets aus Abschnitt 4 im Environment
+`android-play-internal` hinterlegt und ihre Namen/Zuordnung verifiziert. Die Erstellung
+des eigenen Uploadschlüssels und die Ablage in GitHub wurden vom Nutzer ausdrücklich
+freigegeben. Die Variablen `PLAY_BOOTSTRAP_ALLOWED=false` und
+`PLAY_VERSION_CODE_FLOOR=12` sind gesetzt; `ANDROID_UPLOAD_CERT_SHA256` enthält den
+unten dokumentierten öffentlichen Fingerabdruck.
+
+Unter **Settings → Environments** diese Bindung bei Änderungen erneut kontrollieren.
+Sie ist eine Voraussetzung, keine optionale Empfehlung. Secrets nicht ersatzweise
+auf Repository-Ebene hinterlegen.
 
 `main` und Release-Tags zusätzlich gegen unkontrollierte Änderungen schützen;
 Änderungen an `.github/` und `scripts/play_release.py` mitprüfen. Bei Übertragung in
@@ -55,6 +59,13 @@ Identitäts-/Organisationsprüfung abschließen. Eine App namens **Akribos**, Sp
 Deutsch, Typ **App** und die gewünschte Preisgestaltung anlegen. Der Paketname des
 Bundles ist fest **`de.akribos.app`**; keinen abweichenden Paketnamen verwenden.
 
+Die App ist angelegt. Der Zugriff des vorhandenen Dienstkontos auf Akribos wurde am
+16. Oktober 2026 mit HTTP 200 geprüft. Leseabfragen im Play-Entwurf lieferten ebenfalls
+HTTP 200: `de-DE` ist vorhanden, Bundles und Releases waren noch leer. Dies bestätigt
+den Zugriff auf den Entwurf, keinen hochgeladenen Build oder freigegebenen Release.
+Store-Texte und aus dem Code abgeleitete Console-Angaben stehen in
+[PLAY-STORE-CONTENT.md](PLAY-STORE-CONTENT.md).
+
 Die aktuell von der Console verlangten Angaben ausfüllen: Kontakt, Store-Eintrag,
 Grafiken, App-Zugriff für Prüfer, Altersfreigabe, Zielgruppe und App-Inhalte. Nur
 freigegebene Bilder ohne private Notizen, Kontodaten oder Zugangscodes verwenden.
@@ -74,11 +85,30 @@ Wechsel zu anderen Tracks sind die entsprechenden Angaben nachzuholen.
 
 ## 3. Uploadschlüssel und Play App Signing einrichten
 
-Einen **eigenen Uploadschlüssel für den Store** außerhalb des Repositorys anlegen,
-zum Beispiel über Android Studios **Generate Signed Bundle / APK → Create new**.
-Diesen Schritt führt der Kontoinhaber bewusst aus; weder Workflow noch dieses
-Repository erzeugen Schlüssel. Keystore, Alias, Store-Passwort und Schlüsselpasswort
-in der eigenen sicheren Ablage sichern. Den vorhandenen Debugschlüssel nicht verwenden.
+Am 16. Oktober 2026 wurde mit ausdrücklicher Freigabe des Nutzers ein **eigener
+Uploadschlüssel für den Store** angelegt. Er ist vom Schlüssel der direkten Pixel-APK
+getrennt. Der Release-Workflow erzeugt keine neuen Signieridentitäten.
+
+| Öffentliche Eigenschaft | Verifizierter Wert |
+| --- | --- |
+| Schlüsseltyp | RSA, 4.096 Bit |
+| Zertifikatsname | `CN=Akribos Upload` |
+| SHA-256 des Uploadzertifikats | `890bc7a97d2ca6f07bc120daacdd827bac7c55f0e626568f88eb92a7afc2f0ba` |
+| Lokale sichere Ablage | `~/.config/akribos/play-signing/` |
+
+**Den gesamten lokalen Ordner verschlüsselt und getrennt vom Arbeitsgerät sichern.**
+Er enthält den Uploadkeystore und die zugehörigen Angaben/Passwörter. Nur die
+Zertifikatskennung darf öffentlich dokumentiert werden; Keystore und Passwörter
+gehören nicht in Git, Chats oder Screenshots. Die GitHub-Secrets dienen dem Workflow,
+sind aber kein nachträglich auslesbares Backup dieses Ordners.
+
+Geht der Uploadschlüssel verloren, lässt er sich bei Nutzung von Play App Signing
+über einen von Google bestätigten Reset ersetzen: neuen Uploadschlüssel anlegen,
+öffentliches PEM-Zertifikat exportieren und in der Play Console die Zurücksetzung
+anfordern. Anschließend die GitHub-Secrets und den erwarteten Fingerabdruck passend
+aktualisieren. Das ist ein gesonderter Wiederherstellungsvorgang, kein Grund, jetzt
+den vorhandenen Schlüssel neu zu erzeugen.
+[Google beschreibt das Zurücksetzen des Uploadschlüssels.](https://support.google.com/googleplay/android-developer/answer/9842756?hl=de)
 
 Bei der ersten Veröffentlichung **Play App Signing** einrichten. Google signiert
 die ausgelieferten APKs mit dem App-Signaturschlüssel; das AAB wird vorher mit deinem
@@ -103,7 +133,9 @@ einem solchen Wechsel ausdrücklich über „Ansicht teilen“ als Link gesicher
 
 ## 4. GitHub-Secrets und Variablen eintragen
 
-Unter **Settings → Environments → android-play-internal** diese Werte anlegen:
+Unter **Settings → Environments → android-play-internal** sind die folgenden fünf
+Secrets hinterlegt. Am 16. Oktober 2026 wurden ihre Namen und das ausschließlich
+für `main` freigegebene Environment geprüft; Werte werden nicht ausgegeben.
 
 | Environment Secret | Inhalt |
 | --- | --- |
@@ -111,12 +143,12 @@ Unter **Settings → Environments → android-play-internal** diese Werte anlege
 | `ANDROID_UPLOAD_STORE_PASSWORD` | Passwort des Keystores |
 | `ANDROID_UPLOAD_KEY_PASSWORD` | Passwort des privaten Schlüssels |
 | `ANDROID_UPLOAD_KEY_ALIAS` | Alias dieses Schlüssels |
-| `PLAY_SERVICE_ACCOUNT_JSON` | Vollständiges JSON des Dienstkontos aus Schritt 7; für den ersten Bootstrap noch nicht erforderlich |
+| `PLAY_SERVICE_ACCOUNT_JSON` | Vollständiges JSON des bereits berechtigten Dienstkontos; vorhanden, für den ersten Bootstrap noch nicht erforderlich |
 
 | Environment Variable | Anfangswert / Bedeutung |
 | --- | --- |
-| `ANDROID_UPLOAD_CERT_SHA256` | Öffentlicher SHA-256-Fingerabdruck aus Schritt 3, mit oder ohne Doppelpunkte |
-| `PLAY_VERSION_CODE_FLOOR` | `11` bei der neuen Akribos-App; bei bestehender Play-Historie mindestens die höchste jemals verwendete Versionsnummer |
+| `ANDROID_UPLOAD_CERT_SHA256` | `890bc7a97d2ca6f07bc120daacdd827bac7c55f0e626568f88eb92a7afc2f0ba` |
+| `PLAY_VERSION_CODE_FLOOR` | `12` bei der neuen Akribos-App; bei bestehender Play-Historie mindestens die höchste jemals verwendete Versionsnummer |
 | `PLAY_BOOTSTRAP_ALLOWED` | Nur für Schritt 5 auf `true`, anschließend auf `false` setzen |
 
 Base64 ist lediglich eine Kodierung und kein Schutz. Keystore, JSON und Passwörter
@@ -151,11 +183,11 @@ herunterladen. Es enthält `.aab`, `SHA256SUMS` und `release.json` mit
 
 In der Play Console unter **Testen und veröffentlichen → Testen → Interner Test**
 einen Release erstellen, das AAB aus Schritt 5 hochladen, Play App Signing
-abschließen, Hinweise prüfen und den internen Release freigeben. Dies ist die
-notwendige erste manuelle Einrichtung: Die Publishing API kann nur eine bereits
-angelegte App mit einem zuvor hochgeladenen Paket bearbeiten; sie erledigt weder
-diesen Einstieg noch rechtliche Einwilligungen.
-[Google dokumentiert diese Grenze der Publishing API.](https://developers.google.com/android-publisher/edits)
+abschließen, Hinweise prüfen und den internen Release freigeben. Der vorbereitete
+Ablauf sieht den ersten Bundle-Upload und die Signiereinrichtung ausdrücklich in der
+Console vor. Der bereits bestätigte API-Zugriff auf einen noch leeren Entwurf ersetzt
+weder diesen Upload noch erforderliche rechtliche Einwilligungen.
+[Google erläutert den Ablauf der Publishing API.](https://developers.google.com/android-publisher/edits)
 
 Unter **Tester** die gewünschten Google-Konten beziehungsweise eine Google-Gruppe
 eintragen und den dort angezeigten Testbeitrittslink teilen. Jeder Tester muss mit
@@ -174,15 +206,20 @@ hier nicht den App-Signatur-Fingerprint.
 
 ## 7. Google-Play-API freigeben
 
-In einem eigenen Google-Cloud-Projekt die **Google Play Android Developer API**
-aktivieren und ein dediziertes Dienstkonto anlegen. Dessen E-Mail-Adresse in der
-Play Console unter **Nutzer und Berechtigungen** hinzufügen und Zugriff ausschließlich
-auf Akribos erteilen: App-Informationen lesen sowie Releases für Test-Tracks erstellen
-und veröffentlichen. Keine Produktions-Veröffentlichung oder Finanzverwaltung
-freigeben. Die jeweils aktuellen Bezeichnungen in der Console prüfen.
+Das vorhandene Dienstkonto hat die vom Nutzer in der Play Console erteilten
+Akribos-Rechte; der API-Zugriff wurde mit HTTP 200 bestätigt. Es muss dafür kein
+weiteres Dienstkonto angelegt werden. Das zugehörige JSON ist als Environment Secret
+`PLAY_SERVICE_ACCOUNT_JSON` vorhanden. Die erfolgreichen Entwurfsabfragen belegen
+noch keine Veröffentlichung und ersetzen keine Prüfung des späteren Upload-/Commitlaufs.
 
-Einen Dienstkonto-JSON-Schlüssel erstellen, sicher ablegen und als
-`PLAY_SERVICE_ACCOUNT_JSON` in das GitHub-Environment übernehmen. Falls eure
+Für eine spätere Neueinrichtung die **Google Play Android Developer API** im passenden
+Google-Cloud-Projekt aktivieren und dem vorgesehenen Dienstkonto in der Play Console
+Akribos-Rechte zum Lesen sowie Erstellen/Veröffentlichen von Test-Releases geben.
+Für diesen Workflow sind Produktions-Veröffentlichung und Finanzverwaltung nicht
+vorgesehen; die aktuellen Berechtigungsbezeichnungen in der Console prüfen.
+
+Bei erforderlichem Austausch einen neuen Dienstkonto-JSON-Schlüssel sicher ablegen
+und `PLAY_SERVICE_ACCOUNT_JSON` im GitHub-Environment aktualisieren. Falls eure
 Organisationsrichtlinie JSON-Schlüssel sperrt, ist zunächst eine bewusst eingerichtete
 föderierte Authentifizierung erforderlich; diese Richtlinie nicht umgehen. Der
 vorbereitete Workflow verwendet Dienstkonto-JSON, keine OAuth-Zugangsdaten eines
@@ -249,6 +286,9 @@ python3 -m py_compile scripts/play_release.py
 Die Unit-Tests simulieren API-Antworten und prüfen Versionsreservierung, Commit-/CI-
 Sperren, Hashprüfung und die Begrenzung auf den internen Track. Sie belegen keinen
 realen Google-Play-Upload. Actions, bundletool und alle Python-Abhängigkeiten sind
-auf konkrete Versionen beziehungsweise Prüfsummen festgelegt. Storezugang,
-Signieridentität und die erste echte Veröffentlichung werden erst nach Einrichtung
-mit den eigenen Konten geprüft.
+auf konkrete Versionen beziehungsweise Prüfsummen festgelegt. Stand 16. Oktober 2026
+sind Storezugang, Uploadzertifikat, Environment-Bindung und die fünf hinterlegten
+Secret-Namen geprüft. Es wird hier noch kein erzeugtes/hochgeladenes Store-AAB,
+erfolgreicher CI-Storelauf oder veröffentlichter interner Release bestätigt.
+Der bestehende Weg bleibt: `vX.Y.Z`-GitHub-Release → geprüfter Workflow auf `main`
+→ ausschließlich `internal`; es erfolgt keine öffentliche Veröffentlichung.

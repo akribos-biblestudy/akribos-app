@@ -14,8 +14,14 @@ class AppScope extends InheritedWidget {
     required this.themeMode,
     this.eInk = false,
     this.setEInk,
+    this.notesChapter = '',
+    this.notesChapterEnabled = true,
+    this.setNotesChapterEnabled,
     required super.child,
   });
+  final String notesChapter;
+  final bool notesChapterEnabled;
+  final Future<void> Function(bool)? setNotesChapterEnabled;
   final AppApi api;
   final Future<void> Function(String path) open;
   final Future<void> Function() refreshSession;
@@ -42,5 +48,8 @@ class AppScope extends InheritedWidget {
       setTheme != oldWidget.setTheme ||
       themeMode != oldWidget.themeMode ||
       eInk != oldWidget.eInk ||
-      setEInk != oldWidget.setEInk;
+      setEInk != oldWidget.setEInk ||
+      notesChapter != oldWidget.notesChapter ||
+      notesChapterEnabled != oldWidget.notesChapterEnabled ||
+      setNotesChapterEnabled != oldWidget.setNotesChapterEnabled;
 }

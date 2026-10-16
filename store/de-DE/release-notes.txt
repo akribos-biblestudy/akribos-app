@@ -1,0 +1,7 @@
+Erste Android-Testversion für Google Play:
+• Bibellesen mit Tabs, Suche und Wortstudien
+• Notizen und Ausarbeitungen mit dem gemeinsamen Akribos-Editor
+• Durchgehende Versmarkierungen und kompaktes Versmenü
+• Fließtext im Blocksatz und größere Überschriften
+• Notizenfilter für das aktuelle Kapitel
+• Darstellung, Leseschrift, Standardbibel und Markierungsfarben unter Einstellungen

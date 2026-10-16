@@ -68,6 +68,7 @@ void main() {
       expect(await store(storage).read(), {
         'path': second,
         'layoutSizes': sizes,
+        'versePerLine': true,
       });
       expect(await store(storage, user: 'another').read(), isNull);
       expect(await store(storage, user: null).read(), isNull);
@@ -80,6 +81,22 @@ void main() {
         storage.values.keys.single,
         startsWith('akribos.reader.local.v1.'),
       );
+    },
+  );
+
+  test(
+    'display preference restores per account and old snapshots stay versewise',
+    () async {
+      final storage = ControlledStorage();
+      final target = store(storage);
+      storage.values[target.storageKey] = jsonEncode({
+        'version': 1,
+        'path': first,
+      });
+      expect((await target.read())?['versePerLine'], isTrue);
+      await target.write(second, versePerLine: false);
+      expect((await store(storage).read())?['versePerLine'], isFalse);
+      expect(await store(storage, user: 'another').read(), isNull);
     },
   );
 

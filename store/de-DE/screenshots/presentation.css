@@ -1,0 +1,23 @@
+/* The original capture is never resized, cropped, filtered or transformed. */
+html,
+body {
+  margin: 0;
+  width: 1620px;
+  height: 2880px;
+  overflow: hidden;
+  background: #171e18;
+}
+main {
+  position: relative;
+  width: 1620px;
+  height: 2880px;
+}
+img {
+  display: block;
+  position: absolute;
+  left: 170px;
+  top: 12px;
+  width: 1280px;
+  height: 2856px;
+  max-width: none;
+}

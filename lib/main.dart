@@ -17,9 +17,11 @@ import 'features/documents/documents_screen.dart';
 import 'features/help/help_screen.dart';
 import 'features/reader/reader_screen.dart';
 import 'features/reader/reader_controller.dart';
+import 'features/reader/books.dart';
 import 'theme/akribos_theme.dart';
 import 'widgets/floating_navigation.dart';
 import 'features/search/search_screen.dart';
+import 'features/settings/settings_screen.dart';
 import 'widgets/common.dart';
 
 Future<void> main() async {
@@ -194,6 +196,30 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
   int? _readerFontScale;
   bool _guardFramePending = false;
   String? _sessionOwner;
+  String _notesChapter = '';
+  bool _notesChapterEnabled = true;
+  String _notesPreferenceKey(String owner) =>
+      'akribos.notes.chapter.${Uri.encodeComponent(widget.api.origin.origin)}.${Uri.encodeComponent(owner)}';
+
+  Future<void> _setNotesChapterEnabled(bool enabled) async {
+    if (!await _flushBranch() || !mounted) return;
+    final owner = _sessionOwner;
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setBool(_notesPreferenceKey(owner ?? ''), enabled);
+      if (!mounted || owner != _sessionOwner) return;
+      setState(() => _notesChapterEnabled = enabled);
+      final params = {...Uri.parse(_path).queryParameters}
+        ..remove('passage')
+        ..remove('book')
+        ..remove('resource')
+        ..remove('page');
+      await _open(Uri(path: '/notes', queryParameters: params).toString());
+    } catch (error) {
+      if (mounted) showError(context, error);
+    }
+  }
+
   Future<void>? _refreshing;
   bool get _hasGuard => _guards[_activeBranch]?.isNotEmpty ?? false;
   bool _ready = false, _started = false;
@@ -275,6 +301,8 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
     _history.clear();
     _searchResource = null;
     _lastSearchPath = '/search';
+    _notesChapter = '';
+    _notesChapterEnabled = true;
     _guards.clear();
     _deferredPaths.clear();
     _branchOpeners.clear();
@@ -324,6 +352,10 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
     if (!mounted) return;
     final owner = asString(asMap(data['user'])['id']);
     final ownerChanged = _sessionOwner != null && _sessionOwner != owner;
+    final preferences = await SharedPreferences.getInstance();
+    if (!mounted || generation != _bootstrapGeneration) return;
+    final notesChapterEnabled =
+        preferences.getBool(_notesPreferenceKey(owner)) ?? true;
     final fontScale = asInt(data['readerFontScale'], 100);
     var refreshReader =
         !ownerChanged &&
@@ -346,9 +378,25 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
         if (_activeBranch == 0) _path = '/';
       }
       _sessionOwner = owner;
+      _notesChapterEnabled = notesChapterEnabled;
       if (_readerFontScale == null || ownerChanged || refreshReader) {
         _readerFontScale = fontScale;
       }
+    });
+  }
+
+  Future<void> _reloadReaderAfterSettings() async {
+    final generation = _bootstrapGeneration;
+    if (!await _readerController.flush()) {
+      throw const ApiException(
+        'Die aktuelle Lesestelle konnte nicht gespeichert werden.',
+      );
+    }
+    if (!mounted || generation != _bootstrapGeneration) return;
+    setState(() {
+      _readerRevision++;
+      _branchPaths[0] = '/';
+      if (_activeBranch == 0) _path = '/';
     });
   }
 
@@ -375,7 +423,7 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
     final p = Uri.parse(path).path;
     return p == '/' ||
         !RegExp(
-          r'^/(search|G\d|H\d|notes|sermons|lists|l/|invites|account|login|logout|register|password-reset|admin|help|menu|workspaces|datenschutz|impressum|about|api)',
+          r'^/(search|G\d|H\d|notes|sermons|lists|l/|invites|account|login|logout|register|password-reset|admin|help|menu|settings|workspaces|datenschutz|impressum|about|api)',
         ).hasMatch(p);
   }
 
@@ -416,6 +464,30 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
           path: '/search',
           queryParameters: parameters.isEmpty ? null : parameters,
         ).toString();
+      }
+      if (Uri.parse(target).path == '/notes') {
+        final reference = _readerController.reference;
+        final chapter =
+            asInt(reference['book']) > 0 && asInt(reference['chapter']) > 0
+            ? referenceLabel({
+                'book': reference['book'],
+                'chapter': reference['chapter'],
+              })
+            : '';
+        final params = {...Uri.parse(target).queryParameters};
+        final explicitPassage = params['passage'];
+        if (_notesChapterEnabled &&
+            chapter.isNotEmpty &&
+            (explicitPassage == null ||
+                explicitPassage == _notesChapter ||
+                explicitPassage == chapter)) {
+          params['passage'] = chapter;
+          params.remove('book');
+          // Chapter notes include canonical anchors and all translations.
+          params.remove('resource');
+          target = Uri(path: '/notes', queryParameters: params).toString();
+        }
+        _notesChapter = chapter;
       }
       FocusManager.instance.primaryFocus?.unfocus();
       setState(() {
@@ -564,6 +636,9 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
       themeMode: widget.themeMode,
       eInk: widget.eInk,
       setEInk: widget.setEInk,
+      notesChapter: _notesChapter,
+      notesChapterEnabled: _notesChapterEnabled,
+      setNotesChapterEnabled: _setNotesChapterEnabled,
       child: TickerMode(
         enabled: _activeBranch == index,
         child: KeyedSubtree(
@@ -726,6 +801,12 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
   Widget _screen(BuildContext context, String path) {
     final route = Uri.parse(path).path;
     if (route == '/menu') return _menu(context);
+    if (route == '/settings') {
+      return SettingsScreen(
+        readerController: _readerController,
+        onHighlightStylesChanged: _reloadReaderAfterSettings,
+      );
+    }
     if (route.startsWith('/notes') || route.startsWith('/sermons')) {
       return DocumentsScreen(path: path);
     }
@@ -758,19 +839,9 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
       children: [
         Text('Dein Studium', style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 16),
-        Card(
-          child: SwitchListTile.adaptive(
-            title: const Text('E-Ink-Modus'),
-            subtitle: const Text(
-              'Hoher Kontrast und direktes Blättern, z. B. für Boox-Tablets.',
-            ),
-            value: widget.eInk,
-            onChanged: widget.setEInk,
-          ),
-        ),
         for (final item in [
           ('/lists', 'Sammlungen', Icons.collections_bookmark_outlined),
-          ('/account', 'Konto & Darstellung', Icons.manage_accounts_outlined),
+          ('/settings', 'Einstellungen', Icons.settings_outlined),
           ('/help', 'Hilfe & Anleitungen', Icons.help_outline),
           ('/about', 'Über Akribos', Icons.info_outline),
         ])

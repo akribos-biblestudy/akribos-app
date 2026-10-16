@@ -10,7 +10,8 @@ The server repository is `../akribos`; the first-party protocol is documented in
 
 Use native Flutter controls and available window width, including OS split-screen,
 landscape and large accessibility text. Reader text uses the local OFL fonts.
-Do not add a WebView as a substitute for a missing feature.
+The user explicitly chose the existing Akribos web editor in a system WebView for
+document editing. This exception is scoped to the document editor; other screens stay native.
 
 The session cookie belongs in encrypted platform storage. Never bundle API keys,
 passwords, certificates or live account fixtures. Account-dependent drafts must be
@@ -29,7 +30,7 @@ No deployment, store publication, signing-identity setup or remote push is impli
 by editing the local app. Distinguish local checks from device acceptance.
 
 The direct Pixel APK is built by `scripts/build-android-production.sh`: fixed HTTPS
-origin `https://akribos.de`, ARM64, version `0.2.8+11`, optimized AOT release with the existing local debug signing identity. Keep it
+origin `https://akribos.de`, ARM64, version `0.2.9+12`, optimized AOT release with the existing local debug signing identity. Keep it
 independent of local test-server defines and do not install/deploy from the script.
 Ordinary app use requires no API key, USB or ADB. The ignored artifact and its SHA-256
 file are written to `artifacts/`; store signing remains a separate explicit task.
@@ -67,7 +68,36 @@ activate or publish named browser workspaces. Send x-akribos-reader-mode: local;
 actions are explicitly detached and carry no named-workspace selection/content versions.
 Do not call workspace follow/view APIs or expose workspace-management UI. Respect current
 server resource permissions when restoring local tabs; never cache private Bible text.
-The floating Notes destination always opens /notes?kind=note after flushing guards; offer
+The tab overview ends with an empty plus card; adding it opens the resource chooser without
+creating a persistent empty tab. Mehr > Einstellungen offers Textdarstellung with Versweise
+and Fließtext, available to guests too; never put it in the tab overview. Appearance belongs only to Settings;
+signed-in settings reuse /account actions for reading font, default Bible and highlight colors.
+Refresh the retained Reader after font/style edits, preserving its flushed local position.
+Account remains reachable via the person icon and contains profile, password and sign-out;
+do not expose API-key management or a duplicate account destination in More. Fließtext uses
+justified paragraphs, Versweise stays start-aligned. Settings use the attached ReaderController
+to flush positions and change the retained reader, including when it is offstage. Store
+versePerLine in the existing encrypted local snapshot (missing means true), never in shared
+Reader URLs or server workspaces. Flow paragraphs keep source headings/line breaks and
+per-verse word positions, actions and scroll anchors. Use actual RenderParagraph glyph boxes
+for continuous marker strokes and in-paragraph verse alignment; include spaces, preserve
+partial word boundaries and retain monochrome underlines in E-Ink. Scripture section/chapter
+headings scale with the reading font (1.2/1.4), including accessibility scaling.
+The verse menu has four fixed actions: Markieren, Sammlungen, Notiz and Teilen.
+Use single-line icon/text buttons; measure actual label widths including system text scaling
+before choosing columns. Keep at least 48px touch targets and all main actions visible at
+normal phone/tablet portrait and landscape sizes. Copying is available through the native
+share sheet on Android and iOS; preserve the verse/reference/URL text and iPad popover origin.
+Offer whole-verse marking only; there is no word/partial-marking creation entry or handler.
+Existing partial highlights retain rendering and source-bound deletion without data migration.
+Keep arbitrary highlight/list catalogues in separate choice pages; system Back returns to
+the overview. Preserve the remaining action codes and ordinary Strong-word lookups. Large
+accessibility text may scroll instead of shrinking text, touch targets or clipping controls.
+The floating Notes destination opens /notes?kind=note after flushing guards, with passage set
+to the visible Reader chapter by default. The library's Aktuelles Kapitel switch can disable
+this; persist that preference per origin/account. Use the existing server passage filter across
+translations, never only filter a loaded page. Explicit manual passage filters remain possible.
+The tab overview has no separate Notes button. Offer
 Notes/Preparations switching in that library; no duplicate Preparations destination in More. Import, template management and preparation
 column editing are excluded from mobile UI; moving documents between existing steps remains.
 Help currently shows a local placeholder, never the web help catalogue. After the app is
@@ -89,7 +119,11 @@ Play upload. Automatic uploads target `internal` only. Keep pinned Actions/depen
 hashes, artifact checksums and actual upload/readback status. Setup is documented in
 `docs/PLAY-STORE.md`; the existing Pixel signing identity and script stay unchanged.
 
-The document editor edits canonical Markdown directly in a native TextField. Never
+## Legacy standalone source/reader widgets
+
+The following notes describe the retained standalone native widgets, not the active
+WebView document editor described below. The source widget edits canonical Markdown
+directly in a native TextField. Never
 introduce a Delta/AST-to-Markdown save conversion. Opening, selection and Read/Edit
 switches must preserve original source bytes and produce no PATCH. Keep the source
 TextField mounted across modes: its internal UndoHistory owns the undo stack. Exclude
@@ -115,3 +149,33 @@ selector at the left and the document menu at the right, with no separate plus b
 Extra insertions and details remain in that menu. Lists in reading mode use native HTML layout and first-line baselines. The opt-in
 marker factory uses the scaled reading font because upstream HtmlListMarker omits
 TextScaler; marker position still belongs to native HtmlListItem layout. Preserve edit/reading scroll positions independently across toggles.
+
+## Active document editor: shared web component
+
+The active document editor embeds the authenticated HTTPS `/app/editor/[id]` page.
+Use the same Web DocumentEditor, custom tables/footnotes/highlight schema and Markdown
+converters. Opening, selection and unmodified Read/Edit switches preserve original
+Markdown and produce no PATCH. The web editor owns text saves. Native metadata and
+attachment actions reserve/flush its queue, return the resulting revision, then unlock.
+Keep the editor instance and undo history across reading/editing modes.
+
+The native session bridge sets the app session in the native cookie store with
+HttpOnly, Secure and path=/ before loading the exact origin. Never pass session values
+through JavaScript, URLs, logs or an ordinary first-request header. Authentication
+boundaries clear the web session and destroy private views. Trust bridge messages only
+for the expected document, account and page instance; expose only versioned editor
+commands. No arbitrary URL/native request proxy. External navigation flushes first.
+
+Encrypted drafts retain the existing origin/account/document key and original revision.
+Snapshots come from the real editor. Stale restored drafts must not acquire a newer
+revision automatically. Wait for flush acknowledgements and local draft writes before
+navigation. Errors, conflicts and timeouts preserve the editor and draft. Page-load
+failure is visible and must never replace document content with an empty value.
+
+The native header owns Bearbeiten/Lesen and the menu at the far right. The embedded
+editor supplies contextual selection formatting and Markdown input rules. Reading
+is non-editable, including title and metadata. No duplicate web navigation, workspaces,
+two-row toolbar or plus button. Device checks cover keyboard/selection/back gestures,
+dark/light/E-Ink, lists, tables, footnotes, undo and conflicts. iOS device acceptance
+remains separate from Linux checks. The retained native source/reader widgets are
+not a second writer for an active web document.

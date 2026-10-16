@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="500" viewBox="0 0 1024 500">
+  <title>Akribos – Die Bibel. Genau betrachtet.</title>
+  <desc>Bestehende Akribos-Wortmarke auf papierfarbenem Grund, mit einer abstrakten Buchillustration auf dunkelgrünem Feld. Keine App-Oberfläche.</desc>
+  <rect width="1024" height="500" fill="#f8f7f2"/>
+  <path d="M668 0H1024V500H568C628 384 654 222 668 0Z" fill="#1a3819"/>
+  <path d="M710 0C693 214 676 367 620 500" fill="none" stroke="#86cc82" stroke-opacity=".16" stroke-width="1.5"/>
+  <image x="75" y="51" width="182" height="52" xlink:href="../../../assets/brand/wordmark.png"/>
+  <g font-family="Akribos Text" fill="#1c1917">
+    <text x="80" y="207" font-size="70" font-weight="600">Die Bibel.</text>
+    <text x="80" y="281" font-size="58" font-weight="600">Genau betrachtet.</text>
+    <text x="83" y="351" font-size="24" fill="#2a6b28">Lesen · Vergleichen · Notieren</text>
+  </g>
+  <path d="M82 394H158" stroke="#4aa747" stroke-width="3"/>
+  <!-- An editorial book illustration, not a screenshot or an app control. -->
+  <g transform="translate(653 131) rotate(-9 145 124)">
+    <path d="M10 23Q78 4 143 34Q208 4 276 23V228Q204 208 143 237Q82 208 10 228Z" fill="#86cc82"/>
+    <path d="M18 11Q82 -4 143 26Q204 -4 268 11V214Q204 197 143 226Q82 197 18 214Z" fill="#d3f2d1"/>
+    <path d="M23 4Q84 -9 143 20V219Q86 191 23 207Z" fill="#f0eee6"/>
+    <path d="M143 20Q202 -9 263 4V207Q200 191 143 219Z" fill="#fffefa"/>
+    <path d="M143 23V216" stroke="#1a3819" stroke-opacity=".16" stroke-width="1.5"/>
+    <g fill="none" stroke="#2a6b28" stroke-width="3" stroke-linecap="round" opacity=".33">
+      <path d="M45 44Q82 40 118 52"/>
+      <path d="M45 61Q82 57 118 69"/>
+      <path d="M45 78Q82 74 118 86"/>
+      <path d="M45 112Q82 108 118 120"/>
+      <path d="M45 129Q82 125 118 137"/>
+      <path d="M45 146Q82 142 118 154"/>
+      <path d="M45 163Q71 159 96 165"/>
+      <path d="M169 52Q204 40 241 44"/>
+      <path d="M169 69Q204 57 241 61"/>
+      <path d="M169 86Q204 74 241 78"/>
+      <path d="M169 103Q204 91 241 95"/>
+      <path d="M169 137Q204 125 241 129"/>
+      <path d="M169 154Q204 142 241 146"/>
+      <path d="M169 171Q192 163 214 163"/>
+    </g>
+    <path d="M216 1Q225 1 234 2V95L225 87L216 95Z" fill="#4aa747"/>
+  </g>
+</svg>

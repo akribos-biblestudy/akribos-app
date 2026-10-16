@@ -1,0 +1,31 @@
+{
+  "sources": {
+    "assets/brand/icon.png": "3da56c2c30ae7ebfdc2961a7835daf32b210266b19cfd62d49d91a106cb78824",
+    "assets/brand/wordmark.png": "f5da985d651d2d1688153e28f8efe30318f7a1676a06af7c781450124b85b555",
+    "assets/fonts/akribos-text-regular.ttf": "db35941fbc7d4b2651069f7369c1fa31230b910db5c9d420edb86359cc591e0a",
+    "assets/fonts/akribos-text-semibold.ttf": "f813fc659fc97b61e042019232afe1ed3941ad08f45807fe06bfbc33e1142e22"
+  },
+  "artworkSourceSha256": "af9e6027280fada2fab01b9ccc257d3c94b39143f297b231a0634b40a8387663",
+  "renderer": {
+    "imagemagick": "Version: ImageMagick 7.1.2-33 Q16-HDRI x86_64 4bab3bc37:20261010 https://imagemagick.org",
+    "librsvg": "rsvg-convert version 2.63.2\n\nlibraries used:\n  cairo 1.18.6\n  pango 1.58.2\n  harfbuzz 14.6.0\n  fontconfig 2.18.3"
+  },
+  "outputs": {
+    "icon.png": {
+      "width": 512,
+      "height": 512,
+      "bitDepth": 8,
+      "colorType": 6,
+      "bytes": 46421,
+      "sha256": "505179217d17102e6df8318e4c9aba8dc181d1ba62ca657928574ec29da74a17"
+    },
+    "feature-graphic.png": {
+      "width": 1024,
+      "height": 500,
+      "bitDepth": 8,
+      "colorType": 2,
+      "bytes": 63078,
+      "sha256": "1b63062f32b88ec6ab38a1bb7b68687af3a1770ae8dcdcd0d53fd884f137ac60"
+    }
+  }
+}

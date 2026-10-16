@@ -59,7 +59,9 @@ class _HighlightDialogState extends State<HighlightDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (widget.styles.isEmpty)
-                const Text('Lege zuerst im Konto einen Markierungsstil an.'),
+                const Text(
+                  'Lege zuerst in den Einstellungen eine Markierungsfarbe an.',
+                ),
               if (widget.styles.isNotEmpty)
                 DropdownButtonFormField<String>(
                   initialValue: _style,

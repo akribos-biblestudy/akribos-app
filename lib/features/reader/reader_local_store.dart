@@ -47,6 +47,7 @@ class ReaderLocalStore {
       return {
         'path': localReaderAddress(path),
         'layoutSizes': asMap(snapshot['layoutSizes']),
+        'versePerLine': snapshot['versePerLine'] != false,
       };
     } catch (_) {
       throw const ApiException(
@@ -55,7 +56,11 @@ class ReaderLocalStore {
     }
   }
 
-  Future<void> write(String path, {Json layoutSizes = const {}}) {
+  Future<void> write(
+    String path, {
+    Json layoutSizes = const {},
+    bool versePerLine = true,
+  }) {
     if (!_validPath(path)) {
       throw const ApiException(
         'Die lokalen Tabs enthalten keine gültige Reader-Adresse.',
@@ -66,6 +71,7 @@ class ReaderLocalStore {
       'version': 1,
       'path': localReaderAddress(path),
       'layoutSizes': layoutSizes,
+      'versePerLine': versePerLine,
     });
     final prior = _writes[storageKey];
     final task = () async {

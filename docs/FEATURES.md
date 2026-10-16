@@ -1,36 +1,37 @@
 # Umfang der nativen Nutzeroberfläche
 
-Stand: 15. Oktober 2026. Zielsysteme sind Android und iOS auf Smartphones und Tablets;
+Stand: 16. Oktober 2026. Zielsysteme sind Android und iOS auf Smartphones und Tablets;
 vorerst wird nur Android veröffentlicht. Alle Einträge beziehen sich auf normale Nutzer
 und auf deren aktuelle serverseitige Leserechte. Der tatsächliche Prüfstand steht in
 [VALIDATION.md](VALIDATION.md).
 
 | Bereich | Native Umsetzung |
 | --- | --- |
-| Lesen | Stellenwahl, Bibeln, Kommentare, Lexika, Parallelstellen, strukturierte Verse, Fußnoten, Strong-Wörter und Quellenangaben |
-| Tabs | Eine flache Folge aller Ressourcen auf jeder Fensterbreite, visuelle Tabkarten, Hinzufügen/Schließen, A–E-Kopplung mit Web-Farben und Buchstaben, unabhängige Tabs |
+| Lesen | Stellenwahl, Bibeln, Kommentare, Lexika, Parallelstellen, strukturierte Verse, unter Mehr → Einstellungen umschaltbar zwischen Versweise und Fließtext im Blocksatz, skalierende Überschriften, Fußnoten, Strong-Wörter und Quellenangaben |
+| Tabs | Eine flache Folge aller Ressourcen auf jeder Fensterbreite, visuelle Tabkarten mit zusätzlicher Plus-Karte, Hinzufügen/Schließen, A–E-Kopplung mit Web-Farben und Buchstaben, unabhängige Tabs |
 | Lokaler Readerstand | Tabs, Lesestellen, Tabgruppen, Suchen und Notizfilter pro Gerät, Server und Konto im sicheren Speicher; eigener Gaststand, Wiederherstellung bei Neustart |
 | Unabhängigkeit | Keine Übernahme oder Änderung von Browser-Arbeitsbereichen, keine Synchronisierung der Tabs zwischen App-Geräten, keine Workspace-Verwaltung |
 | Telefon/Tablet | Floating-Hauptnavigation, Wischwechsel zwischen allen Werken, Hoch-/Querformat und Fensterwechsel ohne Umordnung der lokalen Tabs |
 | E-Ink | Kontrastreiche helle Darstellung, reduzierte Animationen, direktes Blättern in Bildschirmabschnitten, erkennbare Markierungen ohne Farberkennung |
 | Suche | Wort-/Phrasensuche, Vorschläge, Buchfilter und Seiten; beim Öffnen übernimmt die Hauptnavigation das aktuelle Reader-Werk samt Titel und sucht bei geändertem Werk den bisherigen Begriff erneut; lokale Werksuche im Tabmenü |
 | Wortstudium | Herunterwischbarer Lexikon-Dialog bei Wortklick, Strong-Artikel, Quellwort/Position, Morphologie, Übersetzungsformen, Häufigkeiten und Fundstellen |
-| Markierungen | Ganze Verse, Versbereiche und Wörter; Entfernen, Übersichten, eigene Stilnamen und Farben mit sichtbarer Farbkachel und Textvorschau im Konto |
-| Notizen | Eigener Einstieg `/notes?kind=note`, interner Wechsel zu Ausarbeitungen, Bibliothek ohne Tagwolke, gezielte Tagfilter, Stellen, Papierkorb/Wiederherstellung, verknüpfte Sammlungen und Rückverweise |
-| Editor | Nativer Markdown-Quelltexteditor mit Auswahlformatierung und formatiertem Lesemodus, Markdown-Speicherung, revisionstreues Autosave, Konfliktvergleich, Entwurfswiederherstellung, Bibelzitate und Anhänge |
+| Markierungen | Neue Ganzversmarkierungen mit durchgehenden, leicht unregelmäßigen Markerstrichen pro Zeile; vorhandene Versbereichs-/Wortmarkierungen bleiben sichtbar und gezielt löschbar; vier einzeilige Versaktionen; Kopieren über den System-Teilen-Dialog, Übersichten, eigene Stilnamen und Farben mit sichtbarer Farbkachel und Textvorschau in den Einstellungen |
+| Notizen | Eigener Einstieg `/notes?kind=note`, standardmäßig auf das aktuelle Lesekapitel gefiltert und direkt abschaltbar, interner Wechsel zu Ausarbeitungen, Bibliothek ohne Tagwolke, gezielte Tagfilter, Stellen, Papierkorb/Wiederherstellung, verknüpfte Sammlungen und Rückverweise |
+| Editor | Gemeinsamer Akribos-Webeditor in einer System-WebView mit Auswahlformatierung, Tabellen, Fußnoten und schreibgeschütztem Lesemodus, Markdown-Speicherung, revisionstreues Autosave, Konfliktvergleich, Entwurfswiederherstellung, Bibelzitate und Anhänge |
 | Dokumentdateien | Serverseitige Exportformate über den nativen Teilen-Dialog; kein mobiler Import |
 | Ausarbeitungen | Board mit vorhandenen, nicht bearbeitbaren Spalten; Dokumente zwischen Spalten verschieben, Metadaten und Durchführungen; Wechsel zwischen Notiz und Ausarbeitung |
 | Sammlungen | Anlegen/Umbenennen/Löschen, Stellen hinzufügen/entfernen, Freigabelinks, Mitglieder/Einladungen, Verlassen, Kommentare/Antworten/Reaktionen |
 | Öffentlich Geteiltes | Öffentliche Sammlungen und veröffentlichte Notizen lesen, Links teilen/öffnen; Links erweitern keine Leserechte |
-| Konto | E-Mail-Code, Passwort mit System-Autofill, erhaltene gültige Anmeldung bei App-Updates, Bestätigungs-/Rücksetzlinks, Profil, Standardbibel, Schriftgröße, Darstellung, persönliche API-Schlüssel und Abmelden |
-| Mehr | Sammlungen, Konto, E-Ink-Modus, Hilfeplatzhalter und Über Akribos mit Open-Source-Lizenzen |
+| Konto | E-Mail-Code, Passwort mit System-Autofill, erhaltene gültige Anmeldung bei App-Updates, Bestätigungs-/Rücksetzlinks, Profil, Passwort und Abmelden über das Personen-Icon |
+| Einstellungen | Darstellung, E-Ink, Textdarstellung; nach Anmeldung Leseschrift, Standardbibel und Markierungsfarben; Schrift und Stiländerungen aktualisieren den Reader bei gleicher Lesestelle |
+| Mehr | Sammlungen, Einstellungen, Hilfeplatzhalter und Über Akribos mit Open-Source-Lizenzen |
 | Hilfe | Lokaler Platzhalter; eigenständige App-Anleitungen folgen nach Fertigstellung, siehe [TODO.md](TODO.md) |
 
 ## Unterschiede zur Weboberfläche
 
-Die Bedienung wird an das Gerät angepasst. Der Dokumenteditor bearbeitet Markdown direkt; dessen Zeichen bleiben beim Schreiben
-sichtbar. Formatierungsaktionen erscheinen an der Textauswahl. Ein getrennter formatierter
-Lesemodus eignet sich für Predigtskripte und zeigt auch ungespeicherte lokale Änderungen. Kommentare werden in die vom bestehenden Server unterstützte
+Die Bedienung wird an das Gerät angepasst. Der Dokumenteditor nutzt denselben visuellen
+Editor und dieselben Markdown-Konverter wie die Webanwendung. Formatierungsaktionen
+erscheinen an der Textauswahl. Ein schreibgeschützter Lesemodus eignet sich für Predigtskripte. Kommentare werden in die vom bestehenden Server unterstützte
 Formatierung umgewandelt; vorhandenes HTML bleibt ohne Bearbeitung erhalten. Die Webhilfe
 und die Web-Einführungstour mit Popovern werden nicht als App-Hilfe übernommen.
 
@@ -53,3 +54,7 @@ dauerhafte Offline-Warteschlange.
 E-Ink-Unterstützung verwendet normale Android-/Flutter-Schnittstellen. Es wird kein
 Boox-SDK eingebunden, und kein gerätespezifischer Refresh-Modus erzwungen. Ob Kontrast,
 Blättern und Touch auf einem bestimmten Boox-Modell angenehm sind, muss am Gerät geprüft werden.
+
+Die nativen Einstellungen unter „Mehr“ bündeln Darstellung, Textdarstellung und nach Anmeldung
+Leseschrift, Standardbibel sowie Markierungsfarben. Konto/Profil/Passwort sind über das Personen-Icon
+erreichbar; mobile API-Schlüsselverwaltung und ein weiterer Konto-Eintrag unter „Mehr“ entfallen.

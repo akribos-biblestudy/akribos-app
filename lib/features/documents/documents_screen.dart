@@ -122,7 +122,10 @@ class _Library extends StatelessWidget {
         FeatureField(
           'passage',
           'Bibelstelle (optional)',
-          value: Uri.parse(path).queryParameters['reference'] ?? '',
+          value:
+              Uri.parse(path).queryParameters['reference'] ??
+              Uri.parse(path).queryParameters['passage'] ??
+              '',
         ),
         if (sermons) ...[
           const FeatureField(
@@ -318,6 +321,7 @@ class _Library extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
     final documents = asMaps(data[sermons ? 'sermons' : 'documents']);
     final deleted = asMap(data['filters'])['deleted'] == true;
     final pagination = asMap(data['pagination']);
@@ -352,6 +356,24 @@ class _Library extends StatelessWidget {
               ],
             ),
           ),
+          if (!sermons && scope.setNotesChapterEnabled != null)
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Aktuelles Kapitel'),
+              subtitle: Text(
+                scope.notesChapter.isEmpty
+                    ? 'Zuerst eine Bibelstelle im Reader öffnen.'
+                    : scope.notesChapter,
+              ),
+              value:
+                  scope.notesChapterEnabled &&
+                  scope.notesChapter.isNotEmpty &&
+                  Uri.parse(path).queryParameters['passage'] ==
+                      scope.notesChapter,
+              onChanged: scope.notesChapter.isEmpty
+                  ? null
+                  : scope.setNotesChapterEnabled,
+            ),
           FeatureHeading(
             sermons
                 ? 'Vorbereitung'

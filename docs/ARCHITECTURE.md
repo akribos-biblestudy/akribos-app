@@ -4,7 +4,8 @@
 `lib/theme/akribos_theme.dart` übernimmt PWA-Farben, Typografie und E-Ink-Darstellung.
 `AppScope` liegt oberhalb des Navigators, damit auch Dialoge denselben authentifizierten
 Client und dieselben Darstellungseinstellungen verwenden. Ein Navigationsschutz wartet
-auf ausstehende Reader-/Dokumentspeicherung. Die Nutzeroberfläche enthält keine WebView.
+auf ausstehende Reader-/Dokumentspeicherung. Nur der Notizeditor verwendet die
+isolierte HTTPS-WebView mit der bestehenden Akribos-Webkomponente.
 
 Lesen, Suche, Dokumente und weitere Funktionen werden erst bei Bedarf erzeugt und als
 getrennte Bereiche im `IndexedStack` gehalten. Ein bloßer Hauptbereichswechsel baut den
@@ -64,7 +65,7 @@ Apple-Plattformregeln abhängig.
 ## Reader-Zustand
 
 Die App besitzt ihre Tabs selbst. `ReaderLocalStore` speichert den vollständigen Readerpfad
-mit URL-Snapshot und `layoutSizes` im verschlüsselten Plattform-Speicher, getrennt nach
+mit URL-Snapshot, `layoutSizes` und `versePerLine` im verschlüsselten Plattform-Speicher, getrennt nach
 Server-Origin und Konto-ID; Gäste verwenden einen eigenen Bereich. Start und Neustart laden
 diesen lokalen Stand. Ohne Stand beginnt die App mit der ersten verfügbaren Bibel bei Johannes 1.
 Browser-Arbeitsbereiche werden nicht importiert. Abmelden macht den bisherigen Kontostand nicht
@@ -97,8 +98,58 @@ Tabfolge dar. Die interne Kachel-/Tabstruktur dient weiterhin dem Reader-URL-Ver
 erscheinen nicht als leere Seiten oder Tabkarten. Ein Breitenwechsel ordnet die lokalen Tabs nicht
 um. Es gibt keine Split-, Layout- oder Trennerbedienung. Jeder Ressourcentab behält Kapitelcache,
 Suchkontext und Lesestelle; A–E koppelt aktive und inaktive Tabs derselben Gruppe innerhalb dieses
-lokalen Stands. Verse werden in Sliver-Listen um den Viewport aufgebaut, Referenzanker ermöglichen
-den exakten Sprung.
+lokalen Stands. Die Tabübersicht endet immer mit einer leeren Plus-Karte zum Öffnen der
+Werkauswahl. Erst die Auswahl eines Werkes legt einen Tab an.
+
+„Mehr → Einstellungen“ bündelt Darstellung/E-Ink und die Textdarstellung auch für Gäste.
+Angemeldete Nutzer laden darunter Leseschrift, Standardbibel und Markierungsfarben über den
+bestehenden `/account`-Vertrag. `RemotePage.embedded` begrenzt Lade-/Fehlerzustände auf diesen
+kontogebundenen Bereich, damit lokale Einstellungen weiter bedienbar bleiben. Schriftänderungen
+aktualisieren den Reader über den Bootstrap-Vergleich; neue/umbenannte Markierungsfarben laden
+seinen Datenstand nach, jeweils erst nach Sicherung der lokalen Lesestelle. Das Personen-Icon
+öffnet weiterhin Profil, Passwort und Abmelden. Unter Mehr gibt es keinen Konto-Eintrag mehr,
+API-Schlüsselverwaltung ist kein Bestandteil der mobilen Kontooberfläche.
+
+Unter „Mehr → Einstellungen“ bietet „Textdarstellung“ die Optionen „Versweise“ (Standard und
+Rückfall für alte lokale Stände) und „Fließtext“. Diese gerätelokale Seite ist auch für Gäste
+erreichbar; die Tabübersicht enthält keine Darstellungsumschaltung. Fließtext steht im Blocksatz,
+Versweise bleibt am Zeilenanfang ausgerichtet. Der angehängte `ReaderController` sichert beim
+Wechsel zuerst die Lesestelle und ändert den erhaltenen Reader auch außerhalb der sichtbaren
+Leseansicht. Beim Zurückkehren wird derselbe Vers im neuen Absatzlayout ausgerichtet. Verse
+beziehungsweise durch Quellüberschriften getrennte Absätze werden in Sliver-Listen um den Viewport
+aufgebaut. Quellzeilenumbrüche bleiben erhalten. Fließtext ist
+ein echter RichText-Absatz; Versnummern, Fußnoten, Wortaktionen und Langdruck bleiben an den
+jeweiligen Vers gebunden. Die tatsächlichen Glyphenpositionen dienen der Ausrichtung und
+Lesestellenerfassung innerhalb des Absatzes, auch nach einem Darstellungswechsel.
+
+`VerseMarkerPainter` zeichnet gespeicherte Markierungen hinter den Glyphen. Die Auswahlboxen
+des tatsächlichen `RenderParagraph` verbinden Leerzeichen und gemischte Wortstile zu einer
+leicht unregelmäßigen Farbfläche pro Zeile, ohne neue Wortindizes oder Strong-Positionen zu
+erfinden. Teilmarkierungen behalten ihre gespeicherten Grenzen. E-Ink verwendet stattdessen
+schwarze Unterstreichungen und benannte Markierungen. Abschnitts- und Kapitelüberschriften
+verwenden das 1,2- beziehungsweise 1,4-Fache der gewählten Leseschriftgröße.
+
+`ReaderVerseMenu` zeigt vier feste Aktionen: Markieren, Sammlungen, Notiz und Teilen.
+Symbole stehen neben einzeiligen Beschriftungen. Die tatsächlichen Textbreiten einschließlich
+Systemskalierung bestimmen die Spaltenzahl; auf Telefonen entsteht typischerweise ein
+2×2-Raster, bei großer Schrift eine Liste, bei ausreichender Breite eine Zeile.
+Die Buttons bleiben gleich breit und mindestens 48 Pixel hoch. Der separate Kopierbutton
+entfällt; Kopieren steht im nativen Teilen-Dialog bereit. Teilen behält Vers, Referenz, URL
+und den bestehenden `sharePositionOrigin` für das iPad. iOS verwendet über `share_plus`
+die normale `UIActivityViewController`-Aktion
+[`copyToPasteboard`](https://developer.apple.com/documentation/uikit/uiactivity/activitytype-swift.struct/copytopasteboard)
+für den geteilten Text; diese Aktivität wird nicht ausgeschlossen. Das wurde anhand der
+Apple-Dokumentation und des installierten Plugin-Codes geprüft, nicht auf einem iOS-Gerät.
+Neue Markierungen betreffen ausschließlich den ganzen Vers.
+Der Einstieg und Handler zum Erstellen von Wort-/Teilmarkierungen sind entfernt.
+Vorhandene Teilmarkierungen werden weiterhin mit ihren gespeicherten Grenzen dargestellt
+und lassen sich gezielt löschen; es gibt keine Datenmigration oder automatische Löschung.
+Normale Strong-Wortaktionen bleiben erhalten. Beliebig viele Farben, vorhandene
+Markierungen und Sammlungen stehen auf eigenen Auswahlseiten; System-Zurück führt zunächst
+zum Hauptmenü. Dieses passt auf den geprüften Telefon-/Tabletgrößen in Hoch- und Querformat
+ohne Scrollen. Sehr große Systemschrift erhält stattdessen eine Scrollmöglichkeit, damit
+Beschriftungen und Touchflächen nicht schrumpfen oder abgeschnitten werden. Aktionscodes,
+Gastgrenzen und quellgebundene Teilmarkierungs-Löschungen bleiben unverändert.
 
 Wortklicks öffnen das Lexikon vorübergehend als fast bildschirmhohen Dialog von unten.
 Die bestehende Strong-API bekommt Quellressource, Stelle, Wort und Wortposition; der
@@ -109,8 +160,13 @@ zusammen mit derselben A–E-Farbpalette wie das Web-Portal; E-Ink verwendet deu
 
 ## Dokumente
 
-Der Floating-Navigationseintrag „Notizen“ öffnet immer `/notes?kind=note`, auch wenn zuvor
-eine Ausarbeitung geöffnet war. Ein interner Wechsel führt zu `/sermons`. Auch neue Notizen
+Der Floating-Navigationseintrag „Notizen“ öffnet `/notes?kind=note`, auch wenn zuvor
+eine Ausarbeitung geöffnet war. Nach dem Flush liefert der Reader seine aktuelle Stelle;
+standardmäßig ergänzt die Shell `passage` mit deren ganzem Kapitel. Der vorhandene
+Serverfilter erfasst sowohl Stellenanker als auch Verweise im Text, übersetzungsübergreifend
+und vor der Paginierung. „Aktuelles Kapitel“ in der Bibliothek schaltet dies ab oder wieder an;
+die boolesche Präferenz bleibt lokal pro Server/Konto erhalten. Neue Notizen übernehmen den
+aktiven Stellenfilter als editierbare Vorgabe. Ein interner Wechsel führt zu `/sermons`. Auch neue Notizen
 kehren zur reinen Notizbibliothek zurück. Die App bietet weder Import noch Vorlagenverwaltung
 oder Vorlagenwahl; alte direkte Import-/Vorlagenpfade führen zur jeweiligen Übersicht.
 Boardspalten werden nur angezeigt, Dokumente lassen sich weiterhin zwischen ihnen verschieben.
@@ -118,6 +174,32 @@ Boardspalten werden nur angezeigt, Dokumente lassen sich weiterhin zwischen ihne
 Die Notizübersichten rendern keine vollständige Tagwolke. Tagfilter werden bei Bedarf
 geöffnet, Tagdetails am Dokument bleiben eingeklappt und bearbeitbar. Die Zahl vorhandener
 Tags darf den eigentlichen Notizinhalt nicht aus dem sichtbaren Bereich verdrängen.
+
+### Gemeinsamer aktiver Webeditor
+
+`WebEditor` lädt ausschließlich `/app/editor/[id]` auf dem konfigurierten HTTPS-Origin.
+`EditorWebSession` überträgt die vorhandene Session über einen nativen MethodChannel
+an CookieManager/WKHTTPCookieStore: hostgebunden, HttpOnly, Secure und Pfad `/`.
+Abmelden/Kontowechsel löscht den Webkontext. Gleiche bereits bestätigte Sitzungen
+werden nur prozesslokal erkannt, damit normale Notizwechsel nicht alle Assets neu laden.
+Kein Sessionwert gelangt in JavaScript, URLs oder Logs.
+
+Die Webkomponente besitzt die einzige Text-Speicherqueue. `WebEditorController` wartet
+auf versionierte Antworten für Flush, Lesen/Bearbeiten und reservierte Metadatenaktionen.
+Aktueller Text und bestätigter Serverstand bleiben getrennt. Snapshots sichern den
+bestehenden verschlüsselten Entwurf samt Ursprungsrevision; Konflikte überschreiben
+keinen neueren Stand. Navigation benötigt eine Speicherbestätigung oder eine ausdrückliche
+Entwurfsentscheidung. Der Editor bleibt beim Moduswechsel samt Undo-History erhalten.
+
+Rootlayout und Clientinitialisierung der Embedroute greifen nicht auf Reader-/Browser-
+Arbeitsbereiche zu. Native Navigation und Meta-/Dateidialoge bleiben im Flutter-Host.
+Die Seite benötigt Netzwerk beim Öffnen; lokale Entwurfssicherung ist keine Zusage
+für einen vollständig offline verfügbaren Webeditor.
+
+### Erhaltene native Widgets aus dem vorherigen Editor
+
+Die folgenden Widgets bleiben separat testbar, sind aber nicht mehr die aktive
+Bearbeitungs- oder Lesefläche einer geöffneten Notiz:
 
 `MarkdownSourceEditor` bearbeitet die kanonische Markdown-Quelle unmittelbar in einem
 nativen Flutter-Textfeld. Es gibt keine Delta-Projektion und keine Rückkonvertierung beim

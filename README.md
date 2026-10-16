@@ -23,9 +23,9 @@ Mit der unten beschriebenen Flutter-/Android-Buildumgebung:
 ./scripts/build-android-production.sh
 ```
 
-Das Skript baut fest für `https://akribos.de`, Android ARM64 und Version `0.2.8+11` als optimierten AOT-Release.
+Das Skript baut fest für `https://akribos.de`, Android ARM64 und Version `0.2.9+12` als optimierten AOT-Release.
 Die installierbare Datei liegt unter
-`artifacts/akribos-0.2.8-akribos-de-release.apk`; daneben liegt ihre SHA-256-Prüfsumme.
+`artifacts/akribos-0.2.9-akribos-de-release.apk`; daneben liegt ihre SHA-256-Prüfsumme.
 Sie kann auf dem Pixel als APK geöffnet und installiert werden. Eine bereits installierte
 App mit derselben Android-Debug-Signatur lässt sich damit aktualisieren.
 Die APK verwendet zur Update-Kompatibilität den bereits vorhandenen lokalen
@@ -45,7 +45,8 @@ müssen noch eingerichtet werden; die Pixel-APK bleibt davon unabhängig.
 - Wort-/Phrasensuche im aktuellen Werk, Strong-Nummern, Morphologie,
   Übersetzungsstatistik und Fundstellen.
 - Vers- und Wortmarkierungen, sichtbare Markierungsfarben, Sammlungen und persönliche Notizen.
-- Dokumente mit großem nativem Markdown-Editor, Formatierung an der Textauswahl, formatiertem Lesemodus,
+- Dokumente mit dem gemeinsamen Akribos-Webeditor in einer System-WebView,
+  Formatierung an der Textauswahl, echtem Lesemodus, Tabellen und Fußnoten,
   Markdown-Speicherung, Autosave und Konfliktauflösung sowie
   lokalen Wiederherstellungsentwürfen, Anhängen und Export.
 - Ausarbeitungsboard mit vorhandenen Spalten und verschiebbaren Dokumenten,
@@ -117,15 +118,16 @@ Dieser optionale Testserver ist ausschließlich eine Entwicklungsumgebung. Das o
 beschriebene Produktions-Buildskript verwendet immer akribos.de und übernimmt weder
 diese Testadresse noch `AKRIBOS_TEST_SERVER` in die APK.
 
-Die CI prüft Formatierung, Analyse und Tests, baut eine Android-Debug-APK und auf
-macOS einen unsignierten iOS-Build. Sie veröffentlicht keine Store-Version.
+Die CI prüft Formatierung, Analyse und Tests und baut eine Android-Debug-APK.
+Sie veröffentlicht keine Store-Version; eine iOS-Geräteabnahme steht noch aus.
 [docs/RELEASE.md](docs/RELEASE.md) beschreibt Signierung und Geräteabnahme.
 
 ## Architektur und Datenschutz
 
-Die Oberfläche besteht aus Flutter-Widgets. Sichere strukturierte Bibelsegmente und
-serverseitig bereinigter Dokument-/Kommentartext werden nativ gerendert. Es gibt
-keine eingebettete WebView und keinen externen Schriftdienst.
+Reader und Navigation bestehen aus Flutter-Widgets. Der Notizeditor verwendet die
+isolierte HTTPS-Seite `/app/editor/[id]` in einer System-WebView mit demselben Editor
+wie im Browser. Sie löst keine Browser-Arbeitsbereiche auf. Schriftdateien werden
+von Akribos selbst ausgeliefert; ein externer Schriftdienst ist nicht beteiligt.
 
 Sitzungscookies, lokale Readerstände und persönliche Dokumententwürfe liegen im sicheren
 Plattform-Speicher. Readerstände und Entwürfe sind nach Server und Konto getrennt. Die App sendet keine Analyseereignisse. Private Bilder
