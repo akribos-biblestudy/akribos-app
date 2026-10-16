@@ -168,9 +168,10 @@ Optionen verwenden. Secret-Passwörter interaktiv in GitHub eintragen.
 ## 5. Erstes Bundle bauen
 
 Nach grünem **Push-CI-Lauf** für den aktuellen `main`-Commit unter **Actions → Android
-Play Internal Testing → Run workflow** den Branch `main` wählen und beispielsweise
-`bootstrap_version: 0.3.0` eingeben und `release_tag` leer lassen. Nur für eine App verwenden, deren erstes Bundle
-noch manuell hochzuladen ist. Der Bootstrap fragt die noch nicht verfügbare Play-App
+Play Internal Testing → Run workflow** den Branch `main` wählen. Für diesen Lauf
+`PLAY_BOOTSTRAP_ALLOWED` vorübergehend auf `true` setzen, beispielsweise
+`bootstrap_version: 0.3.0` eingeben und `release_tag` leer lassen. Nur für eine App verwenden,
+deren erstes Bundle noch manuell hochzuladen ist. Der Bootstrap fragt die noch nicht verfügbare Play-App
 nicht per API ab; der bestätigte Mindeststand kommt aus Schritt 4.
 
 Der Lauf reserviert eine neue Versionsnummer, baut für `https://akribos.de`, signiert
@@ -178,6 +179,32 @@ das AAB mit dem Uploadschlüssel und prüft Signatur, Paketname, Version und
 Nicht-Debug-Build. Unter **Artifacts** das Paket `akribos-play-VERSION-NUMMER`
 herunterladen. Es enthält `.aab`, `SHA256SUMS` und `release.json` mit
 `storeUploaded: false`. Ein AAB wird nicht direkt auf das Pixel installiert.
+Die Bootstrap-Freigabe nach Abschluss des Laufs wieder auf `false` setzen, auch bei einem
+Fehler; der anschließende manuelle Upload benötigt diese Variable nicht.
+
+### Verifiziertes erstes Bundle
+
+Der [Bootstrap-Lauf 38919965671](https://github.com/akribos-biblestudy/akribos-app/actions/runs/38919965671)
+ist erfolgreich abgeschlossen. Das heruntergeladene Artefakt wurde zusätzlich lokal gegen
+`SHA256SUMS` und `release.json` geprüft:
+
+| Merkmal | Bestätigter Wert |
+| --- | --- |
+| Quellcommit | `34af18d5760905efdfa21ccfb239c9e4b5a6cbeb` |
+| Paket / Version / Build | `de.akribos.app` / `0.3.0` / `13` |
+| GitHub-Artefakt | `akribos-play-0.3.0-13`, ID `12054404581` |
+| Lokale Datei, Git-ignoriert | `artifacts/play-0.3.0-13/akribos-0.3.0-13.aab` |
+| AAB-SHA-256 | `c896fe3eac29c696d3b5fd4a29947728e0ad7406abf3d420b0e1ea4cb96ab621` |
+| Uploadzertifikat, SHA-256 | `890bc7a97d2ca6f07bc120daacdd827bac7c55f0e626568f88eb92a7afc2f0ba` |
+| Ergebnis im Manifest | `storeUploaded: false` |
+| Bootstrap-Freigabe | Nach Abschluss auf `false` gesetzt und zurückgelesen |
+
+Die CI hat Paket, Version und Nicht-Debug-Build geprüft. Auch lokal bestätigt `jarsigner`
+die Signatur; der Strict-Rückgabewert `4` beruht auf dem erwarteten selbstsignierten
+Uploadzertifikat und seiner fehlenden öffentlichen Vertrauenskette. Das ist noch kein
+Nachweis eines Google-Uploads, eines internen Releases oder einer Play-Installation.
+Der nach diesem Quellcommit ergänzte native Einstieg zum Löschantrag ist in diesem
+Bootstrap-Bundle noch nicht enthalten; dafür ist ein neuer geprüfter App-Build erforderlich.
 
 ## 6. Einmalig manuell nach Internal Testing hochladen
 
@@ -196,7 +223,7 @@ interne Test unterstützt bis zu 100 Tester; die Verfügbarkeit kann nach der
 Freigabe etwas dauern.
 [Anleitung zu internen Tests.](https://support.google.com/googleplay/android-developer/answer/9845334?hl=de)
 
-Danach `PLAY_BOOTSTRAP_ALLOWED=false` setzen. Unter **App-Integrität / App-Signierung**
+Die Bootstrap-Freigabe bleibt nach Schritt 5 auf `false`. Unter **App-Integrität / App-Signierung**
 den SHA-256-Wert des **App-Signaturzertifikats** kopieren. Diesen zusätzlich in
 `../akribos/static/.well-known/assetlinks.json` für `de.akribos.app` eintragen und
 den Server regulär veröffentlichen, damit auch Play-Installationen Akribos-Links
@@ -209,12 +236,27 @@ hier nicht den App-Signatur-Fingerprint.
 Das vorhandene Dienstkonto hat die vom Nutzer in der Play Console erteilten
 Akribos-Rechte; der API-Zugriff wurde mit HTTP 200 bestätigt. Es muss dafür kein
 weiteres Dienstkonto angelegt werden. Das zugehörige JSON ist als Environment Secret
-`PLAY_SERVICE_ACCOUNT_JSON` vorhanden. Die erfolgreichen Entwurfsabfragen belegen
-noch keine Veröffentlichung und ersetzen keine Prüfung des späteren Upload-/Commitlaufs.
+`PLAY_SERVICE_ACCOUNT_JSON` vorhanden. Die erfolgreichen Entwurfsabfragen und der
+bestätigte Store-Listing-Commit ersetzen keine Prüfung des späteren Bundle-Uploads und
+Release-Commits.
 
 Für eine spätere Neueinrichtung die **Google Play Android Developer API** im passenden
 Google-Cloud-Projekt aktivieren und dem vorgesehenen Dienstkonto in der Play Console
-Akribos-Rechte zum Lesen sowie Erstellen/Veröffentlichen von Test-Releases geben.
+folgende Rechte gezielt für Akribos geben:
+
+- App-Informationen ansehen (schreibgeschützt)
+- App-Präsenz im Play Store verwalten (`CAN_MANAGE_PUBLIC_LISTING`)
+- App-Entwürfe bearbeiten und löschen (`CAN_MANAGE_DRAFT_APPS`)
+- Apps in Test-Tracks veröffentlichen (`CAN_MANAGE_TRACK_APKS`)
+
+Bei der neuen Akribos-App funktionierten Listing-PUT und Bilderupload zunächst, die
+Validierung eines geänderten Eintrags scheiterte jedoch mit HTTP 403. Nachdem der Nutzer
+zusätzlich das App-Entwurfsrecht erteilt hatte, lieferte dieselbe Validierung HTTP 200;
+der Listing-Commit und das anschließende Rücklesen waren erfolgreich. Das Entwurfsrecht
+ist deshalb Teil dieser bestätigten Einrichtung. Es erlaubt allein keine Release-Einführung.
+[Google erklärt die getrennten App-Rechte](https://support.google.com/googleplay/android-developer/answer/9844686?hl=de),
+[API-Zuordnung der Rechte](https://developers.google.com/android-publisher/api-ref/rest/v3/grants).
+
 Für diesen Workflow sind Produktions-Veröffentlichung und Finanzverwaltung nicht
 vorgesehen; die aktuellen Berechtigungsbezeichnungen in der Console prüfen.
 
