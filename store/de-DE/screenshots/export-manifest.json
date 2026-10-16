@@ -1,0 +1,57 @@
+{
+  "browser": "Chromium 151.0.7922.34",
+  "deviceScaleFactor": 1,
+  "background": "#171e18",
+  "offsetX": 170,
+  "offsetY": 12,
+  "results": [
+    {
+      "file": "01-reader.png",
+      "sourceSha256": "ccc1e8f48a757a545f6551f82e9cc3378fad75084a65238d946387f34d68398d",
+      "outputSha256": "eebf19eb0498b1b5e113d149fa51c863d69c3f29ac3059cc41f42d0f51b72b69",
+      "width": 1620,
+      "height": 2880,
+      "pngColorType": "RGB",
+      "sourceWidth": 1280,
+      "sourceHeight": 2856,
+      "differentChannels": 0,
+      "nonOpaquePixels": 0
+    },
+    {
+      "file": "02-verse-menu.png",
+      "sourceSha256": "c043b2362b8827e029a9b14369c83b64b99382eda24a304befb2ad4a0b4ec346",
+      "outputSha256": "a614cc40d427f96108837d23afd0744c442ae87761f5132344ebd47e0de8c94b",
+      "width": 1620,
+      "height": 2880,
+      "pngColorType": "RGB",
+      "sourceWidth": 1280,
+      "sourceHeight": 2856,
+      "differentChannels": 0,
+      "nonOpaquePixels": 0
+    },
+    {
+      "file": "04-settings.png",
+      "sourceSha256": "bb858bb43a56177c57b33076b6ad79225ddda69634c4f1c7fc6d101946b4a17a",
+      "outputSha256": "f2f887fd154896a48685e14d0085f59118a7a70dc1994db389b725c26025bec8",
+      "width": 1620,
+      "height": 2880,
+      "pngColorType": "RGB",
+      "sourceWidth": 1280,
+      "sourceHeight": 2856,
+      "differentChannels": 0,
+      "nonOpaquePixels": 0
+    },
+    {
+      "file": "05-search-grace.png",
+      "sourceSha256": "4e4de7fd61ed11b612d909df7d704a8e7e02ed0a7990a471ceaa41c366736d29",
+      "outputSha256": "c0be8facd2f2950e4b8c933564b35cc9b35248bebcf0dde5c1c743d7902f9cb7",
+      "width": 1620,
+      "height": 2880,
+      "pngColorType": "RGB",
+      "sourceWidth": 1280,
+      "sourceHeight": 2856,
+      "differentChannels": 0,
+      "nonOpaquePixels": 0
+    }
+  ]
+}

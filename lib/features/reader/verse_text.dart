@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../core/json.dart';
 
@@ -165,6 +166,22 @@ Color? verseColor(String value) {
   return Color(hex.length == 6 ? 0xff000000 | parsed : parsed);
 }
 
+/// One verse in a paragraph. Offsets for Strong words restart for every verse.
+class VersePassage {
+  const VersePassage({
+    required this.segments,
+    this.number,
+    this.highlights = const [],
+    this.onWord,
+    this.onOpen,
+  });
+  final List<dynamic> segments;
+  final String? number;
+  final List<Json> highlights;
+  final void Function(Json word, int position)? onWord;
+  final VoidCallback? onOpen;
+}
+
 class VerseText extends StatefulWidget {
   const VerseText({
     super.key,
@@ -178,8 +195,10 @@ class VerseText extends StatefulWidget {
     this.verseNumber,
     this.onVerseNumber,
     this.selectable = true,
+    this.passages,
   });
   final List<dynamic> segments;
+  final List<VersePassage>? passages;
   final void Function(Json word, int position)? onWord;
   final TextDirection? direction;
   final String? studiedStrong;
@@ -190,23 +209,46 @@ class VerseText extends StatefulWidget {
   final VoidCallback? onVerseNumber;
   final bool selectable;
   @override
-  State<VerseText> createState() => _VerseTextState();
+  State<VerseText> createState() => VerseTextState();
 }
 
-class _VerseTextState extends State<VerseText> {
+class VerseTextState extends State<VerseText> {
   final _recognizers = <TapGestureRecognizer>[];
-  late List<VerseRun> _runs = verseRuns(
-    widget.segments,
-    studiedStrong: widget.studiedStrong,
-  );
+  final _textKey = GlobalKey();
+  final _starts = <int>[];
+  List<VersePassage> _passages = [];
+  RenderParagraph? get paragraph {
+    final render = _textKey.currentContext?.findRenderObject();
+    return render is RenderParagraph ? render : null;
+  }
 
-  @override
-  void didUpdateWidget(VerseText oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.segments, widget.segments) ||
-        oldWidget.studiedStrong != widget.studiedStrong) {
-      _runs = verseRuns(widget.segments, studiedStrong: widget.studiedStrong);
-    }
+  /// Actual glyph positions, also used to preserve the verse while reflowing.
+  double passageTop(int index) {
+    if (index < 0 || index >= _starts.length) return 0;
+    final boxes = paragraph?.getBoxesForSelection(
+      TextSelection(
+        baseOffset: _starts[index],
+        extentOffset: _starts[index] + 1,
+      ),
+    );
+    return boxes == null || boxes.isEmpty ? 0 : boxes.first.top;
+  }
+
+  int passageAt(Offset local) {
+    final offset = paragraph?.getPositionForOffset(local).offset ?? 0;
+    final index = _starts.lastIndexWhere((start) => start <= offset);
+    return index < 0 ? 0 : index;
+  }
+
+  int passageAtHeight(double y) {
+    // At the leading edge of a line, including RTL paragraphs.
+    final render = paragraph;
+    return passageAt(
+      Offset(
+        widget.direction == TextDirection.rtl ? render?.size.width ?? 0 : 0,
+        y,
+      ),
+    );
   }
 
   void _clearRecognizers() {
@@ -222,111 +264,287 @@ class _VerseTextState extends State<VerseText> {
     super.dispose();
   }
 
+  TapGestureRecognizer _tap(VoidCallback action) {
+    final recognizer = TapGestureRecognizer()..onTap = action;
+    _recognizers.add(recognizer);
+    return recognizer;
+  }
+
   @override
   Widget build(BuildContext context) {
     _clearRecognizers();
+    _starts.clear();
     final colors = Theme.of(context).colorScheme;
     final highContrast = MediaQuery.highContrastOf(context);
-    final spans = <InlineSpan>[];
-    if (widget.verseNumber != null) {
-      final recognizer = TapGestureRecognizer()
-        ..onTap = () => widget.onVerseNumber?.call();
-      _recognizers.add(recognizer);
-      spans.add(
-        TextSpan(
-          text: '${widget.verseNumber} ',
-          recognizer: recognizer,
-          style: TextStyle(
-            fontSize: widget.fontSize * .65,
-            fontWeight: FontWeight.w700,
-            color: colors.primary,
-            fontFamily: Theme.of(context).textTheme.labelSmall?.fontFamily,
+    _passages =
+        widget.passages ??
+        [
+          VersePassage(
+            segments: widget.segments,
+            number: widget.verseNumber,
+            highlights: widget.highlights,
+            onWord: widget.onWord,
+            onOpen: widget.onVerseNumber,
           ),
+        ];
+    final spans = <InlineSpan>[];
+    final marks = <VerseMarkerRange>[];
+    var offset = 0;
+    for (final passage in _passages) {
+      if (spans.isNotEmpty) {
+        spans.add(const TextSpan(text: ' '));
+        offset++;
+      }
+      _starts.add(offset);
+      if (passage.number != null) {
+        final number = '${passage.number} ';
+        spans.add(
+          TextSpan(
+            text: number,
+            recognizer: passage.onOpen == null ? null : _tap(passage.onOpen!),
+            style: TextStyle(
+              fontSize: widget.fontSize * .65,
+              fontWeight: FontWeight.w700,
+              color: colors.primary,
+              fontFamily: Theme.of(context).textTheme.labelSmall?.fontFamily,
+            ),
+          ),
+        );
+        offset += number.length;
+      }
+      final runs = verseRuns(
+        passage.segments,
+        studiedStrong: widget.studiedStrong,
+      );
+      final runOffsets = <int>[];
+      for (final run in runs) {
+        runOffsets.add(offset);
+        final text = run.divineName ? run.text.toUpperCase() : run.text;
+        offset += text.length;
+        TapGestureRecognizer? recognizer;
+        if (run.note != null) {
+          recognizer = _tap(
+            () => showDialog<void>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Anmerkung'),
+                content: SelectableText(run.note!),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Schließen'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        } else if (run.word != null && passage.onWord != null) {
+          recognizer = _tap(() => passage.onWord!(run.word!, run.position!));
+        }
+        final searchHit = widget.needles.any(
+          (needle) =>
+              needle.isNotEmpty &&
+              run.text.toLowerCase().contains(needle.toLowerCase()),
+        );
+        spans.add(
+          TextSpan(
+            text: text,
+            recognizer: recognizer,
+            style: TextStyle(
+              fontFamily: run.note == null ? 'AkribosText' : null,
+              fontFamilyFallback: const ['NotoSansHebrew'],
+              fontStyle: run.italic ? FontStyle.italic : null,
+              fontSize: run.note != null
+                  ? widget.fontSize * .75
+                  : run.divineName
+                  ? widget.fontSize * .9
+                  : null,
+              color: run.note != null
+                  ? colors.primary
+                  : run.redLetter && !highContrast
+                  ? const Color(0xffa53731)
+                  : null,
+              backgroundColor: searchHit ? colors.tertiaryContainer : null,
+              decoration:
+                  run.word != null &&
+                      widget.studiedStrong != null &&
+                      strongNumbers(run.word!).contains(widget.studiedStrong)
+                  ? TextDecoration.underline
+                  : null,
+            ),
+          ),
+        );
+      }
+      // A selection spans all intervening spaces, punctuation and note markers.
+      // Partial highlights retain the exact stored display-word boundaries.
+      for (final range in passage.highlights) {
+        final indices = [
+          for (var i = 0; i < runs.length; i++)
+            if (runs[i].wordIndex != null &&
+                runs[i].wordIndex! >= asInt(range['start']) &&
+                runs[i].wordIndex! <= asInt(range['end'], 100000))
+              i,
+        ];
+        final color = verseColor(asString(range['color']));
+        if (indices.isEmpty || color == null) continue;
+        final last = indices.last;
+        final end = last + 1 < runOffsets.length
+            ? runOffsets[last + 1]
+            : offset;
+        marks.add(VerseMarkerRange(runOffsets[indices.first], end, color));
+      }
+    }
+    final style = DefaultTextStyle.of(context).style.merge(
+      TextStyle(
+        fontWeight: FontWeight.w400,
+        fontFamily: 'AkribosText',
+        fontFamilyFallback: const ['NotoSansHebrew'],
+        fontSize: widget.fontSize,
+        height: 1.65,
+      ),
+    );
+    final direction = widget.direction ?? verseDirection(widget.segments);
+    Widget text = Builder(
+      builder: (textContext) => CustomPaint(
+        painter: VerseMarkerPainter(
+          paragraph: () => paragraph,
+          ranges: marks,
+          highContrast: highContrast,
+          inkColor: colors.onSurface,
         ),
+        child: RichText(
+          key: _textKey,
+          text: TextSpan(style: style, children: spans),
+          textDirection: direction,
+          textAlign: widget.passages == null
+              ? TextAlign.start
+              : TextAlign.justify,
+          textScaler: MediaQuery.textScalerOf(context),
+          selectionRegistrar: widget.selectable
+              ? SelectionContainer.maybeOf(textContext)
+              : null,
+          selectionColor: colors.primary.withValues(alpha: .25),
+        ),
+      ),
+    );
+    if (widget.selectable) return SelectionArea(child: text);
+    if (!widget.selectable) {
+      text = GestureDetector(
+        onLongPressStart: (details) {
+          final render = paragraph;
+          if (render == null) return;
+          _passages[passageAt(render.globalToLocal(details.globalPosition))]
+              .onOpen
+              ?.call();
+        },
+        child: text,
       );
     }
-    for (final run in _runs) {
-      Color? highlight;
-      for (final range in widget.highlights) {
-        if (run.wordIndex != null &&
-            run.wordIndex! >= asInt(range['start']) &&
-            run.wordIndex! <= asInt(range['end'], 100000)) {
-          highlight = verseColor(asString(range['color']));
+    return text;
+  }
+}
+
+class VerseMarkerRange {
+  const VerseMarkerRange(this.start, this.end, this.color);
+  final int start, end;
+  final Color color;
+}
+
+/// Uses the rendered paragraph itself: shaping, scaling and bidirectional text
+/// must match the ink exactly. Paint runs behind glyphs and never intercepts taps.
+class VerseMarkerPainter extends CustomPainter {
+  VerseMarkerPainter({
+    required this.paragraph,
+    required this.ranges,
+    required this.highContrast,
+    required this.inkColor,
+  });
+  final Color inkColor;
+  final RenderParagraph? Function() paragraph;
+  final List<VerseMarkerRange> ranges;
+  final bool highContrast;
+
+  List<Rect> rectangles(VerseMarkerRange range) {
+    final render = paragraph();
+    if (render == null) return [];
+    final boxes = render.getBoxesForSelection(
+      TextSelection(baseOffset: range.start, extentOffset: range.end),
+    );
+    // A line-ending space may extend beyond a justified paragraph, especially
+    // with RTL text. Keep the continuous marker inside the actual text column.
+    final bounds = Offset.zero & render.size;
+    final rects =
+        boxes
+            .map((box) => box.toRect().intersect(bounds))
+            .where((r) => r.width > 0)
+            .toList()
+          ..sort((a, b) {
+            final line = a.center.dy.compareTo(b.center.dy);
+            return (a.center.dy - b.center.dy).abs() < 4
+                ? a.left.compareTo(b.left)
+                : line;
+          });
+    final merged = <Rect>[];
+    for (final rect in rects) {
+      if (merged.isNotEmpty) {
+        final previous = merged.last;
+        if ((previous.center.dy - rect.center.dy).abs() <
+                previous.height * .45 &&
+            rect.left <= previous.right + 1) {
+          merged[merged.length - 1] = previous.expandToInclude(rect);
+          continue;
         }
       }
-      if (widget.needles.any(
-        (needle) =>
-            needle.isNotEmpty &&
-            run.text.toLowerCase().contains(needle.toLowerCase()),
-      )) {
-        highlight = colors.tertiaryContainer;
-      }
-      TapGestureRecognizer? recognizer;
-      if (run.note != null || (run.word != null && widget.onWord != null)) {
-        recognizer = TapGestureRecognizer()
-          ..onTap = () {
-            if (run.note != null) {
-              showDialog<void>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Anmerkung'),
-                  content: SelectableText(run.note!),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Schließen'),
-                    ),
-                  ],
-                ),
-              );
-            } else {
-              widget.onWord!(run.word!, run.position!);
-            }
-          };
-        _recognizers.add(recognizer);
-      }
-      spans.add(
-        TextSpan(
-          text: run.divineName ? run.text.toUpperCase() : run.text,
-          recognizer: recognizer,
-          style: TextStyle(
-            fontFamily: run.note == null ? 'AkribosText' : null,
-            fontFamilyFallback: const ['NotoSansHebrew'],
-            fontStyle: run.italic ? FontStyle.italic : null,
-            fontSize: run.note != null
-                ? widget.fontSize * .75
-                : run.divineName
-                ? widget.fontSize * .9
-                : null,
-            color: run.note != null
-                ? colors.primary
-                : run.redLetter && !highContrast
-                ? const Color(0xffa53731)
-                : null,
-            backgroundColor: highlight?.withValues(alpha: .38),
-            decoration:
-                (highContrast && highlight != null) ||
-                    (run.word != null &&
-                        widget.studiedStrong != null &&
-                        strongNumbers(run.word!).contains(widget.studiedStrong))
-                ? TextDecoration.underline
-                : null,
-          ),
-        ),
-      );
+      merged.add(rect);
     }
-    final style = TextStyle(
-      fontWeight: FontWeight.w400,
-      fontFamily: 'AkribosText',
-      fontFamilyFallback: const ['NotoSansHebrew'],
-      fontSize: widget.fontSize,
-      height: 1.65,
-    );
-    final span = TextSpan(children: spans);
-    final direction = widget.direction ?? verseDirection(widget.segments);
-    if (!widget.selectable) {
-      return Text.rich(span, textDirection: direction, style: style);
-    }
-    return SelectableText.rich(span, textDirection: direction, style: style);
+    return merged;
   }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final range in ranges) {
+      for (final rect in rectangles(range)) {
+        if (highContrast) {
+          canvas.drawLine(
+            Offset(rect.left, rect.bottom - 1),
+            Offset(rect.right, rect.bottom - 1),
+            Paint()
+              ..color = inkColor
+              ..strokeWidth = 1.5,
+          );
+          continue;
+        }
+        final top = rect.top + rect.height * .14,
+            bottom = rect.bottom - rect.height * .05;
+        final left = rect.left, right = rect.right, width = rect.width;
+        final path = Path()
+          ..moveTo(left, top + 1)
+          ..cubicTo(
+            left + width * .28,
+            top - .8,
+            left + width * .65,
+            top + 1.3,
+            right,
+            top,
+          )
+          ..lineTo(right - .5, bottom - .7)
+          ..cubicTo(
+            left + width * .7,
+            bottom + 1,
+            left + width * .3,
+            bottom - 1,
+            left,
+            bottom + .6,
+          )
+          ..close();
+        canvas.drawPath(
+          path,
+          Paint()..color = range.color.withValues(alpha: .38),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(VerseMarkerPainter oldDelegate) => true;
 }

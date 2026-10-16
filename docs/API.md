@@ -124,6 +124,17 @@ Anmeldung beeinflussen ihre Challenge-Cookies nicht gegenseitig. Der Sitzungscoo
 Jede Protokollantwort setzt `private, no-store`, `Vary: Cookie` und `noindex, nofollow`. Es gibt kein
 offenes CORS, keinen frei wählbaren Upstream und keine Umgehung der öffentlichen API-Lizenzgrenze.
 
+Die native Textdarstellung unter Mehr → Einstellungen („Versweise“/„Fließtext“ im Blocksatz)
+ist eine lokale Einstellung ohne
+Serveraktion oder Änderung des geteilten Reader-URL-Vertrags. Fehlendes `versePerLine` in
+älteren Geräteständen bedeutet weiterhin „Versweise“.
+
+Die Notizbibliothek verwendet standardmäßig `/notes?kind=note&passage=Joh3` (Beispiel),
+wobei das Kapitel nach dem Reader-Flush aus der sichtbaren Lesestelle stammt. Der vorhandene
+Load filtert serverseitig vor der Paginierung über Stellenanker und indizierte Textverweise.
+Es wird keine Übersetzung erzwungen. Bei abgeschaltetem „Aktuelles Kapitel“ entfällt dieser
+automatische `passage`-Parameter; manuelle Filter bleiben verfügbar. Kein neuer API-Endpunkt.
+
 ## Bestehende JSON- und Binärschnittstellen
 
 Kapitel, Suche, Strong und Dokument-Autosave verwenden weiterhin `/api/reader/*`, `/api/strong/*`

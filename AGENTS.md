@@ -68,7 +68,36 @@ activate or publish named browser workspaces. Send x-akribos-reader-mode: local;
 actions are explicitly detached and carry no named-workspace selection/content versions.
 Do not call workspace follow/view APIs or expose workspace-management UI. Respect current
 server resource permissions when restoring local tabs; never cache private Bible text.
-The floating Notes destination always opens /notes?kind=note after flushing guards; offer
+The tab overview ends with an empty plus card; adding it opens the resource chooser without
+creating a persistent empty tab. Mehr > Einstellungen offers Textdarstellung with Versweise
+and Fließtext, available to guests too; never put it in the tab overview. Appearance belongs only to Settings;
+signed-in settings reuse /account actions for reading font, default Bible and highlight colors.
+Refresh the retained Reader after font/style edits, preserving its flushed local position.
+Account remains reachable via the person icon and contains profile, password and sign-out;
+do not expose API-key management or a duplicate account destination in More. Fließtext uses
+justified paragraphs, Versweise stays start-aligned. Settings use the attached ReaderController
+to flush positions and change the retained reader, including when it is offstage. Store
+versePerLine in the existing encrypted local snapshot (missing means true), never in shared
+Reader URLs or server workspaces. Flow paragraphs keep source headings/line breaks and
+per-verse word positions, actions and scroll anchors. Use actual RenderParagraph glyph boxes
+for continuous marker strokes and in-paragraph verse alignment; include spaces, preserve
+partial word boundaries and retain monochrome underlines in E-Ink. Scripture section/chapter
+headings scale with the reading font (1.2/1.4), including accessibility scaling.
+The verse menu has four fixed actions: Markieren, Sammlungen, Notiz and Teilen.
+Use single-line icon/text buttons; measure actual label widths including system text scaling
+before choosing columns. Keep at least 48px touch targets and all main actions visible at
+normal phone/tablet portrait and landscape sizes. Copying is available through the native
+share sheet on Android and iOS; preserve the verse/reference/URL text and iPad popover origin.
+Offer whole-verse marking only; there is no word/partial-marking creation entry or handler.
+Existing partial highlights retain rendering and source-bound deletion without data migration.
+Keep arbitrary highlight/list catalogues in separate choice pages; system Back returns to
+the overview. Preserve the remaining action codes and ordinary Strong-word lookups. Large
+accessibility text may scroll instead of shrinking text, touch targets or clipping controls.
+The floating Notes destination opens /notes?kind=note after flushing guards, with passage set
+to the visible Reader chapter by default. The library's Aktuelles Kapitel switch can disable
+this; persist that preference per origin/account. Use the existing server passage filter across
+translations, never only filter a loaded page. Explicit manual passage filters remain possible.
+The tab overview has no separate Notes button. Offer
 Notes/Preparations switching in that library; no duplicate Preparations destination in More. Import, template management and preparation
 column editing are excluded from mobile UI; moving documents between existing steps remains.
 Help currently shows a local placeholder, never the web help catalogue. After the app is

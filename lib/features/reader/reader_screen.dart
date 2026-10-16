@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
-import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -17,8 +16,7 @@ import 'reader_controller.dart';
 import 'reader_lexicon_sheet.dart';
 import 'reader_group_badge.dart';
 import 'reader_tab_card.dart';
-import 'highlight_dialog.dart';
-import 'reader_notes.dart';
+import 'reader_verse_menu.dart';
 import 'reader_state.dart';
 import 'verse_text.dart';
 import 'reader_local_store.dart';
@@ -106,9 +104,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
           final workspace = asMap(data['workspace']);
           workspace['layoutSizes'] = asMap(saved?['layoutSizes']);
           data['readerWorkspaceDetached'] = true;
+          data['versePerLine'] = saved?['versePerLine'] != false;
           await store.write(
             readerPath(workspace, asString(data['readerState'])),
             layoutSizes: asMap(workspace['layoutSizes']),
+            versePerLine: data['versePerLine'] != false,
           );
           if (mounted && generation == _generation) {
             setState(() => _data = data);
@@ -207,8 +207,12 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
   int _revision = 0;
   String? _saveError;
   String? _mobileTile;
+  bool _versePerLine = true;
   void _adopt([Json? incoming]) {
     _data = asMap(jsonDecode(jsonEncode(incoming ?? widget.data)));
+    if (_data.containsKey('versePerLine')) {
+      _versePerLine = _data['versePerLine'] != false;
+    }
     _data['readerWorkspaceDetached'] = true;
     _workspace = asMap(_data['workspace']);
     _searches = asMap(_data['searchQueries']);
@@ -283,14 +287,34 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
 
   String get _state => encodeReaderState(_workspace, _searches, _filterState);
   void _bindController() {
-    widget.controller?.attach(this, showTabs: _showTabs, flush: _flush);
+    widget.controller?.attach(
+      this,
+      showTabs: _showTabs,
+      flush: _flush,
+      setVersePerLine: _setVersePerLine,
+    );
+  }
+
+  Future<bool> _setVersePerLine(bool value) async {
+    if (_versePerLine == value) return _flush();
+    if (!await _flush() || !mounted) return false;
+    setState(() {
+      _versePerLine = value;
+      _dirty = true;
+      _revision++;
+    });
+    return _save();
   }
 
   Future<bool> _flush() async {
     if (_discardPending) return true;
     if (_switching != null && !await _switching!) return false;
     if (_failedActivation != null) return false;
-    return _flushPositions();
+    final saved = await _flushPositions();
+    final tile = asMaps(_workspace['tiles'])
+        .firstWhere((item) => item['id'] == _mobileTile, orElse: () => {});
+    widget.controller?.updateReference(asMap(_shownTab(tile)['reference']));
+    return saved;
   }
 
   Future<bool> _flushPositions() {
@@ -313,6 +337,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
         await widget.store.write(
           readerPath(_workspace, _state),
           layoutSizes: asMap(_workspace['layoutSizes']),
+          versePerLine: _versePerLine,
         );
         if (revision == _revision) _dirty = false;
       }
@@ -348,6 +373,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       asString(tab['id']),
       reference,
     );
+    widget.controller?.updateReference(reference);
     _dirty = true;
     _revision++;
     _timer?.cancel();
@@ -600,74 +626,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     return box.localToGlobal(Offset.zero) & box.size;
   }
 
-  Future<void> _notes() async {
-    if (!await _flush() || !mounted) return;
-    final tiles = asMaps(_workspace['tiles']);
-    final tile = tiles.firstWhere(
-      (tile) => tile['id'] == _mobileTile,
-      orElse: () => tiles.first,
-    );
-    final tab = activeTab(tile);
-    final reference = referenceLabel(asMap(tab['reference']));
-    final selected = asMaps(
-      _data['readerResources'],
-    ).firstWhere((item) => item['id'] == tab['resourceId'], orElse: () => {});
-    final resource = selected['kind'] == 'bible'
-        ? asString(tab['resourceId'])
-        : asString(
-            _data['defaultBibleId'],
-            asString(asMaps(_data['bibles']).firstOrNull?['id']),
-          );
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (sheetContext) => readerOverlayScope(
-        context,
-        SizedBox(
-          height: MediaQuery.sizeOf(sheetContext).height * .85,
-          child: ReaderNotes(
-            reference: reference,
-            resourceId: resource,
-            initialState: _state,
-            onFilters: (query, tag, current) {
-              final parts = _filterState
-                  .split('&')
-                  .where(
-                    (part) =>
-                        !RegExp(r'^(notesQuery|notesTag|notesFilter)=')
-                            .hasMatch(part),
-                  )
-                  .toList();
-              if (query.isNotEmpty) {
-                parts.add('notesQuery=${Uri.encodeComponent(query)}');
-              }
-              if (tag.isNotEmpty) {
-                parts.add('notesTag=${Uri.encodeComponent(tag)}');
-              }
-              if (current) parts.add('notesFilter=current');
-              _filterState = parts.join('&');
-              _dirty = true;
-              _revision++;
-              _flush();
-            },
-            onOpen: (id) {
-              Navigator.pop(sheetContext);
-              _scope!.open('/notes/$id');
-            },
-            onCreate: () {
-              Navigator.pop(sheetContext);
-              _scope!.open(
-                '/notes?reference=${Uri.encodeComponent(reference)}&bible=${Uri.encodeComponent(resource)}',
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> _goTo(Json tile, Json tab) async {
     final value = await showModalBottomSheet<String>(
       context: context,
@@ -799,111 +757,21 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                   highlight['resourceId'] == tab['resourceId']),
         )
         .toList();
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(ref),
-              subtitle: Text(
-                plain,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.copy),
-              title: const Text('Vers kopieren'),
-              onTap: () => Navigator.pop(context, 'copy'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.share),
-              title: const Text('Vers teilen'),
-              onTap: () => Navigator.pop(context, 'share'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.note_add_outlined),
-              title: const Text('Notiz zu dieser Stelle'),
-              onTap: () => Navigator.pop(context, 'note'),
-            ),
-            if (_data['user'] == null)
-              ListTile(
-                leading: const Icon(Icons.login),
-                title: const Text('Zum Markieren und Sammeln anmelden'),
-                onTap: () => Navigator.pop(context, 'login'),
-              ),
-            if (_data['user'] != null) ...[
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.format_color_text),
-                title: const Text('Wörter oder Versabschnitt markieren'),
-                onTap: () => Navigator.pop(context, 'partial'),
-              ),
-              for (var index = 0; index < existingHighlights.length; index++)
-                ListTile(
-                  leading: const Icon(Icons.format_color_reset),
-                  title: Text(
-                    'Markierung „${existingHighlights[index]['name'] ?? 'Markierung'}“ entfernen',
-                  ),
-                  onTap: () => Navigator.pop(context, 'removeRange:$index'),
-                ),
-              for (final style in asMaps(_data['highlightStyles']))
-                ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: verseColor(asString(style['color'])),
-                    radius: 12,
-                  ),
-                  title: Text(asString(style['name'], 'Markieren')),
-                  onTap: () =>
-                      Navigator.pop(context, 'highlight:${style['id']}'),
-                ),
-              ListTile(
-                leading: const Icon(Icons.format_color_reset),
-                title: const Text('Markierung entfernen'),
-                onTap: () => Navigator.pop(context, 'removeHighlight'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.add),
-                title: const Text('Neue Sammlung mit diesem Vers'),
-                onTap: () => Navigator.pop(context, 'newList'),
-              ),
-              for (final list in asMaps(_data['lists']))
-                ListTile(
-                  leading: Icon(
-                    asMaps(chapter['markedVerses']).any(
-                          (entry) =>
-                              entry['listId'] == list['id'] &&
-                              entry['verse'] == reference['verse'],
-                        )
-                        ? Icons.playlist_add_check
-                        : Icons.playlist_add,
-                  ),
-                  title: Text(asString(list['title'])),
-                  subtitle: Text(
-                    asMaps(chapter['markedVerses']).any(
-                          (entry) =>
-                              entry['listId'] == list['id'] &&
-                              entry['verse'] == reference['verse'],
-                        )
-                        ? 'Vers enthalten · Tippen zum Entfernen'
-                        : 'Vers hinzufügen',
-                  ),
-                  onTap: () => Navigator.pop(context, 'list:${list['id']}'),
-                ),
-            ],
-          ],
-        ),
-      ),
+    final result = await showReaderVerseMenu(
+      context,
+      reference: ref,
+      text: plain,
+      signedIn: _data['user'] != null,
+      styles: asMaps(_data['highlightStyles']),
+      highlights: existingHighlights,
+      lists: asMaps(_data['lists']),
+      selectedLists: {
+        for (final entry in asMaps(chapter['markedVerses']))
+          if (entry['verse'] == reference['verse']) asString(entry['listId']),
+      },
     );
     if (result == null || !mounted) return;
-    if (result == 'copy') {
-      await Clipboard.setData(ClipboardData(text: '$plain ($ref)'));
-    } else if (result == 'share') {
+    if (result == 'share') {
       await SharePlus.instance.share(
         ShareParams(
           text: '$plain ($ref)\n${_scope!.api.origin.resolve('/$ref')}',
@@ -921,22 +789,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
         'reference': ref,
         'styleId': result.substring(10),
       });
-    } else if (result == 'partial') {
-      final range = await showDialog<Json>(
-        context: context,
-        builder: (context) => HighlightDialog(
-          chapter: chapter,
-          cell: cell,
-          styles: asMaps(_data['highlightStyles']),
-        ),
-      );
-      if (range != null) {
-        await _mutate('setHighlight', {
-          'reference': ref,
-          'resourceId': tab['resourceId'],
-          ...range,
-        });
-      }
     } else if (result.startsWith('removeRange:')) {
       final highlight = existingHighlights[int.parse(result.substring(12))];
       await _mutate('removeHighlight', {
@@ -1150,8 +1002,31 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                         crossAxisSpacing: 12,
                         mainAxisExtent: ReaderTabCard.heightFor(scaler),
                       ),
-                      itemCount: choices.length,
+                      itemCount: choices.length + 1,
                       itemBuilder: (_, index) {
+                        if (index == choices.length) {
+                          return Card(
+                            key: const ValueKey('reader-add-tab'),
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.pop(sheet);
+                                final tile = _addTargetTile();
+                                if (tile.isNotEmpty) _chooseResource(tile);
+                              },
+                              child: const Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.add, size: 40),
+                                    SizedBox(height: 12),
+                                    Text('Neuer Tab'),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }
                         final tile = asMap(choices[index]['tile']),
                             tab = asMap(choices[index]['tab']);
                         final resource = asMaps(_data['readerResources'])
@@ -1226,16 +1101,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                     spacing: 4,
                     children: [
                       IconButton(
-                        tooltip: 'Werk hinzufügen',
-                        onPressed: () {
-                          Navigator.pop(sheet);
-                          final tile = _addTargetTile();
-                          if (tile.isNotEmpty) _chooseResource(tile);
-                        },
-                        icon: const Icon(Icons.add),
-                      ),
-
-                      IconButton(
                         tooltip: 'Schrift verkleinern',
                         onPressed: () {
                           Navigator.pop(sheet);
@@ -1251,15 +1116,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                         },
                         icon: const Icon(Icons.text_increase),
                       ),
-                      if (_data['user'] != null)
-                        IconButton(
-                          tooltip: 'Eigene Notizen und Dokumente',
-                          onPressed: () {
-                            Navigator.pop(sheet);
-                            _notes();
-                          },
-                          icon: const Icon(Icons.note_alt_outlined),
-                        ),
                       IconButton(
                         tooltip: 'Ansicht teilen',
                         onPressed: () => SharePlus.instance.share(
@@ -1519,6 +1375,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                     resource: resource,
                     reference: asMap(tab['reference']),
                     fontScale: asInt(_data['readerFontScale'], 100) / 100,
+                    versePerLine: _versePerLine,
                     onPosition: (reference) => _position(tile, tab, reference),
                     onWord: (reference, word, position) =>
                         _word(tile, tab, reference, word, position),
@@ -1559,7 +1416,9 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     final abbreviation = asString(selectedResource['abbrev']);
     widget.controller?.update(
       tabCount: _flatTabs(tiles).length,
+      versePerLine: _versePerLine,
       activeTitle: _resourceTitle(selectedTab),
+      reference: asMap(selectedTab['reference']),
       activeResource: selectedResource.isEmpty
           ? null
           : ReaderSearchResource(
@@ -1714,6 +1573,7 @@ class _ChapterCache {
   String? anchorKey;
   Json? reference;
   double? fontScale;
+  bool? versePerLine;
 }
 
 class _ChapterPane extends StatefulWidget {
@@ -1730,11 +1590,12 @@ class _ChapterPane extends StatefulWidget {
     required this.onReferenceText,
     required this.active,
     this.fontScale = 1,
+    this.versePerLine = true,
   });
   final Json initial, resource, reference;
   final _ChapterCache cache;
   final double fontScale;
-  final bool active;
+  final bool active, versePerLine;
   final void Function(Json) onPosition, onReference;
   final void Function(String) onReferenceText;
   final void Function(Json, Json, int) onWord;
@@ -1757,6 +1618,8 @@ class _ChapterPaneState extends State<_ChapterPane> {
   final _visible = <String, BuildContext>{};
   final _references = <String, Json>{};
   List<_ReaderEntry> _entries = [];
+  final _paragraphKeys = <String, GlobalKey<VerseTextState>>{};
+  final _paragraphReferences = <String, List<Json>>{};
   List<Json> get _chapters => widget.cache.chapters;
   bool _loading = false,
       _aligning = false,
@@ -1779,7 +1642,8 @@ class _ChapterPaneState extends State<_ChapterPane> {
     _refreshEntries();
     final restore =
         jsonEncode(widget.cache.reference) == jsonEncode(widget.reference) &&
-        widget.cache.fontScale == widget.fontScale;
+        widget.cache.fontScale == widget.fontScale &&
+        widget.cache.versePerLine == widget.versePerLine;
     _anchorKey = restore
         ? widget.cache.anchorKey
         : _targetKey(widget.reference);
@@ -1823,12 +1687,18 @@ class _ChapterPaneState extends State<_ChapterPane> {
       if (index >= 0) _chapters[index] = widget.initial;
       _refreshEntries();
     }
+    if (oldWidget.versePerLine != widget.versePerLine) {
+      _refreshEntries();
+      _anchorKey = _targetKey(widget.reference);
+    }
     if (widget.active &&
         (!oldWidget.active ||
             jsonEncode(oldWidget.reference) != jsonEncode(widget.reference) ||
-            oldWidget.fontScale != widget.fontScale)) {
+            oldWidget.fontScale != widget.fontScale ||
+            oldWidget.versePerLine != widget.versePerLine)) {
       if (jsonEncode(widget.cache.reference) != jsonEncode(widget.reference) ||
-          widget.cache.fontScale != widget.fontScale) {
+          widget.cache.fontScale != widget.fontScale ||
+          widget.cache.versePerLine != widget.versePerLine) {
         WidgetsBinding.instance.addPostFrameCallback(
           (_) => align(widget.reference),
         );
@@ -1923,7 +1793,31 @@ class _ChapterPaneState extends State<_ChapterPane> {
           if (mounted && _scroll.hasClients) _scroll.jumpTo(0);
         }
       }
+      if (target != null && !widget.versePerLine && mounted) {
+        final refs = _paragraphReferences[target] ?? [];
+        final index = refs.lastIndexWhere(
+          (ref) => asInt(ref['verse']) <= asInt(reference['verse']),
+        );
+        final paragraph = _paragraphKeys[target]?.currentState;
+        final render = paragraph?.paragraph;
+        final viewport = _viewport.currentContext?.findRenderObject();
+        if (paragraph != null &&
+            render != null &&
+            viewport is RenderBox &&
+            _scroll.hasClients) {
+          final delta =
+              render.localToGlobal(Offset(0, paragraph.passageTop(index))).dy -
+              viewport.localToGlobal(Offset.zero).dy;
+          _scroll.jumpTo(
+            (_scroll.offset + delta).clamp(
+              _scroll.position.minScrollExtent,
+              _scroll.position.maxScrollExtent,
+            ),
+          );
+        }
+      }
       widget.cache.reference = Map.of(reference);
+      widget.cache.versePerLine = widget.versePerLine;
       widget.cache.fontScale = widget.fontScale;
     } catch (error) {
       if (mounted && generation == _generation) {
@@ -2018,9 +1912,27 @@ class _ChapterPaneState extends State<_ChapterPane> {
         continue;
       }
       final y = render.localToGlobal(Offset.zero).dy - top;
-      if (y >= -render.size.height && y.abs() < distance) {
-        distance = y.abs();
+      // A flow paragraph may span several screens. Its text at the viewport
+      // top wins over a following chapter heading that happens to be closer
+      // to the top than the paragraph's offscreen start.
+      final candidateDistance = y <= 0 && y + render.size.height > 0
+          ? 0.0
+          : y.abs();
+      if (y >= -render.size.height && candidateDistance < distance) {
+        distance = candidateDistance;
         closest = _references[entry.key];
+        final paragraph = _paragraphKeys[entry.key]?.currentState;
+        final refs = _paragraphReferences[entry.key];
+        final text = paragraph?.paragraph;
+        if (paragraph != null &&
+            text != null &&
+            refs != null &&
+            refs.isNotEmpty) {
+          final index = paragraph.passageAtHeight(
+            top - text.localToGlobal(Offset.zero).dy,
+          );
+          closest = refs[index.clamp(0, refs.length - 1)];
+        }
       }
     }
     if (closest != null) {
@@ -2029,68 +1941,92 @@ class _ChapterPaneState extends State<_ChapterPane> {
     }
   }
 
-  Widget _verse(Json chapter, Json row) {
-    final cells = row['cells'] as List? ?? [];
-    if (cells.isEmpty || cells.first == null) return const SizedBox.shrink();
-    final cell = asMap(cells.first);
-    final reference = {
-      ...asMap(chapter['reference']),
-      'verse': cell['verse'],
-      if (cell['verseEnd'] != null) 'verseEnd': cell['verseEnd'],
-    };
+  Json _cell(Json row) => asMap((row['cells'] as List).first);
+  Json _verseReference(Json chapter, Json cell) => {
+    ...asMap(chapter['reference']),
+    'verse': cell['verse'],
+    if (cell['verseEnd'] != null) 'verseEnd': cell['verseEnd'],
+  };
+
+  List<Json> _highlights(Json chapter, Json cell) {
     final verse = asInt(cell['verse']);
-    final highlights = <Json>[];
-    for (final item in asMaps(chapter['highlights'])) {
-      if (verse < asInt(item['verse']) ||
-          verse > asInt(item['endVerse'], asInt(item['verse']))) {
-        continue;
-      }
-      if (item['resourceId'] != null &&
-          item['resourceId'] != widget.resource['id']) {
-        continue;
-      }
-      highlights.add({
-        'start': verse == item['verse'] ? asInt(item['startWord']) : 0,
-        'end': verse == item['endVerse']
-            ? asInt(item['endWord'], 100000)
-            : 100000,
-        'color': item['color'],
-      });
-    }
+    return [
+      for (final item in asMaps(chapter['highlights']))
+        if (verse >= asInt(item['verse']) &&
+            verse <= asInt(item['endVerse'], asInt(item['verse'])) &&
+            (item['resourceId'] == null ||
+                item['resourceId'] == widget.resource['id']))
+          {
+            'start': verse == item['verse'] ? asInt(item['startWord']) : 0,
+            'end': verse == asInt(item['endVerse'], asInt(item['verse']))
+                ? asInt(item['endWord'], 100000)
+                : 100000,
+            'color': item['color'],
+            'name': item['name'],
+          },
+    ];
+  }
+
+  VersePassage _passage(Json chapter, Json row) {
+    final cell = _cell(row), reference = _verseReference(chapter, _cell(row));
+    return VersePassage(
+      segments: cell['segments'] as List? ?? [],
+      number:
+          '${cell['verse']}${cell['verseEnd'] == null ? '' : '–${cell['verseEnd']}'}',
+      highlights: _highlights(chapter, cell),
+      onOpen: () => widget.onVerse(chapter, cell, reference),
+      onWord: (word, position) => widget.onWord(reference, word, position),
+    );
+  }
+
+  Widget _bibleBlock(Json chapter, List<Json> rows, String id) {
+    final passages = rows.map((row) => _passage(chapter, row)).toList();
+    final heading = asString(_cell(rows.first)['heading']);
+    final labels = passages
+        .expand((passage) => passage.highlights)
+        .map((item) => asString(item['name'], 'Markierung'))
+        .toSet();
+    final first = passages.first;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (AppScope.of(context).eInk && highlights.isNotEmpty)
+          if (AppScope.of(context).eInk && labels.isNotEmpty)
             Text(
-              'Markiert: ${asMaps(chapter['highlights']).where((item) => verse >= asInt(item['verse']) && verse <= asInt(item['endVerse'], asInt(item['verse'])) && (item['resourceId'] == null || item['resourceId'] == widget.resource['id'])).map((item) => asString(item['name'], 'Markierung')).toSet().join(', ')}',
+              'Markiert: ${labels.join(', ')}',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-          if (asString(cell['heading']).isNotEmpty)
+          if (heading.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(
-                asString(cell['heading']),
-                style: Theme.of(context).textTheme.titleMedium,
+                heading,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontSize: 19 * widget.fontScale * 1.2,
+                  height: 1.4,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-          GestureDetector(
-            onLongPress: () => widget.onVerse(chapter, cell, reference),
-            child: VerseText(
-              selectable: false,
-              segments: cell['segments'] as List? ?? [],
-              verseNumber:
-                  '${cell['verse']}${cell['verseEnd'] == null ? '' : '–${cell['verseEnd']}'}',
-              onVerseNumber: () => widget.onVerse(chapter, cell, reference),
-              fontSize: 19 * widget.fontScale,
-              highlights: highlights,
-              direction: widget.resource['direction'] == 'rtl'
-                  ? TextDirection.rtl
-                  : TextDirection.ltr,
-              onWord: (word, position) =>
-                  widget.onWord(reference, word, position),
-            ),
+          VerseText(
+            key: widget.versePerLine
+                ? null
+                : _paragraphKeys.putIfAbsent(
+                    id,
+                    () => GlobalKey<VerseTextState>(),
+                  ),
+            selectable: false,
+            segments: first.segments,
+            passages: widget.versePerLine ? null : passages,
+            verseNumber: first.number,
+            onVerseNumber: first.onOpen,
+            onWord: first.onWord,
+            fontSize: 19 * widget.fontScale,
+            highlights: first.highlights,
+            direction: widget.resource['direction'] == 'rtl'
+                ? TextDirection.rtl
+                : TextDirection.ltr,
           ),
         ],
       ),
@@ -2099,6 +2035,7 @@ class _ChapterPaneState extends State<_ChapterPane> {
 
   void _refreshEntries() {
     _references.clear();
+    _paragraphReferences.clear();
     final entries = <_ReaderEntry>[
       _ReaderEntry(
         'previous',
@@ -2110,8 +2047,12 @@ class _ChapterPaneState extends State<_ChapterPane> {
       ),
     ];
     for (final chapter in _chapters) {
-      final reference = asMap(chapter['reference']),
-          works = asMap(chapter['referenceResources']);
+      final chapterReference = asMap(chapter['reference']);
+      final reference = <String, dynamic>{
+        'book': chapterReference['book'],
+        'chapter': chapterReference['chapter'],
+      };
+      final works = asMap(chapter['referenceResources']);
       final chapterKey = _key(reference);
       final usedVerses = <int>{};
       void add(String id, Widget Function() builder, [Json? ref]) {
@@ -2127,7 +2068,8 @@ class _ChapterPaneState extends State<_ChapterPane> {
           padding: const EdgeInsets.only(top: 12, bottom: 12),
           child: Text(
             asString(chapter['fullTitle']),
-            style: Theme.of(context).textTheme.titleLarge,
+            style: Theme.of(context).textTheme.titleLarge
+                ?.copyWith(fontSize: 19 * widget.fontScale * 1.4, height: 1.35),
           ),
         ),
         reference,
@@ -2144,16 +2086,26 @@ class _ChapterPaneState extends State<_ChapterPane> {
             ),
           );
         }
+        final groups = <List<Json>>[];
         for (final row in asMaps(asMap(chapter['chapter'])['rows'])) {
           final cells = row['cells'] as List? ?? [];
           if (cells.isEmpty || cells.first == null) continue;
-          final cell = asMap(cells.first),
-              verse = asInt(asMap(cells.first)['verse']);
-          add('$chapterKey:verse:$verse', () => _verse(chapter, row), {
-            ...reference,
-            'verse': verse,
-            if (cell['verseEnd'] != null) 'verseEnd': cell['verseEnd'],
-          });
+          if (widget.versePerLine ||
+              groups.isEmpty ||
+              asString(_cell(row)['heading']).isNotEmpty) {
+            groups.add([]);
+          }
+          groups.last.add(row);
+        }
+        for (final rows in groups) {
+          final ref = _verseReference(chapter, _cell(rows.first));
+          final id = '$chapterKey:verse:${ref['verse']}';
+          if (!widget.versePerLine) {
+            _paragraphReferences[id] = [
+              for (final row in rows) _verseReference(chapter, _cell(row)),
+            ];
+          }
+          add(id, () => _bibleBlock(chapter, rows, id), ref);
         }
       }
       var index = 0;
@@ -2176,7 +2128,10 @@ class _ChapterPaneState extends State<_ChapterPane> {
                 if (entry['title'] != null)
                   Text(
                     asString(entry['title']),
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontSize: 19 * widget.fontScale * 1.2,
+                      height: 1.4,
+                    ),
                   ),
                 HtmlContent(
                   html: asString(entry['bodyHtml']),
@@ -2249,6 +2204,9 @@ class _ChapterPaneState extends State<_ChapterPane> {
       ),
     );
     _entries = entries;
+    _paragraphKeys.removeWhere(
+      (id, _) => !_paragraphReferences.containsKey(id),
+    );
     _anchorKey ??= _targetKey(widget.reference) ?? entries.first.id;
   }
 

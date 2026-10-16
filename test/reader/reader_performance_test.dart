@@ -36,7 +36,11 @@ class ControlledLocalStore extends ReaderLocalStore {
   bool reject = false;
   final writes = <String>[];
   @override
-  Future<void> write(String path, {Json layoutSizes = const {}}) async {
+  Future<void> write(
+    String path, {
+    Json layoutSizes = const {},
+    bool versePerLine = true,
+  }) async {
     writes.add(path);
     await paused?.future;
     if (reject) {
@@ -44,7 +48,11 @@ class ControlledLocalStore extends ReaderLocalStore {
         'Lokaler Speicher vorübergehend nicht verfügbar',
       );
     }
-    await super.write(path, layoutSizes: layoutSizes);
+    await super.write(
+      path,
+      layoutSizes: layoutSizes,
+      versePerLine: versePerLine,
+    );
   }
 }
 

@@ -312,7 +312,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Meine Ausarbeitung'), findsOneWidget);
       await select('Notizen');
-      expect(api.pageCalls.last, '/notes?kind=note');
+      expect(Uri.parse(api.pageCalls.last).queryParameters, {
+        'kind': 'note',
+        'passage': 'Joh3',
+      });
       expect(find.text('Meine Notizen'), findsOneWidget);
       expect(find.text('Persönliche Notiz'), findsOneWidget);
       expect(find.text('Meine Ausarbeitung'), findsNothing);
@@ -348,6 +351,66 @@ void main() {
   );
 
   testWidgets(
+    'chapter notes can be disabled and stay disabled across navigation and restart',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final api = _SeedApi();
+      api._seed['user'] = {'id': 'reader'};
+      addTearDown(api.dispose);
+      await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
+      await tester.pumpAndSettle();
+      Future<void> select(String label) async {
+        await tester.tap(
+          find.descendant(
+            of: find.byType(FloatingNavigationBar),
+            matching: find.text(label),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await select('Notizen');
+      expect(Uri.parse(api.pageCalls.last).queryParameters['passage'], 'Joh3');
+      expect(
+        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+        isTrue,
+      );
+      await tester.tap(find.text('Aktuelles Kapitel'));
+      await tester.pumpAndSettle();
+      expect(Uri.parse(api.pageCalls.last).queryParameters, {'kind': 'note'});
+      await select('Lesen');
+      await select('Notizen');
+      expect(
+        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+        isFalse,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
+      await tester.pumpAndSettle();
+      await select('Notizen');
+      expect(
+        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+        isFalse,
+      );
+      expect(Uri.parse(api.pageCalls.last).queryParameters, {'kind': 'note'});
+      await tester.tap(find.text('Aktuelles Kapitel'));
+      await tester.pumpAndSettle();
+      expect(Uri.parse(api.pageCalls.last).queryParameters['passage'], 'Joh3');
+      final scope = AppScope.of(tester.element(find.byType(DocumentsScreen)));
+      final workspace = asMap(api.reader['workspace']);
+      final tile = asMaps(workspace['tiles'])
+          .firstWhere((t) => t['id'] == workspace['focusedTileId']);
+      activeTab(tile)['reference'] = {'book': 1, 'chapter': 2, 'verse': 4};
+      await scope.open('/1Mo2,4');
+      await tester.pumpAndSettle();
+      await select('Notizen');
+      expect(Uri.parse(api.pageCalls.last).queryParameters['passage'], '1Mo2');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
     'removed mobile routes fall back to libraries and help stays app-specific',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
@@ -359,7 +422,10 @@ void main() {
       final scope = AppScope.of(tester.element(find.byType(Scaffold).first));
       await scope.open('/notes/import?old=1');
       await tester.pumpAndSettle();
-      expect(api.pageCalls.last, '/notes?kind=note');
+      expect(Uri.parse(api.pageCalls.last).queryParameters, {
+        'kind': 'note',
+        'passage': 'Joh3',
+      });
       expect(find.text('Meine Notizen'), findsOneWidget);
       await scope.open('/sermons/templates');
       await tester.pumpAndSettle();
@@ -466,6 +532,43 @@ void main() {
       await tester.tap(find.text('Suchen'));
       await tester.pumpAndSettle();
       expect(find.byType(SearchScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'guest settings expose local text presentation without account loading',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(320, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final api = _SeedApi();
+      addTearDown(api.dispose);
+      await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mehr'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Einstellungen'));
+      await tester.tap(find.text('Einstellungen'));
+      await tester.pumpAndSettle();
+      expect(find.text('Textdarstellung'), findsOneWidget);
+      expect(
+        find.text('Zusammenhängende Absätze im Blocksatz.'),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(ListTile, 'Versweise'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'Fließtext'), findsOneWidget);
+      expect(
+        api.pageCalls.any(
+          (path) => path.startsWith('/account') || path.startsWith('/settings'),
+        ),
+        isFalse,
+      );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
