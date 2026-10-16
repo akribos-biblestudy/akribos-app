@@ -59,28 +59,38 @@ Identitäts-/Organisationsprüfung abschließen. Eine App namens **Akribos**, Sp
 Deutsch, Typ **App** und die gewünschte Preisgestaltung anlegen. Der Paketname des
 Bundles ist fest **`de.akribos.app`**; keinen abweichenden Paketnamen verwenden.
 
-Die App ist angelegt. Der Zugriff des vorhandenen Dienstkontos auf Akribos wurde am
-16. Oktober 2026 mit HTTP 200 geprüft. Leseabfragen im Play-Entwurf lieferten ebenfalls
-HTTP 200: `de-DE` ist vorhanden, Bundles und Releases waren noch leer. Dies bestätigt
-den Zugriff auf den Entwurf, keinen hochgeladenen Build oder freigegebenen Release.
-Store-Texte und aus dem Code abgeleitete Console-Angaben stehen in
-[PLAY-STORE-CONTENT.md](PLAY-STORE-CONTENT.md).
+Die App **Akribos – Bibelstudium** ist angelegt; der Dienstkonto-Zugriff wurde mit
+HTTP 200 bestätigt. Am 16. Oktober 2026 wurden alle ursprünglich elf Einrichtungspunkte
+gespeichert: neun Erklärungen zu App-Inhalten, Kategorie/Kontakt und Store-Eintrag.
+Nach dem ersten Bundle wurde zusätzlich „Werbe-ID: Nein“ gespeichert. Die Console
+zeigte anschließend „Alles erledigt“ und zehn abgeschlossene App-Inhaltserklärungen.
 
-Die aktuell von der Console verlangten Angaben ausfüllen: Kontakt, Store-Eintrag,
-Grafiken, App-Zugriff für Prüfer, Altersfreigabe, Zielgruppe und App-Inhalte. Nur
-freigegebene Bilder ohne private Notizen, Kontodaten oder Zugangscodes verwenden.
-Eine spätere öffentliche Veröffentlichung hat zusätzliche Anforderungen und wird
-von diesem Workflow nicht ausgelöst.
+Der deutsche Store-Eintrag und Kontakt wurden committed und zurückgelesen; Texte und
+Werte sowie die Hashes von 1 Icon, 1 Funktionsgrafik und 4 Screenshots stimmen überein.
+Das erste Bundle `0.3.0+13` wurde manuell im internen Test veröffentlicht, siehe
+Abschnitt 6. Das normale Prüfkonto `stores@akribos.de` mit dauerhaftem Passwort wurde
+in einem isolierten Login geprüft; Zugangsdaten stehen nur in der geschützten Console
+und lokal unter `~/.config/akribos/play-review/reviewer-credentials.json`.
+
+Die konkreten Erklärungen, 17 ausgewählten Datenarten, der Vergleich aller 782
+Datensicherheits-Antwortfelder sowie offene Betriebs-/Moderationsfragen stehen in
+[PLAY-STORE-CONTENT.md](PLAY-STORE-CONTENT.md). Abgeschlossene Formulare sind keine
+umfassende Richtlinienfreigabe. Eine spätere öffentliche Veröffentlichung hat
+zusätzliche Anforderungen und wird von diesem Workflow nicht ausgelöst. Preis und
+Produktionsländer wurden in diesem Auftrag nicht geändert.
 [Google beschreibt Konto und Einstieg in die Console.](https://support.google.com/googleplay/android-developer/answer/6112435?hl=de)
 
-Für die Datenschutzerklärung existiert
-[akribos.de/datenschutz](https://akribos.de/datenschutz). Vor einem öffentlichen
-Storeeintrag muss ihr Inhalt auch den tatsächlichen nativen Betrieb abdecken,
-insbesondere Anmeldung, serverseitige Notizen und lokale verschlüsselte Tabs. Die
-Datensicherheitsangaben aus den tatsächlichen Datenflüssen ableiten, einschließlich
-Serverzugriffen und Bibliotheken; nicht pauschal „keine Daten“ auswählen. Ausschließlich
-interne Tests sind laut Google vom Datensicherheitsformular ausgenommen. Vor einem
-Wechsel zu anderen Tracks sind die entsprechenden Angaben nachzuholen.
+Die [Datenschutzerklärung](https://akribos.de/datenschutz) und der sichtbare
+[Löschantrag](https://akribos.de/datenschutz#konto-loeschen) decken den nativen Betrieb
+ab und sind in der Console gespeichert. Webcommit
+`b548a4a649c2dc4c084e02ee280ee854051eb285` wurde über
+[Main-CI 38937820390](https://github.com/akribos-biblestudy/akribos/actions/runs/38937820390)
+erfolgreich veröffentlicht. Am 16. Oktober 2026 um 17:24 UTC waren Datenschutzseite,
+Löschanker und Mailto geprüft; die Seite und `/healthz` lieferten HTTP 200.
+Die sieben Tage für Löschantragsbearbeitung sind keine pauschale Backup-Löschfrist.
+Die Datensicherheit ist ausgefüllt, obwohl ausschließlich interne Tests laut Google
+vom Formular ausgenommen sind. Vor weiteren Tracks den tatsächlichen Betrieb und
+neue Funktionen erneut mit den Angaben abgleichen.
 [Offizielle Hinweise zur Datensicherheit.](https://support.google.com/googleplay/android-developer/answer/10787469?hl=de)
 
 ## 3. Uploadschlüssel und Play App Signing einrichten
@@ -110,9 +120,12 @@ aktualisieren. Das ist ein gesonderter Wiederherstellungsvorgang, kein Grund, je
 den vorhandenen Schlüssel neu zu erzeugen.
 [Google beschreibt das Zurücksetzen des Uploadschlüssels.](https://support.google.com/googleplay/android-developer/answer/9842756?hl=de)
 
-Bei der ersten Veröffentlichung **Play App Signing** einrichten. Google signiert
-die ausgelieferten APKs mit dem App-Signaturschlüssel; das AAB wird vorher mit deinem
-Uploadschlüssel signiert. Diese Zertifikate haben unterschiedliche Aufgaben.
+**Play App Signing** ist aktiv und wurde nach dem ersten manuellen Bundle-Upload
+in der Console bestätigt. Google signiert die ausgelieferten APKs mit dem App-Signaturschlüssel; das AAB wird
+vorher mit deinem Uploadschlüssel signiert. Diese Zertifikate haben unterschiedliche
+Aufgaben. Aus dem Digital-Asset-Links-JSON der Console wurde der öffentliche
+SHA-256-Fingerabdruck des **App-Signaturzertifikats** bestätigt:
+`6E:26:73:AB:76:E0:1F:36:C8:C0:EF:A2:2C:15:EC:18:95:13:2E:8E:F7:60:12:3F:86:91:40:CD:E1:DA:0C:09`.
 [Google erklärt beide Schlüssel und deren Einrichtung.](https://developer.android.com/studio/publish/app-signing)
 
 Den öffentlichen SHA-256-Fingerabdruck des Uploadzertifikats über Android Studio
@@ -201,12 +214,31 @@ ist erfolgreich abgeschlossen. Das heruntergeladene Artefakt wurde zusätzlich l
 
 Die CI hat Paket, Version und Nicht-Debug-Build geprüft. Auch lokal bestätigt `jarsigner`
 die Signatur; der Strict-Rückgabewert `4` beruht auf dem erwarteten selbstsignierten
-Uploadzertifikat und seiner fehlenden öffentlichen Vertrauenskette. Das ist noch kein
-Nachweis eines Google-Uploads, eines internen Releases oder einer Play-Installation.
-Der nach diesem Quellcommit ergänzte native Einstieg zum Löschantrag ist in diesem
-Bootstrap-Bundle noch nicht enthalten; dafür ist ein neuer geprüfter App-Build erforderlich.
+Uploadzertifikat und seiner fehlenden öffentlichen Vertrauenskette. Der Bootstrap-Lauf
+selbst lädt nicht hoch: `storeUploaded: false` im damaligen Artefakt bleibt richtig.
+Der spätere manuelle Upload und interne Release sind separat in Abschnitt 6 bestätigt;
+eine Play-Geräteinstallation wird damit nicht behauptet. Der nach diesem Quellcommit
+ergänzte native Einstieg zum Löschantrag fehlt in `0.3.0+13`; er gehört zum nachfolgenden
+Release auf `e7210efe8f06f01433b69a396f3cd34160b6b743` (Abschnitt 8).
 
 ## 6. Einmalig manuell nach Internal Testing hochladen
+
+### Bestätigter erster interner Release
+
+Das oben geprüfte Bundle **0.3.0+13** mit SHA-256
+`c896fe3eac29c696d3b5fd4a29947728e0ad7406abf3d420b0e1ea4cb96ab621` wurde am
+16. Oktober 2026 manuell in der Console hochgeladen. Der interne Release wurde als
+**`completed` und verfügbar** bestätigt. Damit sind erster Upload, Play-App-Signing-
+Einrichtung und interner Release erfolgt; das ist keine öffentliche Veröffentlichung.
+
+Die bestehende Testerliste **Beta-Tester** mit **einem Eintrag** ist eingerichtet.
+Der bestätigte Beitrittslink lautet:
+[Am internen Akribos-Test teilnehmen](https://play.google.com/apps/internaltest/4701209263936680498).
+Tester müssen mit einem freigegebenen Google-Konto beitreten. Verfügbarkeit im
+internen Track belegt keine bereits erfolgte Installation oder Funktionsabnahme auf
+einem Gerät. Der Signaturkonflikt mit der bisherigen direkten Pixel-APK bleibt bestehen.
+
+### Ablauf bei einer neuen App
 
 In der Play Console unter **Testen und veröffentlichen → Testen → Interner Test**
 einen Release erstellen, das AAB aus Schritt 5 hochladen, Play App Signing
@@ -224,11 +256,13 @@ Freigabe etwas dauern.
 [Anleitung zu internen Tests.](https://support.google.com/googleplay/android-developer/answer/9845334?hl=de)
 
 Die Bootstrap-Freigabe bleibt nach Schritt 5 auf `false`. Unter **App-Integrität / App-Signierung**
-den SHA-256-Wert des **App-Signaturzertifikats** kopieren. Diesen zusätzlich in
-`../akribos/static/.well-known/assetlinks.json` für `de.akribos.app` eintragen und
-den Server regulär veröffentlichen, damit auch Play-Installationen Akribos-Links
-öffnen. Den bisherigen Pixel-Fingerprint erhalten; der Upload-Fingerprint ersetzt
-hier nicht den App-Signatur-Fingerprint.
+den SHA-256-Wert des **App-Signaturzertifikats** kontrollieren. Der für Akribos
+bestätigte Wert steht in Abschnitt 3. Seine zusätzliche Zuordnung in
+`../akribos/static/.well-known/assetlinks.json` wird über
+[Web-PR #329](https://github.com/akribos-biblestudy/akribos/pull/329) nachgeführt;
+der separate Webrelease muss inklusive öffentlicher JSON-Antwort geprüft werden.
+Den bisherigen Pixel-Fingerprint erhalten; der Upload-Fingerprint ersetzt hier
+nicht den App-Signatur-Fingerprint.
 [Android App Links prüfen die Signatur der installierten App.](https://developer.android.com/training/app-links/configure-assetlinks)
 
 ## 7. Google-Play-API freigeben
@@ -269,6 +303,24 @@ privaten Nutzerkontos.
 [Offizielle Einrichtung von API und Dienstkonto.](https://developers.google.com/android-publisher/getting_started)
 
 ## 8. Weitere Versionen automatisch veröffentlichen
+
+### Erster automatischer Releaseauftrag
+
+Am 16. Oktober 2026 wurde
+[GitHub-Release `v0.3.1`](https://github.com/akribos-biblestudy/akribos-app/releases/tag/v0.3.1)
+auf exakt `e7210efe8f06f01433b69a396f3cd34160b6b743` veröffentlicht. Der
+[Dispatcher 38939683333](https://github.com/akribos-biblestudy/akribos-app/actions/runs/38939683333)
+war erfolgreich und startete
+[Storelauf 38939695470](https://github.com/akribos-biblestudy/akribos-app/actions/runs/38939695470)
+auf `main`. Der neue Quellstand enthält den nativen Einstieg zum Löschantrag.
+
+Diese Angaben belegen den veröffentlichten Releaseauftrag und seinen Start. Für das
+Ergebnis des automatischen Uploads sind der verlinkte Storelauf, dessen `release.json`
+mit `storeUploaded`/`internalTrackVerified` und das Rücklesen des echten Play-Tracks
+maßgeblich. Der oben unabhängig bestätigte manuelle Release `0.3.0+13` darf weder als
+Nachweis noch als Gegenbeweis für den automatischen Folgelauf verwendet werden.
+
+### Ablauf weiterer Releases
 
 1. Änderungen auf `main` bringen und **Flutter CI** für exakt diesen Commit grün
    abwarten. Ein manueller CI-Lauf ersetzt den geforderten Push-CI-Lauf nicht.
@@ -328,9 +380,9 @@ python3 -m py_compile scripts/play_release.py
 Die Unit-Tests simulieren API-Antworten und prüfen Versionsreservierung, Commit-/CI-
 Sperren, Hashprüfung und die Begrenzung auf den internen Track. Sie belegen keinen
 realen Google-Play-Upload. Actions, bundletool und alle Python-Abhängigkeiten sind
-auf konkrete Versionen beziehungsweise Prüfsummen festgelegt. Stand 16. Oktober 2026
-sind Storezugang, Uploadzertifikat, Environment-Bindung und die fünf hinterlegten
-Secret-Namen geprüft. Es wird hier noch kein erzeugtes/hochgeladenes Store-AAB,
-erfolgreicher CI-Storelauf oder veröffentlichter interner Release bestätigt.
-Der bestehende Weg bleibt: `vX.Y.Z`-GitHub-Release → geprüfter Workflow auf `main`
+auf konkrete Versionen beziehungsweise Prüfsummen festgelegt. Die realen Nachweise
+sind getrennt oben dokumentiert: Storeeinrichtung, signierter Bootstrap `0.3.0+13`,
+manueller Upload und abgeschlossener interner Release sowie der gestartete automatische
+Releaseauftrag `v0.3.1`. Die lokalen Unit-Tests ersetzen diese Nachweise nicht.
+Der Weg bleibt: `vX.Y.Z`-GitHub-Release → geprüfter Workflow auf `main`
 → ausschließlich `internal`; es erfolgt keine öffentliche Veröffentlichung.
