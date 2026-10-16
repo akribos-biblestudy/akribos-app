@@ -1,14 +1,20 @@
 # Akribos: Inhalte für Google Play
 
-Stand: 16. Oktober 2026. Grundlage sind der aktuelle lokale App-Code und das zugehörige
-Web-Repository, einschließlich der neuen Einstellungen und des kompakten Versmenüs.
-Der deutsche Haupt-Store-Eintrag und die Kontaktangaben wurden erfolgreich in Google Play
-übernommen. Name, Kurzbeschreibung, vollständige Beschreibung und Kontaktwerte wurden danach
-zurückgelesen und verglichen. Auch 1 App-Icon, 1 Funktionsgrafik und 4 Screenshots wurden
-übernommen; die zurückgelesenen Bildhashes stimmen mit den hochgeladenen Dateien überein.
-Beim anschließenden Rücklesen waren alle Tracks weiterhin leer. Damit ist der Store-Eintrag
-bestätigt, noch kein App-Release oder vollständig ausgefüllter App-Inhaltsbereich.
-Die Texte setzen voraus, dass genau dieser Funktionsstand im Store-Bundle enthalten ist.
+Stand: 16. Oktober 2026. Die ursprünglich elf Einrichtungspunkte der App sind in der
+Play Console gespeichert: neun Erklärungen zu App-Inhalten, Kategorie/Kontakt und
+Store-Eintrag. Nach dem ersten Bundle kam die Erklärung zur Werbe-ID hinzu; sie ist
+mit **Nein** gespeichert. Die Console zeigte anschließend **„Alles erledigt“** und
+zehn abgeschlossene Erklärungen. Das dokumentiert den Console-Stand, keine umfassende
+Google-Freigabe oder Bestätigung aller Betriebs- und Moderationsanforderungen.
+
+Der deutsche Haupt-Store-Eintrag, Kontaktangaben, 1 App-Icon, 1 Funktionsgrafik und
+4 Screenshots wurden committed und zurückgelesen. Alle Texte/Kontaktwerte und die
+Bildhashes stimmten überein. Das Bootstrap-Bundle **0.3.0+13** wurde anschließend
+manuell hochgeladen und im internen Test als `completed`/verfügbar bestätigt.
+Der am selben Tag gestartete automatische Releaseauftrag **0.3.1** ist separat in
+[PLAY-STORE.md](PLAY-STORE.md) mit den zugehörigen Workflow-Referenzen dokumentiert. Es wurde keine
+öffentliche Veröffentlichung vorgenommen und kein Preis-/Länderumfang für Produktion
+geändert. Die Store-Texte müssen weiterhin zum jeweils ausgelieferten Bundle passen.
 
 ## Direkt verwendbare Store-Texte
 
@@ -24,73 +30,69 @@ Offline-Bibelpakete noch eine verfügbare iOS-App oder Zugang zu jedem Werk.
 Die Release Notes enthalten keine feste Versionsnummer; die kommt aus dem Release-Build.
 [Google erläutert die Release Notes und ihre Zeichengrenze.](https://support.google.com/googleplay/android-developer/answer/9859348?hl=de)
 
-## Kontaktdaten und Console-Felder
+## Gespeicherte Console-Angaben
 
-| Console-Feld | Konkreter Wert / Stand |
+| Console-Feld | Gespeicherter Wert / bestätigter Stand |
 | --- | --- |
-| Support-E-Mail | `info@akribos.de` |
-| Website | `https://akribos.de` |
-| Datenschutzerklärung | `https://akribos.de/datenschutz`; vor einem öffentlichen Release inhaltlich um die App ergänzen, siehe Entwurf unten |
-| Typ | App |
-| Kategorie | Bücher & Nachschlagewerke; fachlich aus dem Reader-/Nachschlagezweck abgeleitet, Console-Speicherung noch nicht bestätigt |
-| Enthält Werbung | Nein für den geprüften Funktionsstand; keine Werbeeinbindung im Client, seinen Abhängigkeiten oder der isolierten Editorseite gefunden. Erklärung noch nicht bestätigt |
-| App-Zugriff | Einige Funktionen erfordern Anmeldung; Prüfkonto für Notizen, Markierungen, Einstellungen und Sammlungen erforderlich |
-| Alterszielgruppe | Vom Betreiber am 16. Oktober 2026 bestätigt: 13–15 Jahre, 16–17 Jahre und 18+; Console-Speicherung noch nicht bestätigt |
-| Preis und Länder | **Betreiberentscheidung offen.** Nicht aus technischer Funktionsfähigkeit ableiten |
-| Entwickleranzeige / rechtlicher Kontoinhaber | **Mit der tatsächlich verifizierten Play-Identität abgleichen.** Öffentliches Impressum nennt Mirko Hecky |
-| Telefonnummer | Nicht im untersuchten öffentlichen Impressum vorhanden; keine Nummer erfunden |
+| Support-E-Mail / Website | `info@akribos.de` / `https://akribos.de`; committed und zurückgelesen |
+| Typ / Kategorie | App / Bücher & Nachschlagewerke |
+| Datenschutzerklärung | `https://akribos.de/datenschutz`; native App und Löschantrag sind veröffentlicht, siehe Live-Nachweis unten |
+| App-Zugriff / Anmeldedaten | Einige Funktionen erfordern Anmeldung; dediziertes normales Prüfkonto mit dauerhaftem Passwort, siehe Reviewzugang |
+| Anzeigen | Nein; keine Werbeeinbindung im geprüften Client, seinen Abhängigkeiten oder der isolierten Editorseite |
+| Werbe-ID | Nein; nach dem ersten Bundle zusätzlich gespeichert, keine Werbe-ID-Berechtigung im geprüften Release-Manifest |
+| Zielgruppe und Inhalte | Vom Betreiber ausdrücklich bestätigt und gespeichert: 13–15 Jahre, 16–17 Jahre und 18+ |
+| Altersfreigaben | Vom Nutzer ausgefüllter IARC-Fragebogen abgeschlossen; Ergebnis unten, Einzelantworten nicht vollständig unabhängig geprüft |
+| Datensicherheit | Gespeichert und aus der Console exportiert; alle 782 Antwortfelder stimmen mit dem vorbereiteten Import überein |
+| Behörden-Apps | Nein; private Bibelstudienanwendung, keine erklärte behördliche Beauftragung |
+| Finanzfunktionen | Meine App bietet keine Finanzfunktionen |
+| Gesundheits-Apps | Meine App bietet keine Gesundheitsfunktionen |
+| Store-Eintrag | Deutscher Haupt-Store-Eintrag einschließlich Kontakt, Icon, Funktionsgrafik und 4 Screenshots bestätigt |
 
-Support-Adresse, Mirko Hecky und die Anschrift Hosleite 13, 95478 Kemnath, Deutschland,
-stehen im versionierten Impressum. Der öffentliche Abruf von Impressum und Datenschutzseite
-lieferte am 16. Oktober 2026 HTTP 200. Die von Cloudflare im öffentlichen HTML kodierte
-E-Mail-Adresse wurde als `info@akribos.de` bestätigt. Diese Angaben ersetzen keine Prüfung
-der separaten Play-Konto-/Organisationsdaten.
-[Öffentliches Impressum](https://akribos.de/impressum),
-[öffentliche Datenschutzerklärung](https://akribos.de/datenschutz).
+Preis, Produktionsländer und öffentliche Veröffentlichung waren nicht Teil dieses internen
+Releases. Das öffentliche Impressum nennt Mirko Hecky, Hosleite 13, 95478 Kemnath,
+Deutschland, und `info@akribos.de`; es ersetzt keine Prüfung der separaten
+Play-Konto-/Organisationsdaten. Keine nicht belegte Telefonnummer wurde ergänzt.
+[Öffentliches Impressum](https://akribos.de/impressum).
 
-## Vorbereitete Erklärungen zu App-Inhalten
-
-Die folgenden Werte sind aus dem untersuchten Funktionsstand abgeleitet und noch keine
-Bestätigung, dass diese Console-Formulare gespeichert oder von Google geprüft wurden.
-Die genaue deutsche Beschriftung kann in der Console abweichen.
-
-| Console-Feld | Vorbereitete Angabe | Beleg und Grenze |
-| --- | --- | --- |
-| Kategorie | App → Bücher & Nachschlagewerke | Bibelreader, Kommentare und Wörterbücher entsprechen Googles Beispielen für diese Kategorie |
-| Anzeigen | Nein | Keine Werbe-SDKs, Banner, Interstitials oder nativen Anzeigen im geprüften Client und Editor gefunden; selbst eingebaute Anzeigen würden ebenfalls zählen |
-| Behörden-Apps | Nein, sofern keine bislang nicht genannte behördliche Beauftragung besteht | Impressum und Produkt beschreiben eine private Bibelstudienanwendung; die tatsächliche institutionelle Verbindung ist eine Betreiberangabe |
-| Finanzfunktionen | Meine App bietet keine Finanzfunktionen | Keine Bank-, Kredit-, Zahlungs-, Wallet-, Anlage-, Versicherungs- oder Finanzberatungsfunktion gefunden |
-| Gesundheit | Meine App bietet keine Gesundheitsfunktionen | Keine Gesundheitsdaten-Anbindung, Diagnose, Behandlung, Fitness-, Meditations- oder medizinische Beratungsfunktion gefunden |
-
-Bibeltexte über Geld, Heilung oder historische Regierungen begründen allein keine entsprechende
-App-Funktion. Zusätzliche Kategorien nur wählen, wenn die App diese Funktionen tatsächlich
-bereitstellt. Aktuelle offizielle Grundlagen:
+Die Angaben zu Kategorie, Anzeigen, Behörden-, Finanz- und Gesundheitsfunktionen beruhen
+auf dem tatsächlichen Reader-/Nachschlagezweck und den geprüften Funktionen. Bibeltexte
+über Geld, Heilung oder historische Regierungen begründen allein keine entsprechende
+App-Funktion. Neue Funktionen erfordern eine erneute Prüfung der Erklärungen.
 [App-Kategorien](https://support.google.com/googleplay/android-developer/answer/9859673?hl=de),
 [Anzeigen erklären](https://support.google.com/googleplay/android-developer/answer/9859455?hl=de),
 [Behörden-Apps](https://support.google.com/googleplay/android-developer/answer/9514050?hl=de),
 [Finanzfunktionen](https://support.google.com/googleplay/android-developer/answer/13849271?hl=de),
 [Gesundheitsfunktionen](https://support.google.com/googleplay/android-developer/answer/14738291?hl=de).
 
-## IARC: Inhaltseinstufung und Nutzerinteraktion
+## IARC: gespeicherte Einstufung und Prüfgrenzen
 
-Der vollständige IARC-Fragebogen ist nur im Einreichungsportal des jeweiligen Stores verfügbar.
-Die Angaben unten sind daher eine belegte Ausfüllhilfe, kein fertig beantworteter Fragebogen.
-Den tatsächlichen Wortlaut und seine Erläuterungen verwenden; insbesondere Verweise,
-Textbeschreibungen, Bilder und Geräusche nicht gleichsetzen.
+Der Nutzer hat den IARC-Fragebogen selbst abgeschlossen. Am 16. Oktober 2026 wurden
+in der Console der abgeschlossene Status, Kontakt `info@akribos.de`, die Kategorie
+„Alle anderen App-Typen“ und „Online-Inhalte: Ja“ bestätigt. Angezeigte Ergebnisse:
+
+| Region / System | Angezeigte Einstufung |
+| --- | --- |
+| Deutschland / USK | 0 |
+| PEGI | 3 |
+| ESRB | Everyone |
+| Brasilien | 0 |
+| IARC allgemein | 3 |
+| Russland | 3 |
+| Korea | 3 |
+
+Die einzelnen Antworten wurden nicht vollständig unabhängig geprüft. Diese Tabelle gibt
+das gespeicherte Ergebnis wieder; sie bestätigt weder eine vollständige inhaltliche
+Prüfung der Bibelquellen noch aller serverseitigen oder nutzergenerierten Inhalte.
+Die gewählte Zielgruppe ab 13 Jahren bleibt von diesen Inhaltsfreigaben getrennt.
 [IARC-FAQ](https://www.globalratings.com/faq/),
 [Googles Einstufungsverfahren](https://support.google.com/googleplay/android-developer/answer/9859655?hl=de).
 
-| Frage / Themenbereich | Vorbereitete Antwort aus dem Code |
-| --- | --- |
-| Kontakt für IARC | `info@akribos.de`; Einstufungsnachrichten dort bearbeiten |
-| App-Gruppe | Andere App-Typen, falls so angeboten: Hauptzweck Lesen/Nachschlagen, kein Spiel und keine primäre Social-/Dating-App |
-| Online nachgeladene Inhalte | Ja: Bibeln, Kommentare, Lexika und persönliche/geteilte Inhalte werden vom Server geladen |
-| Nutzerinteraktion / eigene Inhalte anderen zugänglich machen | Ja: Sammlungen mit Einladungen, Kommentaren, Antworten und Reaktionen; freigegebene Leselinks und lesbare veröffentlichte Notizen |
-| Standort anderen Nutzern zeigen | Nein: keine entsprechende Funktion gefunden |
-| Digitale Käufe, Glücksspiel oder Gewinne als App-Funktion | Nein: keine entsprechende Kauf-, Wett- oder Gewinnfunktion gefunden. Biblische Erwähnungen getrennt bewerten |
-| Inhalte/Nutzer in der App melden | Im geprüften Client nicht vorhanden gefunden; keine Zusage, dass ein solcher Weg existiert |
-| Andere Nutzer blockieren | Im geprüften Client nicht vorhanden gefunden; das Entfernen von Mitgliedern durch Sammlungseigentümer ersetzt keine allgemeine Blockierfunktion |
-| Vollständige Vorabmoderation / Inhaltsfilter | Nicht belegt; keine entsprechende Zusage abgeben |
+Für künftige Änderungen sind die tatsächlich verfügbaren Funktionen maßgeblich:
+Bibeltexte und Nachschlagewerke werden online geladen; Nutzer können Sammlungen,
+Kommentare, Antworten, Reaktionen und freigegebene Notizen anderen zugänglich machen.
+Standortfreigabe, digitale Käufe, Glücksspiel und Gewinne wurden nicht gefunden.
+Textbeschreibungen, Bilder und Geräusche sind bei den konkreten Fragen zu unterscheiden.
+Die folgenden Befunde bleiben trotz abgeschlossenem Fragebogen relevant.
 
 ### Bibeltext ist nicht pauschal inhaltsneutral
 
@@ -134,46 +136,89 @@ Melde-/Blockierfunktionen innerhalb der App. Das sind offene Produkt-/Betriebsan
 keine fehlenden Kreuze, die sich durch pauschale Nein-Antworten erledigen lassen.
 [Google erläutert Melden, Blockieren und Moderation](https://support.google.com/googleplay/android-developer/answer/12923286?hl=de).
 
-### Bestätigte Alterszielgruppe: ab 13 Jahren
+## Datenflüsse und gespeicherte Datensicherheitsangaben
 
-Der Betreiber hat am 16. Oktober 2026 die Altersgruppen **13–15 Jahre, 16–17 Jahre und 18+**
-ausdrücklich als Zielgruppe bestätigt. Diese drei Gruppen sind im Console-Formular auszuwählen;
-die Speicherung dort ist hier noch nicht bestätigt. Unter 13-Jährige gehören nicht zur
-beabsichtigten Zielgruppe. Die Alterszielgruppe bleibt von der automatisch ermittelten
-Inhaltsfreigabe getrennt und ersetzt keine Prüfung der IARC- oder UGC-Anforderungen.
-[Google zur Zielgruppe und Inhaltsfreigabe](https://support.google.com/googleplay/android-developer/answer/9859655?hl=de).
+Die Erklärung umfasst den nativen Client und die selbst kontrollierte Editor-WebView.
+Übertragungen zum eigenen Server gelten als Erhebung; reine lokale Verarbeitung nicht.
+Die gespeicherte Einordnung verwendet Googles Definitionen einschließlich der Ausnahmen
+für weisungsgebundene Dienstleister und erwartetes, vom Nutzer veranlasstes Teilen.
+[Google: Datensicherheit](https://support.google.com/googleplay/android-developer/answer/10787469?hl=de).
 
-## Datenflüsse und Datensicherheit
+### Verifizierter Import und Rückexport
 
-Google bezieht die selbst kontrollierte Editor-WebView in die App-Angaben ein. Reine lokale
-Verarbeitung zählt dort nicht als Übertragung. Ausschließlich internes Testen ist vom
-Datensicherheitsformular ausgenommen; vor Closed/Open/Production sind die Angaben nötig.
-Die folgende Zuordnung ist eine technische Arbeitsfassung aus dem Code, keine bereits
-abgegebene Erklärung. [Google: Datensicherheit](https://support.google.com/googleplay/android-developer/answer/10787469?hl=de).
+Die zuerst öffentlich verlinkte Vorlage hatte 763 Zeilen. Für die tatsächliche Einreichung
+wurde die aktuelle offizielle Console-Vorlage mit **782 Antwortfeldern** verwendet;
+sie enthält auch Kontotypen und die Lösch-URL. Der Import wurde von der Console validiert
+und gespeichert. Der anschließende Console-Export wurde nach Frage-ID und Antwort-ID
+verglichen: **alle 782 Antworten identisch**, nach Normalisierung von `TRUE`/`true` und
+`FALSE`/`false`; nicht nur die ausgewählten Antworten wurden geprüft.
 
-| Tatsächlicher Datenfluss | Console-Zuordnung zur Prüfung | Verwendung / Wahlmöglichkeit |
-| --- | --- | --- |
-| E-Mail-Adresse bei Registrierung, Anmeldung, Konto und Einladungen | Personenbezogene Daten → E-Mail-Adresse | Kontoverwaltung, App-Funktion, Sicherheit; Anmeldung ist für öffentliches Lesen optional |
-| Anzeigename im Profil | Personenbezogene Daten → Name | Kontoverwaltung und sichtbarer Name bei Zusammenarbeit; freiwillige Eingabe |
-| Konto-ID und Sitzungszuordnung | Personenbezogene Daten → Nutzer-IDs | Anmeldung, Besitzprüfung, persönliche Inhalte; bei Kontonutzung |
-| Notizen, Ausarbeitungen, Titel, Tags, Markierungen, Sammlungen, Kommentare und Reaktionen | App-Aktivität → andere nutzergenerierte Inhalte bzw. andere Aktivitäten | Speichern und Zusammenarbeit; freiwillig angelegte Inhalte, kontogebunden |
-| Suchbegriffe gehen an die Akribos-Suche | App-Aktivität → Suchverlauf in der App | Suchfunktion; freiwillige Suche. Nicht pauschal als ausschließlich lokal oder flüchtig deklarieren, solange Infrastruktur-Logs nicht geprüft sind |
-| Ausgewählte Anlagen an Ausarbeitungen: Inhalt, Dateiname, Medientyp, Größe | Dateien und Dokumente; je nach tatsächlichem Inhalt zusätzlich Fotos/Videos und Audiodateien | Expliziter System-Dateiauswahldialog; freiwilliger Upload. Backend erlaubt beliebige Dateitypen bis zur Größenbegrenzung, kein Foto-/Audio-Ausschluss |
-| Zufälliger `x-reader-browser-tab`-Wert pro App-Client wird übertragen | Geräte- oder andere IDs: technische App-Kennung prüfen | Funktionale Laufzeitkennung, keine Werbe-ID; im lokalen Reader-Modus kein Browser-Workspace. Header-/Proxy-Speicherung beim Betreiber prüfen |
-| Verbindungs-IP, Anmelde-Ratelimits, langsame Requests mit Pfad/Dauer/Status | Technische Zugriffsdaten; ggf. Diagnosedaten/weitere Kennungen gemäß tatsächlich aktivem Betrieb | Betrieb und Missbrauchsschutz. Logs, Aufbewahrung und Zugriff beim Hosting/CDN bestätigen |
-| Geistliche Notizen können Aussagen über Überzeugungen enthalten | Politische/religiöse Überzeugungen: **Einordnung durch Betreiber offen** | Keine Religions-Profilfelder gefunden. Nicht aus der App-Kategorie allein ableiten; Inhalt und Zweck freiwilliger Studiennotizen einbeziehen |
+| Lokaler Prüfbeleg, nicht eingecheckt | SHA-256 |
+| --- | --- |
+| `/tmp/akribos-current-data-safety.csv` (Import) | `bee575d0dad681248db8176c9379eb6692b7983156011a250c26a24e5148594d` |
+| `/tmp/akribos-data-safety-console-readback.csv` (Rückexport) | `8cd7064fb161501c48e19c09280b4224402b9de0fe1130b4018f59904e7afa40` |
 
-Für die Übertragung zwischen Store-App und Akribos gilt HTTPS; das Android-Manifest verbietet
-Klartextverkehr. Die App verwendet keine Ende-zu-Ende-Verschlüsselung für Servernotizen.
-Lokale Sitzungsdaten, Tabs und Entwürfe werden durch den sicheren Plattform-Speicher geschützt.
-Das ist keine Aussage über Verschlüsselung oder Aufbewahrungsfristen der Server-Datenbank.
+Die temporären Dateien sind lokale Prüfbelege und kein dauerhaft verfügbares Archiv.
+Die folgende Tabelle hält die gewählten Datenarten und ihre Begründungen im Repository fest.
+Die technische Herleitung wurde zusätzlich in `/tmp/akribos-data-safety-rationale.txt`
+festgehalten; dessen früherer Vorbereitungsstatus wird durch den bestätigten Import ersetzt.
 
-Weitergabe muss von Erfassung unterschieden werden: Der Code übermittelt Konto-E-Mails
-serverseitig an Brevo, sofern dieser Mailer konfiguriert ist. Hosting/CDN/Mail-Auftragsverarbeiter
-und ausdrücklich ausgelöstes Teilen sind bei der Console-Einordnung gesondert zu prüfen.
-Keine pauschale Zusage „keine Datenweitergabe“ abgeben, bevor reale Empfänger und Verträge
-bestätigt sind. Eigene Notizen werden nicht automatisch veröffentlicht; ausdrücklich geteilte
-Inhalte können andere Nutzer oder Linkempfänger erreichen.
+### 17 ausgewählte Datenarten
+
+Für alle folgenden Arten ist **Erhoben** ausgewählt, **Geteilt** nicht ausgewählt und
+**nur flüchtig verarbeitet** auf **Nein** gesetzt. „Optional“ bedeutet, dass die
+entsprechende Konto-, Eingabe- oder Uploadfunktion freiwillig genutzt werden kann;
+öffentliche Texte können ohne Konto gelesen werden. Es ist keine Lösch- oder
+Speicherfristen-Zusage. Die Zweckangabe „Analyse“ betrifft die belegte technische
+Diagnose und bedeutet hier keine eingebundene Werbe- oder Analytics-Bibliothek.
+
+| Datenart (Console-ID) | Erforderlich? | Gespeicherte Zwecke | Tatsächlicher Datenfluss |
+| --- | --- | --- | --- |
+| Name (`PSL_NAME`) | Optional | App-Funktion, Kontoverwaltung | Anzeigename im Konto und bei freigegebenen Sammlungen |
+| E-Mail-Adresse (`PSL_EMAIL`) | Optional | App-Funktion, Kontoverwaltung, Sicherheit | Konto, Anmeldung, Adressbestätigung und adressbezogene Limits |
+| Nutzer-IDs (`PSL_USER_ACCOUNT`) | Optional | App-Funktion, Kontoverwaltung, Sicherheit | Konto-ID, Besitzprüfungen und Nutzerlimits |
+| Andere Nachrichten (`PSL_OTHER_MESSAGES`) | Optional | App-Funktion | Kommentare und Antworten in gemeinsamen Sammlungen |
+| Fotos (`PSL_PHOTOS`) | Optional | App-Funktion | Ausdrücklich ausgewählte Fotoanlagen |
+| Videos (`PSL_VIDEOS`) | Optional | App-Funktion | Ausdrücklich ausgewählte Videoanlagen |
+| Sprach-/Tonaufnahmen (`PSL_AUDIO`) | Optional | App-Funktion | Ausdrücklich ausgewählte Aufnahmen als Anlagen |
+| Musikdateien (`PSL_MUSIC`) | Optional | App-Funktion | Ausdrücklich ausgewählte Musikdateien als Anlagen |
+| Andere Audiodateien (`PSL_OTHER_AUDIO`) | Optional | App-Funktion | Ausdrücklich ausgewählte weitere Audioanlagen |
+| Dateien und Dokumente (`PSL_FILES_AND_DOCS`) | Optional | App-Funktion | Ausgewählte Dateien/Anlagen einschließlich Dateinamen |
+| Kontakte (`PSL_CONTACTS`) | Optional | App-Funktion | E-Mail-Einladungen, Mitgliedschaften und Interaktionsbeziehungen; kein Telefonadressbuchzugriff |
+| Suchverlauf in der App (`PSL_IN_APP_SEARCH_HISTORY`) | Optional | App-Funktion | Explizite Suchanfragen an den Server |
+| Andere nutzergenerierte Inhalte (`PSL_USER_GENERATED_CONTENT`) | Optional | App-Funktion | Notizen, Ausarbeitungen, Tags und eigene Sammlungen |
+| Andere Aktionen (`PSL_OTHER_APP_ACTIVITY`) | Optional | App-Funktion | Markierungen und Kommentarreaktionen |
+| App-Interaktionen (`PSL_USER_INTERACTION`) | Ja | App-Funktion, Analyse | Angeforderte Kapitel/Seiten; langsame Requestpfade mit Dauer und Status |
+| Diagnosedaten (`PSL_PERFORMANCE_DIAGNOSTICS`) | Ja | Analyse | Serverseitige Slow-Request-Dauer und HTTP-Status |
+| Geräte- oder andere IDs (`PSL_DEVICE_ID`) | Ja | App-Funktion, Sicherheit | Laufzeit-UUID `x-reader-browser-tab`, Netzwerk-/Sitzungsidentifikation und IP-basierter Missbrauchsschutz; keine Werbe-ID |
+
+Tabs, Lesepositionen und Suchzustand werden im nativen lokalen Reader gerätelokal
+gehalten; die Tabelle behauptet keine dauerhafte serverseitige Lesefortschrittsspeicherung.
+Die Dateiauswahl und das Backend erlauben Anlagen beliebiger Dateitypen bis zur
+Größenbegrenzung. Deshalb sind die unterstützten Foto-, Video- und Audiokategorien
+angegeben, auch ohne Kamera-/Mikrofonzugriff der App.
+
+Nicht ausgewählt wurden Standort, Finanz-/Gesundheitsprofile, Telefon/SMS/Postfach,
+Kalender, installierte Apps oder Werbezwecke: dafür wurde im geprüften Client keine
+positive Funktionsevidenz gefunden. Ein eigenes Religionsprofil existiert nicht;
+freier Notiztext wird als nutzergenerierter Inhalt eingeordnet. Eine etwaige zusätzliche
+Erhebung oder Auswertung beim Infrastrukturbetreiber muss gesondert bewertet werden.
+
+### Sicherheits- und Kontoangaben
+
+- Erhebung personenbezogener Daten: **Ja**; Verschlüsselung bei Übertragung: **Ja**.
+  Release-Verbindungen verwenden HTTPS, Android verbietet Klartextverkehr. Das ist
+  keine Ende-zu-Ende-Verschlüsselung der serverseitigen Notizen.
+- Kontotypen: **Nutzer-ID und Passwort** sowie **Nutzer-ID und andere Authentifizierung**
+  (E-Mail-Link/Code). Keine OAuth-, kombinierte Mehrfaktor- oder kontofreie Erklärung.
+- Kontolösch-URL: `https://akribos.de/datenschutz#konto-loeschen`.
+- Die optionale Erklärung zur separaten Datenlöschung ohne Kontolöschung und deren URL
+  bleiben leer. Keine automatische Löschung innerhalb einer bestimmten Tagesfrist,
+  unabhängige Sicherheitszertifizierung oder Familienprogramm-Zusage eingetragen.
+- „Geteilt“ ist nach den oben genannten Google-Ausnahmen nicht ausgewählt. Das bedeutet
+  nicht, dass keine Dienstleister beteiligt sind oder ausdrücklich freigegebene Inhalte
+  keine Empfänger erreichen. Reale Empfänger, Verträge und Provider-Konfigurationen
+  bleiben unabhängig vom erfolgreichen Formularimport zu prüfen.
 
 Prüfung der eingebundenen Technik:
 
@@ -204,109 +249,64 @@ Quellen im Code: `pubspec.yaml`, `android/app/src/main/AndroidManifest.xml`,
 `src/routes/api/documents/[id]/attachments/+server.ts` und
 `src/lib/server/repositories/document-attachments.ts`.
 
-## Konto-Löschung: verifizierter Stand
+## Konto-Löschung und Datenschutzerklärung: veröffentlicht
 
-Die App kann ein Konto über den E-Mail-Anmeldeablauf anlegen. Im aktuellen Quellstand
-bietet der Konto-Bildschirm zusätzlich zu Profil, Passwort und Abmelden den Abschnitt
-„Konto und Daten löschen“ mit „Löschung anfordern“. Der Button öffnet
-`/datenschutz#konto-loeschen` am eingestellten Akribos-Server, in Produktion also
-`https://akribos.de/datenschutz#konto-loeschen`. Dabei werden keine Konto-ID, Zugangsdaten
-oder Sitzung in die URL aufgenommen. Fehler beim Öffnen werden mit der Zieladresse angezeigt.
-Der Button startet einen Antrag über die Betreiberseite; er löscht kein Konto und meldet
-nicht ab. Es wurde kein benutzerseitiger Konto-Löschendpunkt ergänzt.
+Der Konto-Bildschirm bietet „Konto und Daten löschen“ mit „Löschung anfordern“.
+Der Button öffnet `/datenschutz#konto-loeschen` am eingestellten Akribos-Server, in
+Produktion also `https://akribos.de/datenschutz#konto-loeschen`. Keine Konto-ID,
+Zugangsdaten oder Sitzung werden in die URL aufgenommen. Öffnungsfehler bleiben
+sichtbar. Der Button startet einen Antrag; er löscht kein Konto und meldet nicht ab.
+Ein automatischer benutzerseitiger Konto-Löschendpunkt wurde nicht ergänzt.
 
-Die zugehörige Web-Erweiterung mit diesem Anker und dem konkreten Ablauf ist in Vorbereitung;
-ihre Veröffentlichung und der vollständige Weg wurden noch nicht live geprüft.
-Der Betreiber hat am 16. Oktober 2026 eine Bearbeitung von Löschanträgen innerhalb von
-**sieben Tagen** bestätigt. Das ist keine bestätigte Frist für das Auslaufen aller Backups
-oder gesetzlich aufzubewahrender Daten. Der native Einstieg ist noch nicht im bereits
-gebauten Bootstrap-Bundle `0.3.0+13` enthalten; dessen Quellcommit ist in
-`docs/PLAY-STORE.md` dokumentiert.
+Die Web-Erweiterung wurde mit
+[PR #328](https://github.com/akribos-biblestudy/akribos/pull/328) veröffentlicht:
+Commit `b548a4a649c2dc4c084e02ee280ee854051eb285`,
+[Main-CI 38937820390](https://github.com/akribos-biblestudy/akribos/actions/runs/38937820390)
+erfolgreich einschließlich Image-Publish und Coolify-Trigger. Live-Prüfung am
+16. Oktober 2026 um **17:24 UTC**: `/datenschutz` HTTP 200, genau ein
+`konto-loeschen`-Anker, sichtbarer Löschabschnitt und Mailto an `info@akribos.de`
+mit Betreff „Akribos-Konto löschen“; `/healthz` HTTP 200 mit `{"status":"ok"}`.
+[Veröffentlichter Löschweg](https://akribos.de/datenschutz#konto-loeschen).
 
-Google verlangt bei Kontoerstellung einen gut auffindbaren Weg aus der App und eine externe
-Ressource für Löschanträge. Eine deutlich beschriebene Support-E-Mail kann der externe Weg
-sein; der vollständige Ablauf muss vor einer entsprechenden Console-Zusage geprüft sein.
+Die öffentliche Seite erklärt den Antrag mit Identitätsprüfung und ohne Übermittlung
+von Passwörtern/Codes. Sein Umfang umfasst Kontodaten, Notizen/Ausarbeitungen, Anlagen,
+Markierungen, Sammlungen und Kommentare. Die vom Betreiber bestätigten **sieben Tage**
+beziehen sich auf die Antragsbearbeitung, nicht auf eine pauschale Frist für sämtliche
+Sicherungs- oder Dienstleisterkopien. Die Durchführung einer vollständigen Löschung
+wurde damit nicht getestet oder automatisch nachgewiesen.
+
+Die Datenschutzerklärung deckt nun auch E-Mail-Link/Code und optionales Passwort,
+native HTTPS-Zugriffe, öffentliche Texte ohne Anmeldung, Kontoinhalte und ausgewählte
+Anlagen, verschlüsselte lokale Sitzung/Tabs/Entwürfe, den eingebetteten Editor ohne
+Analytics, Systemteilen und temporäre Exportdateien ab. Abmelden oder Deinstallieren
+löscht das Serverkonto nicht. Hosting bei Hetzner Cloud und größenabhängige Rotation
+der App-Server-Protokolle sind beschrieben, ohne erfundene Tagesfrist oder Serverland.
+Sicherungskopien können bis zur Rotation bestehen; Sonderkopien sind gesondert zu
+berücksichtigen. Eine feste Backup-Löschfrist wurde nicht zugesagt.
+
+Der native Einstieg fehlt im älteren Bootstrap-Bundle `0.3.0+13` und ist im Quellstand
+`e7210efe8f06f01433b69a396f3cd34160b6b743` für den Folgerelease enthalten.
+Build-/Store-Nachweis und die Grenze zur noch ausstehenden Play-Geräteprüfung stehen
+in [PLAY-STORE.md](PLAY-STORE.md). Der veröffentlichte Webweg und die
+Codeprüfung des nativen Einstiegs ersetzen keinen vollständigen Löschtest einschließlich Anlagen,
+Mitgliedschaften, Dienstleisterdaten und Backups.
 [Google: Konto-Löschung](https://support.google.com/googleplay/android-developer/answer/13327111?hl=de).
 
-Noch ergänzen und prüfen:
+## Reviewzugang: eingerichtet und geprüft
 
-1. Den vorbereiteten öffentlichen Abschnitt mit App-/Betreibername, Antrag per
-   `info@akribos.de`, Identitätsprüfung sowie Umfang und bestätigter Bearbeitungsfrist
-   veröffentlichen und den Link aus einem neuen Release-Bundle testen.
-2. Tatsächliche Entfernung von Konto, Inhalten, Einladungs-/Mitgliedschaftsbezügen, Anlagen und
-   Dienstleisterdaten einschließlich dokumentierter Aufbewahrungs- und Backupausnahmen prüfen.
+Das dedizierte Konto `stores@akribos.de` wurde als normaler Nutzer mit Rolle `user`
+und dauerhaftem Passwort geprüft. Ein isolierter Login war erfolgreich; der Passwortweg
+benötigt keinen kurzlebigen E-Mail-Code. Die Zugangsanleitung und Zugangsdaten wurden
+in den geschützten Console-Feldern für App-Zugriff gespeichert. Das Google-Dienstkonto
+für Store-Uploads ist davon getrennt.
 
-Textvorlage für den externen Löschweg, **noch nicht veröffentlicht**:
-
-> Akribos-Konto und zugehörige Daten löschen
->
-> Du kannst die Löschung deines Akribos-Kontos und der dazugehörigen persönlichen Daten
-> unter info@akribos.de anfordern. Verwende möglichst die E-Mail-Adresse deines Kontos
-> und den Betreff „Akribos-Konto löschen“. Wir prüfen die Zuordnung des Antrags, bevor
-> wir Kontodaten löschen. Wir bearbeiten Löschanträge innerhalb von sieben Tagen.
-> Sende uns dafür kein Passwort und keinen Anmeldecode.
->
-> [BETREIBER ERGÄNZEN: betroffene Daten, Umgang mit geteilten Beiträgen sowie erforderliche
-> Aufbewahrungs- und Backupausnahmen mit Fristen.]
-
-Diese Platzhalter müssen vor Veröffentlichung entfernt und durch den bestätigten Ablauf
-ersetzt werden. Keine fiktive Lösch-URL als fertige Console-Angabe eintragen.
-
-## Ergänzung der Datenschutzerklärung: Textentwurf
-
-Die aktuelle Seite beschreibt eine Website und stellt das Passwort als verpflichtend dar.
-Für die App fehlen insbesondere die native lokale Speicherung, Entwürfe und der Editor.
-Folgender Zusatz ist aus dem Code vorbereitet; der Betreiber muss die markierten Angaben
-vor Veröffentlichung ergänzen und mit der bestehenden Erklärung abstimmen:
-
-> Akribos-App für Android
->
-> Die App verbindet sich mit akribos.de, um Bibeltexte, Nachschlagewerke und persönliche
-> Inhalte zu laden. Bei diesen Verbindungen fallen technische Zugriffsdaten an. Öffentliche
-> Texte können ohne Anmeldung gelesen werden. Für persönliche Funktionen verwenden wir
-> die E-Mail-Adresse und die Kennung deines Akribos-Kontos. Die Anmeldung kann per
-> E-Mail-Link bzw. Code erfolgen; für Konten mit eingerichtetem Passwort ist die
-> Passwortanmeldung verfügbar. Passwörter werden auf dem Server als Hash gespeichert.
->
-> Notizen, Ausarbeitungen, Markierungen und Sammlungen werden deinem Konto zugeordnet
-> auf dem Server gespeichert. Anlagen werden nur nach deiner Dateiauswahl hochgeladen.
-> Durch eine von dir veranlasste Freigabe können Inhalte anderen zugänglich werden.
-> Die Bearbeitung von Dokumenten erfolgt in einer eingebetteten Seite von akribos.de
-> und verwendet dieselbe Anmeldung. Der native Client und die eingebettete Editorseite
-> laden kein Analyse- oder Werbeskript.
->
-> Die App bewahrt die Sitzung, lokale Tabs und Lesestellen sowie noch nicht übertragene
-> Dokumententwürfe im sicheren Speicher des Geräts auf, getrennt nach Server und Konto.
-> Anzeigeeinstellungen werden ebenfalls lokal gespeichert. Für das Speichern oder Teilen
-> erzeugte Exportdateien liegen vorübergehend im privaten App-Verzeichnis. Beim Teilen
-> bestimmst du über das Systemmenü, an welche andere App oder welchen Empfänger die
-> ausgewählten Inhalte gehen. Die Verbindung zu akribos.de wird mit HTTPS geschützt.
-> Serverseitig gespeicherte Notizen sind dadurch nicht Ende-zu-Ende-verschlüsselt.
->
-> Akribos wird bei Hetzner Cloud betrieben; für den Betrieb wird Coolify mit
-> Standard-Logging verwendet. Konto-E-Mails verarbeitet der dafür eingesetzte Maildienst.
-> [BETREIBER BESTÄTIGEN: tatsächliche CDN-/Mailanbieter, Verarbeitungsorte,
-> Vertragsgrundlagen sowie konkrete Log-, Mail- und Backup-Aufbewahrung.]
-> Löschanträge sind an info@akribos.de möglich und werden innerhalb von sieben Tagen
-> bearbeitet. [BETREIBER ERGÄNZEN: Datenumfang, Aufbewahrungs-/Backupausnahmen und nach
-> Veröffentlichung der Web-Erweiterung den geprüften Löschlink.] Das Entfernen der App
-> oder ihrer lokalen Daten löscht nicht automatisch das serverseitige Akribos-Konto.
-
-## Reviewzugang vorbereiten
-
-Google muss auch angemeldete Bereiche prüfen können.
+Die lokale geschützte Ablage ist
+`~/.config/akribos/play-review/reviewer-credentials.json`. Der Inhalt gehört nicht in
+Git, Dokumentation, Chat oder Screenshots und wurde für diese Dokumentationsänderung
+nicht gelesen. Das Konto darf keine Adminrechte oder privaten Echtdaten benötigen.
 [Google: App für die Überprüfung vorbereiten](https://support.google.com/googleplay/android-developer/answer/9859455?hl=de).
-Ein Google-Dienstkonto mit Play-Rechten ist **kein** Akribos-Prüfkonto. Der Betreiber hat
-`stores@akribos.de` als Adresse für das Prüfkonto vorgesehen. Kontoexistenz und funktionsfähiger
-Passwort-Login sind noch nicht nachgewiesen. Im Repository wurden keine Zugangsdaten gesucht
-oder hinterlegt.
 
-Ein dediziertes normales Akribos-Konto mit fest eingerichtetem Passwort verwenden;
-keine Adminrolle, realen Privatnotizen oder nur kurz gültigen E-Mail-Codes. Es muss die
-freizugebenden Funktionen mit synthetischen Beispielen erreichen. Zugangsdaten gehören
-nur in das dafür vorgesehene geschützte Console-Feld, nicht in dieses Dokument.
-
-Vorlage für „Any other instructions“ (Englisch, keine Zugangsdaten enthalten):
+Zugangsanleitung ohne Zugangsdaten:
 
 ```text
 The public Bible reader can be used without signing in. To review personal notes,
@@ -323,24 +323,23 @@ verse collections. The service endpoint is https://akribos.de. An internet
 connection is required. No API key, USB connection or administrator role is needed.
 ```
 
-Vor Abgabe mit genau dem Release-Bundle und dem Prüfkonto testen; danach die Aussage
-zum Passwortweg nur beibehalten, wenn er tatsächlich ohne externen Code funktioniert.
+Der erfolgreiche isolierte Login bestätigt den Kontozugang; eine vollständige
+Geräteabnahme aller angemeldeten Funktionen mit dem jeweils ausgelieferten
+Play-Bundle ist davon getrennt.
 
-## Noch vom Betreiber zu bestätigen
+## Verbleibende Betriebs- und Produktprüfungen
 
-- Identität/Entwicklername, Preis und veröffentlichte Länder. Die Zielgruppe ab 13 Jahren ist
-  bestätigt; eine Inhaltsfreigabe stammt weiterhin aus dem ausgefüllten IARC-Fragebogen,
-  nicht aus einer Annahme „Bibel = für alle“.
-- Zusammenarbeit ist vorhanden: Einladungen, Kommentare, geteilte Sammlungen und
-  veröffentlichbare Notizen. Diese Funktionen bei Fragen zu nutzergenerierten Inhalten
-  wahrheitsgemäß angeben. Einen dedizierten Melde-/Blockierablauf für Missbrauch habe ich
-  im geprüften Client nicht gefunden; Nutzungsregeln und Moderationsweg vor breiter
-  Veröffentlichung konkret klären.
-- Hetzner Cloud, Coolify-Standardlogs und die Bearbeitung von Löschanträgen innerhalb
-  von sieben Tagen sind bestätigt. Konkrete Log-/Backup-/Mail-Aufbewahrung, weitere
-  Dienstleister und die vollständige Löschung bleiben zu prüfen. Die vorbereitete
-  Web-Erweiterung veröffentlichen und den Löschweg mit einem neuen App-Build prüfen.
-- Das vorgesehene Reviewer-Konto `stores@akribos.de` einschließlich Passwort-Login und
-  Zugriff auf die persönlichen Funktionen testen; bisher ist nur die Adresse festgelegt.
-
-Keine dieser offenen Angaben wurde für den Betreiber erfunden oder automatisch abgeschickt.
+- Die abgeschlossenen Console-Formulare belegen keine umfassende Richtlinienprüfung.
+  Insbesondere bleiben die oben dokumentierten UGC-Melde-/Blockier- und Moderationswege
+  sowie die vollständige Prüfung der IARC-Einzelantworten relevant.
+- Hetzner Cloud und die sieben Tage für Löschantragsbearbeitung sind bestätigt.
+  Tatsächliche CDN-/Mailkonfiguration, Verträge, Verarbeitungsorte, Log-/Mailfristen,
+  Zugriffsrechte und mögliche GeoIP-Auswertung sind nicht abschließend geprüft.
+- Im Backup-Code sind Aufbewahrungswerte Anzahlen erfolgreicher Sicherungen, keine
+  Tagesfristen. Rotation erfolgt erst nach erfolgreicher Sicherung; spezielle
+  Vor-Wiederherstellungs-Sicherungen sind ausgenommen. Aktivierung, Live-Konfiguration,
+  vorhandene Sonderkopien und der vollständige Löschablauf brauchen eine Betriebsprüfung.
+- Ein erster manueller interner Release und der nachfolgende automatische Storelauf
+  sind von tatsächlicher Installation und Funktionsprüfung durch einen freigegebenen
+  Google-Play-Tester zu unterscheiden. Preis, Produktionsländer und ein öffentlicher
+  Rollout bleiben außerhalb dieses Auftrags.
