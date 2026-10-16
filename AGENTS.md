@@ -120,6 +120,10 @@ store secrets and dispatches `android-play.yml` explicitly on `main`; the verifi
 `android-play-internal` Environment permits only that branch, never tags. Do not move
 signing secrets to repository scope. Gate the published tag, exact current main commit
 and latest successful push CI again before signing and committing the Play edit.
+The initial `wait-for-ci` check waits up to 45 minutes for that exact main push CI,
+so publishing a release immediately after merging does not fail just because CI is
+still running. Revalidate main/tag/release identity on every poll; finished failed
+checks and API errors must fail immediately. Later gates remain strict, without waiting.
 Store version codes exceed all current Play artifacts/tracks, the configured historical
 floor and permanent `play-build-android-N` reservation tags; never delete/reuse a
 reservation after failure. Bootstrap builds only an AAB for the mandatory first manual

@@ -1,6 +1,7 @@
 name: akribos_app
 description: "Akribos – Bibelstudium auf Smartphones und Tablets."
 publish_to: 'none'
+# Development fallback. Play releases use the GitHub tag and an automatic build number.
 version: 0.1.0+1
 
 environment:

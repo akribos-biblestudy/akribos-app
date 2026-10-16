@@ -33,10 +33,19 @@ Android-Debug-Signierschlüssel. Der App-Code selbst ist ein optimierter, nicht 
 Release-Build. Das Skript prüft den Signaturfingerabdruck und erzeugt keinen neuen Schlüssel.
 Sie ist für den direkten Betrieb mit akribos.de bestimmt und keine Google-Play-Veröffentlichung.
 
-Der vorbereitete GitHub-Workflow veröffentlicht signierte Android App Bundles nach
-Google Play Internal Testing. Die konkrete Einrichtung einschließlich erstem manuellem
-Upload steht in [docs/PLAY-STORE.md](docs/PLAY-STORE.md). Storezugang und Uploadschlüssel
-müssen noch eingerichtet werden; die Pixel-APK bleibt davon unabhängig.
+## Releases über GitHub
+
+Unter **Releases → Draft a new release** einen neuen Tag wie `v0.4.2` auf dem
+aktuellen `main` auswählen und **Publish release** klicken. Ein normales Release
+(kein Pre-release) startet automatisch den Build und Upload nach **Google Play
+Internal Testing**. Der Workflow wartet bei Bedarf auf die noch laufende CI.
+
+Die App-Version kommt aus dem Tag (`v0.4.2` → `0.4.2`); die interne Buildnummer
+wird automatisch fortlaufend vergeben. In `pubspec.yaml`, Gradle oder anderem
+App-Code muss dafür keine Versionsnummer geändert werden. Während des Releases
+`main` und den Tag unverändert lassen. Storezugang und Uploadschlüssel sind
+eingerichtet; Details, Prüfnachweise und Wiederholungen stehen in
+[docs/PLAY-STORE.md](docs/PLAY-STORE.md). Die direkte Pixel-APK bleibt ein eigener Weg.
 
 ## Funktionen
 

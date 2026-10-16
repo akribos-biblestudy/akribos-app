@@ -322,21 +322,29 @@ Nachweis noch als Gegenbeweis für den automatischen Folgelauf verwendet werden.
 
 ### Ablauf weiterer Releases
 
-1. Änderungen auf `main` bringen und **Flutter CI** für exakt diesen Commit grün
-   abwarten. Ein manueller CI-Lauf ersetzt den geforderten Push-CI-Lauf nicht.
-2. In GitHub **Releases → Draft a new release** einen neuen Tag, etwa `v0.3.1`, auf
+1. Änderungen auf `main` bringen. **Flutter CI** wird dadurch automatisch gestartet;
+   ein manueller CI-Lauf ersetzt den geforderten Push-CI-Lauf nicht.
+2. In GitHub **Releases → Draft a new release** einen neuen Tag, etwa `v0.4.2`, auf
    genau diesem `main`-Commit auswählen. Release-Notizen ergänzen. **Set as a
    pre-release** ausgeschaltet lassen; der Track bleibt trotzdem ausschließlich intern.
 3. **Publish release** ausführen. Während dieses Laufs `main` und den Tag unverändert
    lassen. Falls ein Environment-Reviewer eingerichtet wurde, den konkreten Lauf dort
    freigeben.
-4. Der Workflow übernimmt `0.3.1` als sichtbare Version, reserviert die Buildnummer,
+4. Läuft die Push-CI für diesen Commit noch, wartet der Workflow bis zu 45 Minuten
+   automatisch. Fehlgeschlagene CI, geänderte Tags oder ein inzwischen weitergerücktes
+   `main` stoppen den Release weiterhin. Nach erfolgreicher Prüfung übernimmt der
+   Workflow `0.4.2` als sichtbare Version, reserviert die Buildnummer,
    signiert das Bundle, veröffentlicht es im Track `internal` und liest den Kanal
    danach zurück. `release.json` enthält erst nach akzeptiertem Commit
    `storeUploaded: true` und nach bestätigtem Rücklesen `internalTrackVerified: true`.
 5. Den Release in der Play Console und auf einem angemeldeten Testgerät kontrollieren.
    Store-Verarbeitung, Prüfungen und Geräteannahme bleiben zusätzlich zur erfolgreichen
    API-Antwort relevant.
+
+Ein Release direkt nach dem Merge ist damit möglich, ohne zuvor Actions abfragen
+oder Versionsdateien ändern zu müssen. Das Warten findet nur am Anfang statt;
+vor Reservierung, Signierung und Play-Commit werden alle Grenzen erneut sofort
+geprüft. Bei einem CI-Fehler muss zuerst dieser Fehler behoben werden.
 
 `pubspec.yaml` braucht dafür keine Versionsänderung: Flutter erhält `--build-name`
 und `--build-number` aus dem Workflow. Die neue Nummer ist größer als alle aktuellen
