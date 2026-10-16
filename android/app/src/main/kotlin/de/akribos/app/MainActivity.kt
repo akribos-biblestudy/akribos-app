@@ -12,6 +12,15 @@ import java.net.URI
 class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        val publicBrowser = PublicBrowser(this)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "de.akribos.app/browser")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "open") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                result.success(publicBrowser.open(call.argument<String>("url")))
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "de.akribos.app/editor-session")
             .setMethodCallHandler { call, result ->
                 if (call.method != "setSession") {

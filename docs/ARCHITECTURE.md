@@ -34,6 +34,14 @@ gezielt den Reader nach einem erfolgreichen Flush; normale Bereichswechsel tun d
 
 ## Sitzung und Transport
 
+Öffentliche Betreiberseiten (einschließlich `/datenschutz#konto-loeschen`) werden
+auf Android über `lib/core/operator_browser.dart` und den nativen Kanal
+`de.akribos.app/browser` ausdrücklich an einen Browser übergeben. Eine generische
+URL-/Custom-Tab-Öffnung würde durch die verifizierten App-Links wieder Akribos
+starten. Der Browser erhält die vollständige URL mit Fragment, aber keine native
+Sitzung oder zusätzlichen Header. iOS verwendet weiterhin den System-Browserdialog.
+Beide Einstiegspunkte zeigen bei einem Fehler die manuell aufrufbare Adresse.
+
 Alle HTTP-Anfragen gehen an den beim Build festgelegten Origin. Redirects werden explizit
 ausgewertet; ein Schreib-POST wird nicht automatisch erneut gesendet. Der Cookie-Interceptor
 ordnet `Set-Cookie` nur dem ausstellenden Server zu, nicht dessen Redirect-Ziel. Cookie-

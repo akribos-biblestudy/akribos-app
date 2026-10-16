@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_scope.dart';
+import '../../core/operator_browser.dart';
 import '../../widgets/common.dart';
 
 class HelpScreen extends StatelessWidget {
@@ -42,9 +42,9 @@ class InformationScreen extends StatelessWidget {
     maxWidth: 700,
     children: [
       Text(
-        path == '/datenschutz'
+        Uri.parse(path).path == '/datenschutz'
             ? 'Datenschutz'
-            : path == '/impressum'
+            : Uri.parse(path).path == '/impressum'
             ? 'Impressum'
             : path.startsWith('/api')
             ? 'API-Dokumentation'
@@ -60,13 +60,11 @@ class InformationScreen extends StatelessWidget {
         'Die App speichert deine Sitzung und noch nicht übertragene Dokumententwürfe im sicheren Gerätespeicher. Sie lädt kein Analyseskript. Exportdateien liegen vorübergehend im privaten App-Verzeichnis, damit du sie speichern oder teilen kannst.',
       ),
       const SizedBox(height: 16),
-      FilledButton.tonalIcon(
-        onPressed: () => launchUrl(
-          AppScope.of(context).api.origin.resolve(path),
-          mode: LaunchMode.inAppBrowserView,
-        ),
-        icon: const Icon(Icons.open_in_new),
-        label: const Text('Aktuelle Angaben des Betreibers öffnen'),
+      ActionButton(
+        onPressed: () =>
+            openOperatorPage(AppScope.of(context).api.origin.resolve(path)),
+        icon: Icons.open_in_new,
+        label: 'Aktuelle Angaben des Betreibers öffnen',
       ),
       const SizedBox(height: 16),
       OutlinedButton(

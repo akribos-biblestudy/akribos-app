@@ -29,6 +29,9 @@ jobs:
       - run: flutter analyze
       - run: flutter test
       - run: flutter build apk --debug
+      - name: Check Android browser selection and URL boundaries
+        working-directory: android
+        run: ./gradlew :app:testDebugUnitTest --tests de.akribos.app.BrowserLinkPolicyTest
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: akribos-android-debug
