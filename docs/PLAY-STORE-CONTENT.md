@@ -2,7 +2,12 @@
 
 Stand: 16. Oktober 2026. Grundlage sind der aktuelle lokale App-Code und das zugehörige
 Web-Repository, einschließlich der neuen Einstellungen und des kompakten Versmenüs.
-Die Texte sind vorbereitet, aber weder hochgeladen noch in der Console bestätigt.
+Der deutsche Haupt-Store-Eintrag und die Kontaktangaben wurden erfolgreich in Google Play
+übernommen. Name, Kurzbeschreibung, vollständige Beschreibung und Kontaktwerte wurden danach
+zurückgelesen und verglichen. Auch 1 App-Icon, 1 Funktionsgrafik und 4 Screenshots wurden
+übernommen; die zurückgelesenen Bildhashes stimmen mit den hochgeladenen Dateien überein.
+Beim anschließenden Rücklesen waren alle Tracks weiterhin leer. Damit ist der Store-Eintrag
+bestätigt, noch kein App-Release oder vollständig ausgefüllter App-Inhaltsbereich.
 Die Texte setzen voraus, dass genau dieser Funktionsstand im Store-Bundle enthalten ist.
 
 ## Direkt verwendbare Store-Texte
@@ -27,10 +32,11 @@ Die Release Notes enthalten keine feste Versionsnummer; die kommt aus dem Releas
 | Website | `https://akribos.de` |
 | Datenschutzerklärung | `https://akribos.de/datenschutz`; vor einem öffentlichen Release inhaltlich um die App ergänzen, siehe Entwurf unten |
 | Typ | App |
-| Kategorie | Vorschlag: Bücher & Nachschlagewerke; vom Betreiber bestätigen |
-| Enthält Werbung | Vorschlag: Nein. Im untersuchten App-Code, in den Abhängigkeiten und in der isolierten Editorseite keine Werbeeinbindung gefunden |
+| Kategorie | Bücher & Nachschlagewerke; fachlich aus dem Reader-/Nachschlagezweck abgeleitet, Console-Speicherung noch nicht bestätigt |
+| Enthält Werbung | Nein für den geprüften Funktionsstand; keine Werbeeinbindung im Client, seinen Abhängigkeiten oder der isolierten Editorseite gefunden. Erklärung noch nicht bestätigt |
 | App-Zugriff | Einige Funktionen erfordern Anmeldung; Prüfkonto für Notizen, Markierungen, Einstellungen und Sammlungen erforderlich |
-| Preis, Länder, Zielalter | **Betreiberentscheidung offen.** Nicht aus technischer Funktionsfähigkeit ableiten |
+| Alterszielgruppe | Vom Betreiber am 16. Oktober 2026 bestätigt: 13–15 Jahre, 16–17 Jahre und 18+; Console-Speicherung noch nicht bestätigt |
+| Preis und Länder | **Betreiberentscheidung offen.** Nicht aus technischer Funktionsfähigkeit ableiten |
 | Entwickleranzeige / rechtlicher Kontoinhaber | **Mit der tatsächlich verifizierten Play-Identität abgleichen.** Öffentliches Impressum nennt Mirko Hecky |
 | Telefonnummer | Nicht im untersuchten öffentlichen Impressum vorhanden; keine Nummer erfunden |
 
@@ -41,6 +47,101 @@ E-Mail-Adresse wurde als `info@akribos.de` bestätigt. Diese Angaben ersetzen ke
 der separaten Play-Konto-/Organisationsdaten.
 [Öffentliches Impressum](https://akribos.de/impressum),
 [öffentliche Datenschutzerklärung](https://akribos.de/datenschutz).
+
+## Vorbereitete Erklärungen zu App-Inhalten
+
+Die folgenden Werte sind aus dem untersuchten Funktionsstand abgeleitet und noch keine
+Bestätigung, dass diese Console-Formulare gespeichert oder von Google geprüft wurden.
+Die genaue deutsche Beschriftung kann in der Console abweichen.
+
+| Console-Feld | Vorbereitete Angabe | Beleg und Grenze |
+| --- | --- | --- |
+| Kategorie | App → Bücher & Nachschlagewerke | Bibelreader, Kommentare und Wörterbücher entsprechen Googles Beispielen für diese Kategorie |
+| Anzeigen | Nein | Keine Werbe-SDKs, Banner, Interstitials oder nativen Anzeigen im geprüften Client und Editor gefunden; selbst eingebaute Anzeigen würden ebenfalls zählen |
+| Behörden-Apps | Nein, sofern keine bislang nicht genannte behördliche Beauftragung besteht | Impressum und Produkt beschreiben eine private Bibelstudienanwendung; die tatsächliche institutionelle Verbindung ist eine Betreiberangabe |
+| Finanzfunktionen | Meine App bietet keine Finanzfunktionen | Keine Bank-, Kredit-, Zahlungs-, Wallet-, Anlage-, Versicherungs- oder Finanzberatungsfunktion gefunden |
+| Gesundheit | Meine App bietet keine Gesundheitsfunktionen | Keine Gesundheitsdaten-Anbindung, Diagnose, Behandlung, Fitness-, Meditations- oder medizinische Beratungsfunktion gefunden |
+
+Bibeltexte über Geld, Heilung oder historische Regierungen begründen allein keine entsprechende
+App-Funktion. Zusätzliche Kategorien nur wählen, wenn die App diese Funktionen tatsächlich
+bereitstellt. Aktuelle offizielle Grundlagen:
+[App-Kategorien](https://support.google.com/googleplay/android-developer/answer/9859673?hl=de),
+[Anzeigen erklären](https://support.google.com/googleplay/android-developer/answer/9859455?hl=de),
+[Behörden-Apps](https://support.google.com/googleplay/android-developer/answer/9514050?hl=de),
+[Finanzfunktionen](https://support.google.com/googleplay/android-developer/answer/13849271?hl=de),
+[Gesundheitsfunktionen](https://support.google.com/googleplay/android-developer/answer/14738291?hl=de).
+
+## IARC: Inhaltseinstufung und Nutzerinteraktion
+
+Der vollständige IARC-Fragebogen ist nur im Einreichungsportal des jeweiligen Stores verfügbar.
+Die Angaben unten sind daher eine belegte Ausfüllhilfe, kein fertig beantworteter Fragebogen.
+Den tatsächlichen Wortlaut und seine Erläuterungen verwenden; insbesondere Verweise,
+Textbeschreibungen, Bilder und Geräusche nicht gleichsetzen.
+[IARC-FAQ](https://www.globalratings.com/faq/),
+[Googles Einstufungsverfahren](https://support.google.com/googleplay/android-developer/answer/9859655?hl=de).
+
+| Frage / Themenbereich | Vorbereitete Antwort aus dem Code |
+| --- | --- |
+| Kontakt für IARC | `info@akribos.de`; Einstufungsnachrichten dort bearbeiten |
+| App-Gruppe | Andere App-Typen, falls so angeboten: Hauptzweck Lesen/Nachschlagen, kein Spiel und keine primäre Social-/Dating-App |
+| Online nachgeladene Inhalte | Ja: Bibeln, Kommentare, Lexika und persönliche/geteilte Inhalte werden vom Server geladen |
+| Nutzerinteraktion / eigene Inhalte anderen zugänglich machen | Ja: Sammlungen mit Einladungen, Kommentaren, Antworten und Reaktionen; freigegebene Leselinks und lesbare veröffentlichte Notizen |
+| Standort anderen Nutzern zeigen | Nein: keine entsprechende Funktion gefunden |
+| Digitale Käufe, Glücksspiel oder Gewinne als App-Funktion | Nein: keine entsprechende Kauf-, Wett- oder Gewinnfunktion gefunden. Biblische Erwähnungen getrennt bewerten |
+| Inhalte/Nutzer in der App melden | Im geprüften Client nicht vorhanden gefunden; keine Zusage, dass ein solcher Weg existiert |
+| Andere Nutzer blockieren | Im geprüften Client nicht vorhanden gefunden; das Entfernen von Mitgliedern durch Sammlungseigentümer ersetzt keine allgemeine Blockierfunktion |
+| Vollständige Vorabmoderation / Inhaltsfilter | Nicht belegt; keine entsprechende Zusage abgeben |
+
+### Bibeltext ist nicht pauschal inhaltsneutral
+
+Die versionierte Quelle `../akribos/data/bibles/GER_LUTH1912.xml` enthält beispielsweise:
+
+| Themenbereich | Konkrete Textstelle |
+| --- | --- |
+| Gewalt / Enthauptung | 1. Samuel 17,51 |
+| Sexuelle Gewalt | 2. Samuel 13,14 |
+| Sexualbezogene Beschreibung | Hesekiel 23,20 |
+| Alkohol / Rausch und Nacktheit | 1. Mose 9,21 |
+| Suizid | Matthäus 27,5 |
+
+Diese Beispiele wurden im Quelltext geprüft; sie sind keine vollständige Inhaltsprüfung aller
+aktuell serverseitig angebotenen Werke oder nutzergenerierten Inhalte. Bei Fragen nach
+Erwähnungen oder Beschreibungen sind diese Textinhalte zu berücksichtigen. Fragen ausschließlich
+nach visuellen oder akustischen Darstellungen müssen gesondert beantwortet werden.
+Eine allgemeine Ausnahme für religiöse Texte ist nicht belegt. Stärke, Häufigkeit und Kontext
+anhand der konkreten Unterfragen und tatsächlich ausgelieferten Ressourcen bewerten, statt
+pauschal „Nein“ oder eine gewünschte Altersfreigabe vorzugeben. Die Einstufung folgt aus den
+Antworten; bei einer unpassenden Einstufung besteht der offizielle Prüf-/Einspruchsweg.
+[Google zur vollständigen und zutreffenden Einstufung](https://support.google.com/googleplay/android-developer/answer/9859655?hl=de).
+
+### UGC: tatsächliche Funktionen und noch fehlende Schutzwege
+
+Google zählt nutzergenerierte Inhalte (UGC) bereits dann dazu, wenn sie wenigstens einem Teil
+anderer Nutzer zugänglich sind. Einladungsbasierte Zusammenarbeit und nicht gelistete Leselinks
+schließen UGC daher nicht aus. Die App bietet diese Funktionen tatsächlich; private Notizen
+werden dadurch weiterhin nicht automatisch veröffentlicht.
+[Google: UGC-Richtlinie](https://support.google.com/googleplay/android-developer/answer/9876937?hl=de).
+
+In `lib/features/collections/collections_screen.dart` sind Kommentare, Antworten, Reaktionen,
+Einladungen und freigebbare Leselinks vorhanden. Eigentümer können Kommentare und Mitglieder
+entfernen. `lib/features/documents/documents_screen.dart` zeigt veröffentlichte Notizen an.
+Ein klarer Melde-/Blockierablauf für alle betroffenen Nutzer sowie eine verpflichtende
+Zustimmung zu UGC-Nutzungsregeln wurden im geprüften Client nicht gefunden. Eine vollständige
+Inhaltsmoderation wurde ebenfalls nicht nachgewiesen.
+
+Google verlangt angemessene laufende Moderation, Regeln und je nach Interaktionsform
+Melde-/Blockierfunktionen innerhalb der App. Das sind offene Produkt-/Betriebsanforderungen,
+keine fehlenden Kreuze, die sich durch pauschale Nein-Antworten erledigen lassen.
+[Google erläutert Melden, Blockieren und Moderation](https://support.google.com/googleplay/android-developer/answer/12923286?hl=de).
+
+### Bestätigte Alterszielgruppe: ab 13 Jahren
+
+Der Betreiber hat am 16. Oktober 2026 die Altersgruppen **13–15 Jahre, 16–17 Jahre und 18+**
+ausdrücklich als Zielgruppe bestätigt. Diese drei Gruppen sind im Console-Formular auszuwählen;
+die Speicherung dort ist hier noch nicht bestätigt. Unter 13-Jährige gehören nicht zur
+beabsichtigten Zielgruppe. Die Alterszielgruppe bleibt von der automatisch ermittelten
+Inhaltsfreigabe getrennt und ersetzt keine Prüfung der IARC- oder UGC-Anforderungen.
+[Google zur Zielgruppe und Inhaltsfreigabe](https://support.google.com/googleplay/android-developer/answer/9859655?hl=de).
 
 ## Datenflüsse und Datensicherheit
 
@@ -88,8 +189,10 @@ Prüfung der eingebundenen Technik:
   `/app/editor/[id]`; dort deaktiviert der Webserver Analytics ausdrücklich. Browserseiten,
   die der Nutzer extern öffnet, haben ihre eigenen Hinweise und ggf. Einwilligungen.
 - Das Backend besitzt Brevo-Mailversand sowie technische Request-/Ratelimit-Verarbeitung.
-  Hostinganbieter, Cloudflare-Vertrag/Konfiguration, Mail-Aufbewahrung, Datenbank-Backups
-  und mögliche GeoIP-Auswertung sind **nicht aus dem App-Code abschließend feststellbar**.
+  Der Betreiber hat Hetzner Cloud als Hosting und Coolify mit Standard-Logging bestätigt.
+  Konkrete Log-Aufbewahrung und Zugriffsrechte, Cloudflare-Vertrag/Konfiguration,
+  Mail-Aufbewahrung, Datenbank-Backups und mögliche GeoIP-Auswertung sind damit noch
+  **nicht abschließend geprüft**.
 - Keine Standortfunktion im App-Code gefunden. Eine vom Infrastrukturbetreiber aktivierte
   IP-Geolokalisierung wäre separat zu bewerten; nicht als geprüft ausgeschlossen ankreuzen.
 
@@ -103,25 +206,35 @@ Quellen im Code: `pubspec.yaml`, `android/app/src/main/AndroidManifest.xml`,
 
 ## Konto-Löschung: verifizierter Stand
 
-Die App kann ein Konto über den E-Mail-Anmeldeablauf anlegen. Ihr Konto-Bildschirm bietet
-aktuell Profil, Passwort und Abmelden, aber keinen sichtbaren Löschantrag. Die öffentliche
-Datenschutzseite nennt einen formlosen Antrag per E-Mail; der Abschnitt hat keinen eigenen
-Linkanker und beschreibt keine konkrete Bearbeitungs-/Backupfrist. Es wurde kein
-benutzerseitiger Konto-Löschendpunkt gefunden. „Abmelden“ löscht kein Serverkonto.
+Die App kann ein Konto über den E-Mail-Anmeldeablauf anlegen. Im aktuellen Quellstand
+bietet der Konto-Bildschirm zusätzlich zu Profil, Passwort und Abmelden den Abschnitt
+„Konto und Daten löschen“ mit „Löschung anfordern“. Der Button öffnet
+`/datenschutz#konto-loeschen` am eingestellten Akribos-Server, in Produktion also
+`https://akribos.de/datenschutz#konto-loeschen`. Dabei werden keine Konto-ID, Zugangsdaten
+oder Sitzung in die URL aufgenommen. Fehler beim Öffnen werden mit der Zieladresse angezeigt.
+Der Button startet einen Antrag über die Betreiberseite; er löscht kein Konto und meldet
+nicht ab. Es wurde kein benutzerseitiger Konto-Löschendpunkt ergänzt.
+
+Die zugehörige Web-Erweiterung mit diesem Anker und dem konkreten Ablauf ist in Vorbereitung;
+ihre Veröffentlichung und der vollständige Weg wurden noch nicht live geprüft.
+Der Betreiber hat am 16. Oktober 2026 eine Bearbeitung von Löschanträgen innerhalb von
+**sieben Tagen** bestätigt. Das ist keine bestätigte Frist für das Auslaufen aller Backups
+oder gesetzlich aufzubewahrender Daten. Der native Einstieg ist noch nicht im bereits
+gebauten Bootstrap-Bundle `0.3.0+13` enthalten; dessen Quellcommit ist in
+`docs/PLAY-STORE.md` dokumentiert.
 
 Google verlangt bei Kontoerstellung einen gut auffindbaren Weg aus der App und eine externe
 Ressource für Löschanträge. Eine deutlich beschriebene Support-E-Mail kann der externe Weg
-sein; das ist keine Zusage, dass der heutige allgemeine Datenschutzlink bereits ausreicht.
+sein; der vollständige Ablauf muss vor einer entsprechenden Console-Zusage geprüft sein.
 [Google: Konto-Löschung](https://support.google.com/googleplay/android-developer/answer/13327111?hl=de).
 
-Vor einer entsprechenden Console-Zusage konkret ergänzen und prüfen:
+Noch ergänzen und prüfen:
 
-1. Im Konto einen klar benannten Einstieg „Konto und Daten löschen“ bereitstellen, der einen
-   Löschantrag ermöglicht oder die dafür vorgesehene Webressource öffnet.
-2. Eine öffentliche Seite oder einen prominenten verlinkbaren Abschnitt mit App-/Betreibername,
-   Antrag per `info@akribos.de`, Identitätsprüfung sowie Umfang und Fristen veröffentlichen.
-3. Tatsächliche Entfernung von Konto, Inhalten, Einladungs-/Mitgliedschaftsbezügen, Anlagen und
-   Dienstleisterdaten einschließlich dokumentierter Ausnahmen überprüfen.
+1. Den vorbereiteten öffentlichen Abschnitt mit App-/Betreibername, Antrag per
+   `info@akribos.de`, Identitätsprüfung sowie Umfang und bestätigter Bearbeitungsfrist
+   veröffentlichen und den Link aus einem neuen Release-Bundle testen.
+2. Tatsächliche Entfernung von Konto, Inhalten, Einladungs-/Mitgliedschaftsbezügen, Anlagen und
+   Dienstleisterdaten einschließlich dokumentierter Aufbewahrungs- und Backupausnahmen prüfen.
 
 Textvorlage für den externen Löschweg, **noch nicht veröffentlicht**:
 
@@ -130,10 +243,11 @@ Textvorlage für den externen Löschweg, **noch nicht veröffentlicht**:
 > Du kannst die Löschung deines Akribos-Kontos und der dazugehörigen persönlichen Daten
 > unter info@akribos.de anfordern. Verwende möglichst die E-Mail-Adresse deines Kontos
 > und den Betreff „Akribos-Konto löschen“. Wir prüfen die Zuordnung des Antrags, bevor
-> wir Kontodaten löschen. Sende uns dafür kein Passwort und keinen Anmeldecode.
+> wir Kontodaten löschen. Wir bearbeiten Löschanträge innerhalb von sieben Tagen.
+> Sende uns dafür kein Passwort und keinen Anmeldecode.
 >
-> [BETREIBER ERGÄNZEN: betroffene Daten, Umgang mit geteilten Beiträgen, Frist für die
-> Bearbeitung sowie erforderliche Aufbewahrungs- und Backupausnahmen mit Fristen.]
+> [BETREIBER ERGÄNZEN: betroffene Daten, Umgang mit geteilten Beiträgen sowie erforderliche
+> Aufbewahrungs- und Backupausnahmen mit Fristen.]
 
 Diese Platzhalter müssen vor Veröffentlichung entfernt und durch den bestätigten Ablauf
 ersetzt werden. Keine fiktive Lösch-URL als fertige Console-Angabe eintragen.
@@ -169,19 +283,23 @@ vor Veröffentlichung ergänzen und mit der bestehenden Erklärung abstimmen:
 > ausgewählten Inhalte gehen. Die Verbindung zu akribos.de wird mit HTTPS geschützt.
 > Serverseitig gespeicherte Notizen sind dadurch nicht Ende-zu-Ende-verschlüsselt.
 >
-> Konto-E-Mails verarbeitet der dafür eingesetzte Maildienst. [BETREIBER BESTÄTIGEN:
-> tatsächliche Hosting-/CDN-/Mailanbieter, Verarbeitungsorte, Vertragsgrundlagen und Fristen.]
-> Löschanträge sind an info@akribos.de möglich. [BETREIBER ERGÄNZEN: bestätigter Ablauf,
-> Fristen und veröffentlichter Löschlink.] Das Entfernen der App oder ihrer lokalen Daten
-> löscht nicht automatisch das serverseitige Akribos-Konto.
+> Akribos wird bei Hetzner Cloud betrieben; für den Betrieb wird Coolify mit
+> Standard-Logging verwendet. Konto-E-Mails verarbeitet der dafür eingesetzte Maildienst.
+> [BETREIBER BESTÄTIGEN: tatsächliche CDN-/Mailanbieter, Verarbeitungsorte,
+> Vertragsgrundlagen sowie konkrete Log-, Mail- und Backup-Aufbewahrung.]
+> Löschanträge sind an info@akribos.de möglich und werden innerhalb von sieben Tagen
+> bearbeitet. [BETREIBER ERGÄNZEN: Datenumfang, Aufbewahrungs-/Backupausnahmen und nach
+> Veröffentlichung der Web-Erweiterung den geprüften Löschlink.] Das Entfernen der App
+> oder ihrer lokalen Daten löscht nicht automatisch das serverseitige Akribos-Konto.
 
 ## Reviewzugang vorbereiten
 
 Google muss auch angemeldete Bereiche prüfen können.
 [Google: App für die Überprüfung vorbereiten](https://support.google.com/googleplay/android-developer/answer/9859455?hl=de).
-Ein Google-Dienstkonto mit Play-Rechten ist **kein** Akribos-Prüfkonto. Im Repository wurden
-keine Zugangsdaten gesucht oder hinterlegt; ein funktionsfähiger Reviewer-Login ist hier
-noch nicht nachgewiesen.
+Ein Google-Dienstkonto mit Play-Rechten ist **kein** Akribos-Prüfkonto. Der Betreiber hat
+`stores@akribos.de` als Adresse für das Prüfkonto vorgesehen. Kontoexistenz und funktionsfähiger
+Passwort-Login sind noch nicht nachgewiesen. Im Repository wurden keine Zugangsdaten gesucht
+oder hinterlegt.
 
 Ein dediziertes normales Akribos-Konto mit fest eingerichtetem Passwort verwenden;
 keine Adminrolle, realen Privatnotizen oder nur kurz gültigen E-Mail-Codes. Es muss die
@@ -210,14 +328,19 @@ zum Passwortweg nur beibehalten, wenn er tatsächlich ohne externen Code funktio
 
 ## Noch vom Betreiber zu bestätigen
 
-- Identität/Entwicklername, Preis, veröffentlichte Länder und Zielalter. Eine Altersfreigabe
-  stammt aus dem ausgefüllten IARC-Fragebogen, nicht aus einer Annahme „Bibel = für alle“.
+- Identität/Entwicklername, Preis und veröffentlichte Länder. Die Zielgruppe ab 13 Jahren ist
+  bestätigt; eine Inhaltsfreigabe stammt weiterhin aus dem ausgefüllten IARC-Fragebogen,
+  nicht aus einer Annahme „Bibel = für alle“.
 - Zusammenarbeit ist vorhanden: Einladungen, Kommentare, geteilte Sammlungen und
   veröffentlichbare Notizen. Diese Funktionen bei Fragen zu nutzergenerierten Inhalten
   wahrheitsgemäß angeben. Einen dedizierten Melde-/Blockierablauf für Missbrauch habe ich
   im geprüften Client nicht gefunden; Nutzungsregeln und Moderationsweg vor breiter
   Veröffentlichung konkret klären.
-- Reale Infrastruktur-/Maildaten, Aufbewahrung, Löschablauf und Reviewer-Konto, wie oben
-  getrennt vom verifizierten Code dargestellt.
+- Hetzner Cloud, Coolify-Standardlogs und die Bearbeitung von Löschanträgen innerhalb
+  von sieben Tagen sind bestätigt. Konkrete Log-/Backup-/Mail-Aufbewahrung, weitere
+  Dienstleister und die vollständige Löschung bleiben zu prüfen. Die vorbereitete
+  Web-Erweiterung veröffentlichen und den Löschweg mit einem neuen App-Build prüfen.
+- Das vorgesehene Reviewer-Konto `stores@akribos.de` einschließlich Passwort-Login und
+  Zugriff auf die persönlichen Funktionen testen; bisher ist nur die Adresse festgelegt.
 
 Keine dieser offenen Angaben wurde für den Betreiber erfunden oder automatisch abgeschickt.

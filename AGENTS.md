@@ -73,8 +73,11 @@ creating a persistent empty tab. Mehr > Einstellungen offers Textdarstellung wit
 and Fließtext, available to guests too; never put it in the tab overview. Appearance belongs only to Settings;
 signed-in settings reuse /account actions for reading font, default Bible and highlight colors.
 Refresh the retained Reader after font/style edits, preserving its flushed local position.
-Account remains reachable via the person icon and contains profile, password and sign-out;
-do not expose API-key management or a duplicate account destination in More. Fließtext uses
+Account remains reachable via the person icon and contains profile, password, sign-out and
+a clear deletion-request entry. The latter opens the public operator resource
+`/datenschutz#konto-loeschen` without account identifiers or credentials in the URL;
+it requests deletion rather than deleting or signing out, and launch failures stay visible.
+Do not expose API-key management or a duplicate account destination in More. Fließtext uses
 justified paragraphs, Versweise stays start-aligned. Settings use the attached ReaderController
 to flush positions and change the retained reader, including when it is offstage. Store
 versePerLine in the existing encrypted local snapshot (missing means true), never in shared
