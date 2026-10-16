@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_scope.dart';
+import '../../core/operator_browser.dart';
 import '../../widgets/action_form.dart';
 import '../../widgets/common.dart';
 import '../../widgets/remote_page.dart';
@@ -136,20 +136,7 @@ class AccountScreen extends StatelessWidget {
                 onPressed: () async {
                   final uri = AppScope.of(context).api.origin
                       .resolve('/datenschutz#konto-loeschen');
-                  try {
-                    if (await launchUrl(
-                      uri,
-                      mode: LaunchMode.inAppBrowserView,
-                    )) {
-                      return;
-                    }
-                  } catch (_) {
-                    // ActionButton displays the same useful fallback for both
-                    // a rejected launch and a platform exception.
-                  }
-                  throw ApiException(
-                    'Die Seite zum Löschantrag konnte nicht geöffnet werden. Öffne $uri in deinem Browser.',
-                  );
+                  await openOperatorPage(uri);
                 },
               ),
             ],

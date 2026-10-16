@@ -89,7 +89,9 @@ Die gewählte Zielgruppe ab 13 Jahren bleibt von diesen Inhaltsfreigaben getrenn
 
 Für künftige Änderungen sind die tatsächlich verfügbaren Funktionen maßgeblich:
 Bibeltexte und Nachschlagewerke werden online geladen; Nutzer können Sammlungen,
-Kommentare, Antworten, Reaktionen und freigegebene Notizen anderen zugänglich machen.
+Kommentare, Antworten und Reaktionen anderen zugänglich machen. Die native App bietet
+keine Notizveröffentlichung und keinen Katalog veröffentlichter Notizen. Bereits im Web
+veröffentlichte Notizen können über einen erhaltenen Link in der App angezeigt werden.
 Standortfreigabe, digitale Käufe, Glücksspiel und Gewinne wurden nicht gefunden.
 Textbeschreibungen, Bilder und Geräusche sind bei den konkreten Fragen zu unterscheiden.
 Die folgenden Befunde bleiben trotz abgeschlossenem Fragebogen relevant.
@@ -126,7 +128,11 @@ werden dadurch weiterhin nicht automatisch veröffentlicht.
 
 In `lib/features/collections/collections_screen.dart` sind Kommentare, Antworten, Reaktionen,
 Einladungen und freigebbare Leselinks vorhanden. Eigentümer können Kommentare und Mitglieder
-entfernen. `lib/features/documents/documents_screen.dart` zeigt veröffentlichte Notizen an.
+entfernen. `lib/features/documents/documents_screen.dart` zeigt veröffentlichte Notizen
+ausschließlich über `/notes/published/<slug>` an, beispielsweise nach einem App-Link.
+Die Notizbibliothek zeigt eigene Inhalte; Editor und native Action-Allowlist bieten
+kein `publish` oder `unpublish`. Die Bewertung gemeinsamer Inhalte bezieht sich daher
+auf diese tatsächlich erreichbaren Sammlungen und Links, nicht auf private Notizen.
 Ein klarer Melde-/Blockierablauf für alle betroffenen Nutzer sowie eine verpflichtende
 Zustimmung zu UGC-Nutzungsregeln wurden im geprüften Client nicht gefunden. Eine vollständige
 Inhaltsmoderation wurde ebenfalls nicht nachgewiesen.

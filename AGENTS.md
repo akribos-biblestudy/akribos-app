@@ -77,6 +77,11 @@ Account remains reachable via the person icon and contains profile, password, si
 a clear deletion-request entry. The latter opens the public operator resource
 `/datenschutz#konto-loeschen` without account identifiers or credentials in the URL;
 it requests deletion rather than deleting or signing out, and launch failures stay visible.
+Operator links use an explicit browser on Android, never a generic URL/Custom Tab
+intent that the verified Akribos App Link could resolve back to this app. The public
+browser receives no native session. Keep the complete URL including fragments;
+information-screen titles compare the parsed path only. Browser failures must be
+visible for both the deletion entry and the operator-information button.
 Do not expose API-key management or a duplicate account destination in More. Fließtext uses
 justified paragraphs, Versweise stays start-aligned. Settings use the attached ReaderController
 to flush positions and change the retained reader, including when it is offstage. Store
