@@ -118,8 +118,9 @@ seinen Datenstand nach, jeweils erst nach Sicherung der lokalen Lesestelle. Das 
 öffnet weiterhin Profil, Passwort und Abmelden. Unter Mehr gibt es keinen Konto-Eintrag mehr,
 API-Schlüsselverwaltung ist kein Bestandteil der mobilen Kontooberfläche.
 
-Unter „Mehr → Einstellungen“ bietet „Textdarstellung“ die Optionen „Versweise“ (Standard und
-Rückfall für alte lokale Stände) und „Fließtext“. Diese gerätelokale Seite ist auch für Gäste
+Unter „Mehr → Einstellungen“ bietet „Textdarstellung“ die Optionen „Versweise“ und „Fließtext“
+(Standard bei Neuinstallation und fehlender gespeicherter Wahl). Eine ausdrücklich gespeicherte
+Auswahl bleibt bei Updates erhalten. Diese gerätelokale Seite ist auch für Gäste
 erreichbar; die Tabübersicht enthält keine Darstellungsumschaltung. Fließtext steht im Blocksatz,
 Versweise bleibt am Zeilenanfang ausgerichtet. Der angehängte `ReaderController` sichert beim
 Wechsel zuerst die Lesestelle und ändert den erhaltenen Reader auch außerhalb der sichtbaren
@@ -136,6 +137,11 @@ leicht unregelmäßigen Farbfläche pro Zeile, ohne neue Wortindizes oder Strong
 erfinden. Teilmarkierungen behalten ihre gespeicherten Grenzen. E-Ink verwendet stattdessen
 schwarze Unterstreichungen und benannte Markierungen. Abschnitts- und Kapitelüberschriften
 verwenden das 1,2- beziehungsweise 1,4-Fache der gewählten Leseschriftgröße.
+Kommentar- und Lexikontexte sowie die Fundstellen verwenden ebenfalls die persönliche
+Leseskalierung; UI-Labels bleiben unabhängig davon. Versnummer und erstes Wort verbindet
+ein geschütztes Leerzeichen, ohne die gespeicherten Wortpositionen zu verändern.
+E-Ink-Unterstreichungen sind deckend, pixelgenau und ohne Kantenglättung gezeichnet,
+damit dünne Linien beim Schwellenwert-Rendering nicht verschwinden.
 
 `ReaderVerseMenu` zeigt vier feste Aktionen: Markieren, Sammlungen, Notiz und Teilen.
 Symbole stehen neben einzeiligen Beschriftungen. Die tatsächlichen Textbreiten einschließlich

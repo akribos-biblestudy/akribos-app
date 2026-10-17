@@ -127,7 +127,7 @@ offenes CORS, keinen frei wählbaren Upstream und keine Umgehung der öffentlich
 Die native Textdarstellung unter Mehr → Einstellungen („Versweise“/„Fließtext“ im Blocksatz)
 ist eine lokale Einstellung ohne
 Serveraktion oder Änderung des geteilten Reader-URL-Vertrags. Fehlendes `versePerLine` in
-älteren Geräteständen bedeutet weiterhin „Versweise“.
+älteren Geräteständen bedeutet „Fließtext“; ausdrücklich gespeicherte Entscheidungen bleiben erhalten.
 
 Die Notizbibliothek verwendet standardmäßig `/notes?kind=note&passage=Joh3` (Beispiel),
 wobei das Kapitel nach dem Reader-Flush aus der sichtbaren Lesestelle stammt. Der vorhandene

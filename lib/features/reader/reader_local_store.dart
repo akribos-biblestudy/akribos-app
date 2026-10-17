@@ -47,7 +47,7 @@ class ReaderLocalStore {
       return {
         'path': localReaderAddress(path),
         'layoutSizes': asMap(snapshot['layoutSizes']),
-        'versePerLine': snapshot['versePerLine'] != false,
+        'versePerLine': snapshot['versePerLine'] == true,
       };
     } catch (_) {
       throw const ApiException(
@@ -59,7 +59,7 @@ class ReaderLocalStore {
   Future<void> write(
     String path, {
     Json layoutSizes = const {},
-    bool versePerLine = true,
+    bool versePerLine = false,
   }) {
     if (!_validPath(path)) {
       throw const ApiException(

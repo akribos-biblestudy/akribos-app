@@ -297,7 +297,9 @@ class VerseTextState extends State<VerseText> {
       }
       _starts.add(offset);
       if (passage.number != null) {
-        final number = '${passage.number} ';
+        // Keep the number with the first word without creating a separate
+        // widget: glyph offsets and Strong-word positions stay in one paragraph.
+        final number = '${passage.number}\u00a0';
         spans.add(
           TextSpan(
             text: number,
@@ -316,6 +318,15 @@ class VerseTextState extends State<VerseText> {
         passage.segments,
         studiedStrong: widget.studiedStrong,
       );
+      // Imported verse-leading whitespace must not reopen the break after
+      // the number. Remove it only from this presentation, not stored segments.
+      if (passage.number != null) {
+        while (runs.isNotEmpty &&
+            runs.first.note == null &&
+            runs.first.text.trim().isEmpty) {
+          runs.removeAt(0);
+        }
+      }
       final runOffsets = <int>[];
       for (final run in runs) {
         runOffsets.add(offset);
@@ -411,6 +422,7 @@ class VerseTextState extends State<VerseText> {
           ranges: marks,
           highContrast: highContrast,
           inkColor: colors.onSurface,
+          devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
         ),
         child: RichText(
           key: _textKey,
@@ -458,11 +470,13 @@ class VerseMarkerPainter extends CustomPainter {
     required this.ranges,
     required this.highContrast,
     required this.inkColor,
+    this.devicePixelRatio = 1,
   });
   final Color inkColor;
   final RenderParagraph? Function() paragraph;
   final List<VerseMarkerRange> ranges;
   final bool highContrast;
+  final double devicePixelRatio;
 
   List<Rect> rectangles(VerseMarkerRange range) {
     final render = paragraph();
@@ -505,12 +519,20 @@ class VerseMarkerPainter extends CustomPainter {
     for (final range in ranges) {
       for (final rect in rectangles(range)) {
         if (highContrast) {
-          canvas.drawLine(
-            Offset(rect.left, rect.bottom - 1),
-            Offset(rect.right, rect.bottom - 1),
+          // Fractional antialiased strokes can contain no fully opaque pixels.
+          // E-Ink threshold/dither modes need a solid band on the first frame.
+          final bottom = (rect.bottom * devicePixelRatio).floorToDouble();
+          final thickness = (2 * devicePixelRatio).ceilToDouble();
+          canvas.drawRect(
+            Rect.fromLTRB(
+              (rect.left * devicePixelRatio).floor() / devicePixelRatio,
+              (bottom - thickness) / devicePixelRatio,
+              (rect.right * devicePixelRatio).ceil() / devicePixelRatio,
+              bottom / devicePixelRatio,
+            ),
             Paint()
-              ..color = inkColor
-              ..strokeWidth = 1.5,
+              ..color = inkColor.withValues(alpha: 1)
+              ..isAntiAlias = false,
           );
           continue;
         }

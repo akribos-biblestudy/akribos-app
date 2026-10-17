@@ -34,7 +34,7 @@ class ReaderController extends ChangeNotifier {
   Future<void> Function()? _showTabs;
   Future<bool> Function()? _flush;
   Future<bool> Function(bool)? _setVersePerLine;
-  bool _versePerLine = true;
+  bool _versePerLine = false;
   bool get versePerLine => _versePerLine;
   bool get canSetTextPresentation => _setVersePerLine != null;
   Future<bool> setVersePerLine(bool value) async =>
@@ -81,7 +81,7 @@ class ReaderController extends ChangeNotifier {
     required String activeTitle,
     ReaderSearchResource? activeResource,
     Json reference = const {},
-    bool versePerLine = true,
+    bool versePerLine = false,
   }) {
     _reference = Map.of(reference);
     if (_tabCount == tabCount &&

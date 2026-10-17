@@ -7,7 +7,7 @@ und auf deren aktuelle serverseitige Leserechte. Der tatsächliche Prüfstand st
 
 | Bereich | Native Umsetzung |
 | --- | --- |
-| Lesen | Stellenwahl, Bibeln, Kommentare, Lexika, Parallelstellen, strukturierte Verse, unter Mehr → Einstellungen umschaltbar zwischen Versweise und Fließtext im Blocksatz, skalierende Überschriften, Fußnoten, Strong-Wörter und Quellenangaben |
+| Lesen | Stellenwahl, Bibeln, Kommentare, Lexika, Parallelstellen, strukturierte Verse, unter Mehr → Einstellungen umschaltbar zwischen Versweise und Fließtext im Blocksatz (Standard), skalierende Kommentar- und Lexikontexte, skalierende Überschriften, Fußnoten, Strong-Wörter und Quellenangaben |
 | Tabs | Eine flache Folge aller Ressourcen auf jeder Fensterbreite, visuelle Tabkarten mit zusätzlicher Plus-Karte, Hinzufügen/Schließen, A–E-Kopplung mit Web-Farben und Buchstaben, unabhängige Tabs |
 | Lokaler Readerstand | Tabs, Lesestellen, Tabgruppen, Suchen und Notizfilter pro Gerät, Server und Konto im sicheren Speicher; eigener Gaststand, Wiederherstellung bei Neustart |
 | Unabhängigkeit | Keine Übernahme oder Änderung von Browser-Arbeitsbereichen, keine Synchronisierung der Tabs zwischen App-Geräten, keine Workspace-Verwaltung |

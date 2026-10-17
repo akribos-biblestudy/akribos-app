@@ -87,12 +87,17 @@ visible for both the deletion entry and the operator-information button.
 Do not expose API-key management or a duplicate account destination in More. Fließtext uses
 justified paragraphs, Versweise stays start-aligned. Settings use the attached ReaderController
 to flush positions and change the retained reader, including when it is offstage. Store
-versePerLine in the existing encrypted local snapshot (missing means true), never in shared
+versePerLine in the existing encrypted local snapshot (missing means false; explicit saved
+choices remain unchanged), never in shared
 Reader URLs or server workspaces. Flow paragraphs keep source headings/line breaks and
 per-verse word positions, actions and scroll anchors. Use actual RenderParagraph glyph boxes
 for continuous marker strokes and in-paragraph verse alignment; include spaces, preserve
-partial word boundaries and retain monochrome underlines in E-Ink. Scripture section/chapter
+partial word boundaries and retain opaque, pixel-aligned monochrome underlines without
+antialiasing in E-Ink. Scripture section/chapter
 headings scale with the reading font (1.2/1.4), including accessibility scaling.
+Commentary and lexicon article bodies, original forms and search excerpts use the same
+reading scale; navigation labels retain their UI sizes. Flow verse numbers use a
+non-breaking space before the first word, keeping source word positions unchanged.
 The verse menu has four fixed actions: Markieren, Sammlungen, Notiz and Teilen.
 Use single-line icon/text buttons; measure actual label widths including system text scaling
 before choosing columns. Keep at least 48px touch targets and all main actions visible at

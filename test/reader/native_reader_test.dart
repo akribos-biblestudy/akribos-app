@@ -111,6 +111,7 @@ class ReaderApi extends AppApi {
       FlutterSecureStorage.setMockInitialValues({
         localStore.storageKey: jsonEncode({
           'version': 1,
+          'versePerLine': data['versePerLine'] ?? true,
           'path': readerPath(
             asMap(data['workspace']),
             asString(data['readerState']),

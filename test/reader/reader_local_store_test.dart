@@ -68,7 +68,7 @@ void main() {
       expect(await store(storage).read(), {
         'path': second,
         'layoutSizes': sizes,
-        'versePerLine': true,
+        'versePerLine': false,
       });
       expect(await store(storage, user: 'another').read(), isNull);
       expect(await store(storage, user: null).read(), isNull);
@@ -85,7 +85,7 @@ void main() {
   );
 
   test(
-    'display preference restores per account and old snapshots stay versewise',
+    'missing display preference defaults to flow and explicit choices restore',
     () async {
       final storage = ControlledStorage();
       final target = store(storage);
@@ -93,7 +93,9 @@ void main() {
         'version': 1,
         'path': first,
       });
-      expect((await target.read())?['versePerLine'], isTrue);
+      expect((await target.read())?['versePerLine'], isFalse);
+      await target.write(first, versePerLine: true);
+      expect((await store(storage).read())?['versePerLine'], isTrue);
       await target.write(second, versePerLine: false);
       expect((await store(storage).read())?['versePerLine'], isFalse);
       expect(await store(storage, user: 'another').read(), isNull);

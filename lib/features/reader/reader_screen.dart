@@ -104,11 +104,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
           final workspace = asMap(data['workspace']);
           workspace['layoutSizes'] = asMap(saved?['layoutSizes']);
           data['readerWorkspaceDetached'] = true;
-          data['versePerLine'] = saved?['versePerLine'] != false;
+          data['versePerLine'] = saved?['versePerLine'] == true;
           await store.write(
             readerPath(workspace, asString(data['readerState'])),
             layoutSizes: asMap(workspace['layoutSizes']),
-            versePerLine: data['versePerLine'] != false,
+            versePerLine: data['versePerLine'] == true,
           );
           if (mounted && generation == _generation) {
             setState(() => _data = data);
@@ -207,11 +207,11 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
   int _revision = 0;
   String? _saveError;
   String? _mobileTile;
-  bool _versePerLine = true;
+  bool _versePerLine = false;
   void _adopt([Json? incoming]) {
     _data = asMap(jsonDecode(jsonEncode(incoming ?? widget.data)));
     if (_data.containsKey('versePerLine')) {
-      _versePerLine = _data['versePerLine'] != false;
+      _versePerLine = _data['versePerLine'] == true;
     }
     _data['readerWorkspaceDetached'] = true;
     _workspace = asMap(_data['workspace']);
@@ -1590,7 +1590,7 @@ class _ChapterPane extends StatefulWidget {
     required this.onReferenceText,
     required this.active,
     this.fontScale = 1,
-    this.versePerLine = true,
+    this.versePerLine = false,
   });
   final Json initial, resource, reference;
   final _ChapterCache cache;
@@ -2135,6 +2135,11 @@ class _ChapterPaneState extends State<_ChapterPane> {
                   ),
                 HtmlContent(
                   html: asString(entry['bodyHtml']),
+                  textStyle: readingTextStyle(
+                    context,
+                    fontScale: widget.fontScale,
+                  ),
+                  scalableListMarkers: true,
                   onTapUrl: _openCommentaryLink,
                 ),
               ],
