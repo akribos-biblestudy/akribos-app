@@ -269,7 +269,9 @@ ThemeData buildAkribosTheme(Brightness brightness, {bool eInk = false}) {
       toolbarHeight: 58,
       titleSpacing: 16,
       titleTextStyle: heading(28),
-      shape: Border(bottom: BorderSide(color: tokens.line)),
+      shape: Border(
+        bottom: BorderSide(color: tokens.line, width: eInk ? 2 : 1),
+      ),
       iconTheme: IconThemeData(color: tokens.muted, size: 22),
       actionsIconTheme: IconThemeData(color: tokens.muted, size: 22),
     ),

@@ -36,7 +36,9 @@ Ordinary app use requires no API key, USB or ADB. The ignored artifact and its S
 file are written to `artifacts/`; store signing remains a separate explicit task.
 
 Keep the PWA palette and compact reader chrome; the floating bottom navigation has
-16px side margins, no expensive backdrop blur, and explicit E-Ink behavior. Reader tabs
+16px side margins, no expensive backdrop blur, and explicit E-Ink behavior. E-Ink
+navigation uses opaque black 2px boundaries: a frame around the bottom bar and separators
+below the app header and resource navigation; keep these independent of shadows or gray fills. Reader tabs
 are browsable as visual cards and by swipe. Sources are in docs/MOBILE-DESIGN.md.
 Preserve loaded screen/scroll state on ordinary section switches, but invalidate all private
 branches immediately at authentication boundaries, even if bootstrap fails. Delayed hidden

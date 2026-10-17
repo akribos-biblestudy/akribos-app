@@ -97,10 +97,12 @@ class FloatingNavigationBar extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: background,
                     border: Border.all(
-                      color: highContrast
+                      color: monochrome
+                          ? Colors.black
+                          : highContrast
                           ? Theme.of(context).colorScheme.onSurface
                           : tokens.line,
-                      width: highContrast ? 1.5 : 1,
+                      width: monochrome ? 2 : (highContrast ? 1.5 : 1),
                     ),
                     borderRadius: radius,
                   ),
