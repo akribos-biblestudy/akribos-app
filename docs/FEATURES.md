@@ -1,6 +1,6 @@
 # Umfang der nativen Nutzeroberfläche
 
-Stand: 16. Oktober 2026. Zielsysteme sind Android und iOS auf Smartphones und Tablets;
+Stand: 17. Oktober 2026. Zielsysteme sind Android und iOS auf Smartphones und Tablets;
 vorerst wird nur Android veröffentlicht. Alle Einträge beziehen sich auf normale Nutzer
 und auf deren aktuelle serverseitige Leserechte. Der tatsächliche Prüfstand steht in
 [VALIDATION.md](VALIDATION.md).
@@ -25,6 +25,7 @@ und auf deren aktuelle serverseitige Leserechte. Der tatsächliche Prüfstand st
 | Konto | E-Mail-Code, Passwort mit System-Autofill, erhaltene gültige Anmeldung bei App-Updates, Bestätigungs-/Rücksetzlinks, Profil, Passwort und Abmelden über das Personen-Icon |
 | Einstellungen | Darstellung, E-Ink, Textdarstellung; nach Anmeldung Leseschrift, Standardbibel und Markierungsfarben; Schrift und Stiländerungen aktualisieren den Reader bei gleicher Lesestelle |
 | Mehr | Sammlungen, Einstellungen, Hilfeplatzhalter und Über Akribos mit Open-Source-Lizenzen |
+| Version und Updates | Tatsächlich installierte Version/Build in Einstellungen und Über Akribos; automatische sowie manuelle Store-Prüfung, schließbarer Hinweis und freiwilliges Öffnen des Stores nach Speicherung; Google Play und öffentliche App-Store-Listung |
 | Hilfe | Lokaler Platzhalter; eigenständige App-Anleitungen folgen nach Fertigstellung, siehe [TODO.md](TODO.md) |
 
 ## Unterschiede zur Weboberfläche

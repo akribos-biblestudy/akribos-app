@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_scope.dart';
 import '../../core/operator_browser.dart';
 import '../../widgets/common.dart';
+import '../../widgets/app_update_details.dart';
 
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key, required this.path});
@@ -52,6 +53,7 @@ class InformationScreen extends StatelessWidget {
         style: Theme.of(context).textTheme.headlineMedium,
       ),
       const SizedBox(height: 20),
+      if (Uri.parse(path).path == '/about') const AppUpdateDetails(),
       const Text(
         'Akribos verbindet Bibeltext, Wortstudien, Notizen und gemeinsame Stellensammlungen. Deine Inhalte werden auf deinem Akribos-Server gespeichert.',
       ),

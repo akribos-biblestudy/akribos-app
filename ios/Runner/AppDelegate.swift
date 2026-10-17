@@ -13,6 +13,20 @@ import WebKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    let updates = FlutterMethodChannel(
+      name: "de.akribos.app/updates",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    updates.setMethodCallHandler { call, result in
+      switch call.method {
+      case "info":
+        StoreUpdates.info(result)
+      case "storeCountry":
+        StoreUpdates.country(result)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
     let channel = FlutterMethodChannel(
       name: "de.akribos.app/editor-session",
       binaryMessenger: engineBridge.applicationRegistrar.messenger()

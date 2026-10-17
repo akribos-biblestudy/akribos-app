@@ -29,12 +29,47 @@ jobs:
       - run: flutter analyze
       - run: flutter test
       - run: flutter build apk --debug
-      - name: Check Android browser selection and URL boundaries
+      - name: Check native Android browser and update policies
         working-directory: android
-        run: ./gradlew :app:testDebugUnitTest --tests de.akribos.app.BrowserLinkPolicyTest
+        run: ./gradlew :app:testDebugUnitTest
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: akribos-android-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 7
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: '3.47.0'
+          cache: true
+      - run: xcodebuild -version
+      - run: flutter pub get --enforce-lockfile
+      - name: Build unsigned iOS simulator app
+        run: flutter build ios --simulator --debug --no-codesign --no-pub
+      - name: Select an installed iPhone simulator
+        run: |
+          xcrun simctl list devices available --json > "$RUNNER_TEMP/ios-simulators.json"
+          python3 - <<'PYTHON'
+          import json, os
+          from pathlib import Path
+          data = json.loads((Path(os.environ['RUNNER_TEMP']) / 'ios-simulators.json').read_text())
+          devices = [device for runtime, items in data['devices'].items()
+                     if 'iOS' in runtime for device in items
+                     if device.get('isAvailable') and device['name'].startswith('iPhone')]
+          if not devices:
+              raise SystemExit('No available iPhone simulator on this runner')
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('IOS_TEST_DEVICE=' + devices[0]['udid'] + '\n')
+          PYTHON
+      - name: Test native storefront and installation policies
+        run: >-
+          xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner
+          -configuration Debug -destination "platform=iOS Simulator,id=$IOS_TEST_DEVICE"
+          -only-testing:RunnerTests CODE_SIGNING_ALLOWED=NO
