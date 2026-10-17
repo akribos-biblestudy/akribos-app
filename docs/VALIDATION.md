@@ -1,5 +1,27 @@
 # Prüfstand 17. Oktober 2026
 
+## Folgeänderung ohne neues Release: Version und Store-Updates
+
+Version und Build stammen aus dem installierten Paket/Bundle und erscheinen in
+Einstellungen sowie Über Akribos. Ein schließbarer Hinweis meldet Store-Updates;
+zusätzlich gibt es eine manuelle Prüfung. Aktive Dokumentguards und die gespeicherte
+Readerposition werden vor dem freiwilligen Store-Wechsel abgewartet.
+
+37 gezielte Flutter-Tests sind erfolgreich: zwölf Controller-/Adaptertests sowie
+25 UI-, Shell- und Einstellungsprüfungen. Sie decken numerische Versionen, genaue
+Store-Identität, Mindest-iOS-Version, fehlende Listung/Berechtigung, Verbindungsfehler,
+Anfragedrosselung, wiederhergestelltes Schließen, Timer-Cleanup, Resume, Speicherschutz
+und 200-%-Textskalierung bei 320 Pixeln sowie Querformat ab. Vollständige Flutter-Analyse
+und Formatprüfung sind ohne Befund; der Android-Debug-Build und alle neun nativen
+Android-Policytests sind erfolgreich.
+
+Die neue macOS-CI baut den unsignierten iOS-Simulatorstand und führt die nativen
+Storefront-/Installationsquellentests aus. Der tatsächliche CI-Status gehört zum PR.
+Die Prüfung einer echten Store-Installation mit anschließend höherem Angebot sowie die
+iOS-Geräteabnahme bleiben separat offen. Es wurde keine App installiert, kein Release
+erzeugt und kein Store-Upload ausgelöst. Die Funktion wird mit dem nächsten regulären
+App-Release ausgeliefert.
+
 ## Release 0.5.0: Reader-Issues #2, #3 und #8–#14
 
 Die optionale Kommentarspalte folgt auf Tablets der sichtbaren Bibelstelle. Auswahl

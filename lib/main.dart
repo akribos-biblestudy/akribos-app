@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api_client.dart';
 import 'core/app_scope.dart';
+import 'core/app_updates.dart';
 import 'core/deep_link.dart';
 import 'features/account/account_screen.dart';
 import 'features/account/auth_screen.dart';
@@ -23,6 +24,7 @@ import 'widgets/floating_navigation.dart';
 import 'features/search/search_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'widgets/common.dart';
+import 'widgets/app_update_notice.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,14 +39,23 @@ Future<void> main() async {
 }
 
 class AkribosApp extends StatefulWidget {
-  const AkribosApp({super.key, this.api, this.enableLinks = true});
+  const AkribosApp({
+    super.key,
+    this.api,
+    this.enableLinks = true,
+    this.updates,
+  });
   final AppApi? api;
   final bool enableLinks;
+  final AppUpdateController? updates;
   @override
   State<AkribosApp> createState() => _AkribosAppState();
 }
 
-class _AkribosAppState extends State<AkribosApp> {
+class _AkribosAppState extends State<AkribosApp> with WidgetsBindingObserver {
+  late final bool _ownsUpdates;
+  late final AppUpdateController _updates =
+      widget.updates ?? AppUpdateController();
   late final AppApi _api =
       widget.api ??
       AppApi(
@@ -59,7 +70,15 @@ class _AkribosAppState extends State<AkribosApp> {
   @override
   void initState() {
     super.initState();
+    _ownsUpdates = widget.updates == null;
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_updates.initialize());
     _loadTheme();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_updates.check());
   }
 
   Future<void> _loadTheme() async {
@@ -98,6 +117,8 @@ class _AkribosAppState extends State<AkribosApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (_ownsUpdates) _updates.dispose();
     if (widget.api == null) _api.dispose();
     super.dispose();
   }
@@ -129,6 +150,10 @@ class _AkribosAppState extends State<AkribosApp> {
       themeMode: _theme,
       eInk: _eInk,
       setEInk: _setEInk,
+      updates: _updates,
+      openUpdateStore: () async {
+        await _shellKey.currentState?._openUpdateStore();
+      },
       child: MediaQuery(
         data: MediaQuery.of(context).copyWith(
           disableAnimations: _eInk || MediaQuery.of(context).disableAnimations,
@@ -145,6 +170,7 @@ class _AkribosAppState extends State<AkribosApp> {
       enableLinks: widget.enableLinks,
       eInk: _eInk,
       setEInk: _setEInk,
+      updates: _updates,
     ),
   );
 }
@@ -161,12 +187,14 @@ class _AppShell extends StatefulWidget {
     required this.enableLinks,
     required this.eInk,
     required this.setEInk,
+    required this.updates,
   });
   final AppApi api;
   final ThemeMode themeMode;
   final void Function(ThemeMode) setTheme;
   final bool enableLinks, eInk;
   final void Function(bool) setEInk;
+  final AppUpdateController updates;
   @override
   State<_AppShell> createState() => _AppShellState();
 }
@@ -419,6 +447,44 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
     return true;
   }
 
+  bool _openingUpdateStore = false;
+  Future<void> _openUpdateStore() async {
+    if (_openingUpdateStore) return;
+    _openingUpdateStore = true;
+    final request = _navigationRequest;
+    final generation = _bootstrapGeneration;
+    try {
+      if (!await _flushBranch()) return;
+      if (!mounted ||
+          request != _navigationRequest ||
+          generation != _bootstrapGeneration) {
+        return;
+      }
+      // The retained Reader also needs its latest local position saved when
+      // the current screen is a note, the account or Settings.
+      if (!await _readerController.flush()) {
+        throw const ApiException(
+          'Die aktuelle Lesestelle konnte nicht gespeichert werden.',
+        );
+      }
+      if (!mounted ||
+          request != _navigationRequest ||
+          generation != _bootstrapGeneration) {
+        return;
+      }
+      if (!await widget.updates.openStore() && mounted) {
+        showError(
+          context,
+          'Der Store konnte nicht geöffnet werden. Bitte versuche es erneut.',
+        );
+      }
+    } catch (error) {
+      if (mounted) showError(context, error);
+    } finally {
+      _openingUpdateStore = false;
+    }
+  }
+
   bool _reader(String path) {
     final p = Uri.parse(path).path;
     return p == '/' ||
@@ -639,6 +705,8 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
       notesChapter: _notesChapter,
       notesChapterEnabled: _notesChapterEnabled,
       setNotesChapterEnabled: _setNotesChapterEnabled,
+      updates: widget.updates,
+      openUpdateStore: _openUpdateStore,
       child: TickerMode(
         enabled: _activeBranch == index,
         child: KeyedSubtree(
@@ -719,9 +787,16 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
           bottom: false,
           child: !_ready
               ? _startup(context)
-              : IndexedStack(
-                  index: _activeBranch,
-                  children: List.generate(4, _branchScreen),
+              : Column(
+                  children: [
+                    const AppUpdateNotice(),
+                    Expanded(
+                      child: IndexedStack(
+                        index: _activeBranch,
+                        children: List.generate(4, _branchScreen),
+                      ),
+                    ),
+                  ],
                 ),
         ),
         bottomNavigationBar: _ready

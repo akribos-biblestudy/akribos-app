@@ -12,6 +12,16 @@ import java.net.URI
 class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        val storeUpdates = StoreUpdates(this)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "de.akribos.app/updates")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "info" -> storeUpdates.info(result)
+                    "check" -> storeUpdates.check(result)
+                    "openStore" -> result.success(storeUpdates.openStore())
+                    else -> result.notImplemented()
+                }
+            }
         val publicBrowser = PublicBrowser(this)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "de.akribos.app/browser")
             .setMethodCallHandler { call, result ->

@@ -179,3 +179,22 @@ Für öffentliche Produktionsdaten können zusätzlich `AKRIBOS_CAPTURE_BOOTSTRA
 `AKRIBOS_CAPTURE_READER` auf lokale JSON-Dateien zeigen. Die Dateien enthalten jeweils nur
 das `data`-Objekt der anonymen App-API-Antwort, keine Cookies oder Tokens. Die Aufnahme
 führt keine Servermutationen aus; schreibende Antworten sind im Widget-Test simuliert.
+
+## Versionsanzeige und Updatehinweise
+
+Die App liest Version/Build aus dem installierten Android-Paket bzw. iOS-Bundle. Ein über
+GitHub Releases gesetzter Buildname/-code erscheint damit ohne zusätzliche Codepflege in
+Einstellungen und Über Akribos. Das Updateangebot stammt vom jeweiligen Store, nicht von
+GitHub. Es funktioniert erst in einem Build, der diese Funktion enthält.
+
+Android benötigt eine von Google Play installierte und für das verwendete Konto berechtigte
+App; direkte APKs melden keine verfügbare Store-Prüfung. Zur Geräteabnahme einen solchen
+Build installieren und danach einen höheren Build für dasselbe Testkonto bereitstellen.
+iOS benötigt eine echte öffentliche Listung im Storefront des Apple-Kontos. Bekannte
+Entwicklungs-/Simulatorbuilds und Sandbox-Receipts bieten keine öffentliche Updateprüfung.
+Nach erfolgter Apple-Einrichtung auch eine echte Store-Installation prüfen. Eine fehlende
+Listung oder fehlende Berechtigung darf nicht als „aktuell“ erscheinen.
+
+Die normale CI baut Android und einen unsignierten iOS-Simulatorstand und führt native
+Policytests auf beiden Plattformen aus. Sie erzeugt keine Store-Veröffentlichung; Signierung,
+Geräteabnahme und ein ausdrücklich veröffentlichtes GitHub Release bleiben getrennte Schritte.

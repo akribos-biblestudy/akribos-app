@@ -144,6 +144,23 @@ existing query when that resource changes. It must never silently search other t
 Android app links require the matching public signer association on akribos.de. iOS release
 and domain association wait for the user's Apple organization enrollment; never invent IDs.
 
+Installed version/build come from PackageManager/Bundle through `de.akribos.app/updates`,
+never from a separately maintained UI constant. Settings and About share the same update
+controller. Android checks Play account/installation eligibility with AppUpdateManager;
+iOS checks Apple's public lookup for the exact bundle and actual StoreKit storefront,
+comparing numeric marketing versions and the minimum OS version. Do not invent an Apple
+listing ID or use GitHub releases as Store availability. Known direct Android installations,
+iOS development/simulator builds and sandbox receipts report unsupported checks; absent iOS
+receipts remain unknown. Store requests use separate unauthenticated transport, never AppApi,
+cookies, account identifiers or arbitrary response URLs. Auto-check at start/resume, throttle
+successful checks for 12 hours and failed/unavailable checks for 15 minutes. Dismiss an offered
+version for 24 hours on this device; newer versions remain visible. Manual checks show current,
+unavailable and failed distinctly. Before a voluntary external Store launch, flush active
+navigation guards and the retained Reader; failed saves block launching. Dispose cancels
+outstanding check deadlines. No forced update, background installation or push permission.
+CI includes Android policy tests and an unsigned iOS simulator build plus native XCTest;
+that does not establish Store/device acceptance or authorize publication.
+
 Android store automation is separate from the direct Pixel APK. `release.yml` has no
 store secrets and dispatches `android-play.yml` explicitly on `main`; the verified
 `android-play-internal` Environment permits only that branch, never tags. Do not move

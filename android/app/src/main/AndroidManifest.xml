@@ -58,6 +58,7 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <package android:name="com.android.vending" />
         <!-- Discover general HTTPS browsers, then launch their explicit activity so
              operator/privacy links cannot be intercepted by our own App Links. -->
         <intent>

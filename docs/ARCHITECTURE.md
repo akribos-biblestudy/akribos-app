@@ -42,7 +42,7 @@ starten. Der Browser erhält die vollständige URL mit Fragment, aber keine nati
 Sitzung oder zusätzlichen Header. iOS verwendet weiterhin den System-Browserdialog.
 Beide Einstiegspunkte zeigen bei einem Fehler die manuell aufrufbare Adresse.
 
-Alle HTTP-Anfragen gehen an den beim Build festgelegten Origin. Redirects werden explizit
+Alle Anfragen des Akribos-Clients gehen an den beim Build festgelegten Origin. Redirects werden explizit
 ausgewertet; ein Schreib-POST wird nicht automatisch erneut gesendet. Der Cookie-Interceptor
 ordnet `Set-Cookie` nur dem ausstellenden Server zu, nicht dessen Redirect-Ziel. Cookie-
 Domain, Pfad, Secure und Ablauf werden beachtet. Sitzungscookies liegen verschlüsselt über
@@ -69,6 +69,44 @@ Die Anwendung besitzt keine API-Geheimnisse. Der Protokollheader ist keine Berec
 Ressourcenzugriff wird serverseitig für jede Anfrage geprüft. Es gibt keine dauerhafte Kopie
 privater Bibeltexte. Gerätesicherungen schließen App-Daten aus; die iOS-Keychain bleibt von
 Apple-Plattformregeln abhängig.
+
+## Installierte Version und Store-Updates
+
+`AppUpdateController` wird einmal für die App erzeugt. `PlatformAppUpdateGateway` liest
+Version und Build aus dem tatsächlich installierten Paket/Bundle über den MethodChannel
+`de.akribos.app/updates`. Einstellungen und Über Akribos zeigen dieselben Angaben.
+GitHub-Tags und `pubspec.yaml` dienen nicht als Laufzeitquelle oder Update-Katalog.
+
+Android verwendet Googles `AppUpdateManager.appUpdateInfo` und dessen Verfügbarkeit für
+die installierte App und das Play-Konto, einschließlich zugänglicher Testtracks. Nur
+`UPDATE_AVAILABLE` mit höherem Versionscode erzeugt ein Angebot. Fehlender Play-Zugriff
+ist „nicht verfügbar“, ein Übertragungsfehler niemals „aktuell“. Direkte APKs werden anhand
+des Installers ausgeschlossen. Der feste Play-Link öffnet ausdrücklich die Play-App,
+mit dem bestehenden öffentlichen Browser als Rückfall.
+
+iOS ermittelt den tatsächlichen `Storefront.current` getrennt von den sofort verfügbaren
+Bundle-Metadaten. Die ISO-3-Kennung wird in Apples ISO-2-Lookup-Parameter übersetzt, niemals
+aus der Gerätesprache geraten. Ein eigener Dio-Client fragt ausschließlich
+`https://itunes.apple.com/lookup` für Bundle-ID und Store-Land ab, ohne Akribos-Cookies,
+Protokollheader oder Kontodaten. Nur ein eindeutiger Softwaretreffer mit passender Bundle-ID,
+positiver Store-ID, höherer numerischer Version und passender Mindest-iOS-Version erzeugt
+einen Hinweis. Die Zieladresse wird aus validierter ID und Land unter `apps.apple.com`
+aufgebaut; eine gelieferte URL wird nicht übernommen. Ohne öffentliche Listung gibt es keine
+Updateaussage. Entwicklungs-/Simulatorbuilds und erkannte Sandbox-Receipts sind ausgeschlossen;
+ein fehlendes Receipt allein beweist keine Entwicklungsinstallation. TestFlight-Verfügbarkeit
+wird nicht geprüft, und es ist keine erfundene Apple-App-ID hinterlegt.
+
+Beim Start und Resume prüft der Controller automatisch: erfolgreiche Ergebnisse höchstens
+alle zwölf Stunden, Fehler oder fehlende Store-Unterstützung nach frühestens 15 Minuten.
+Gleichzeitige Anfragen werden zusammengefasst; Zeitlimits werden beim Dispose abgebrochen.
+Manuelles „Nach Updates suchen“ umgeht die Wartezeit. Ein nichtmodaler Hinweis lässt sich
+für die angebotene Version 24 Stunden gerätelokal schließen. Neue Versionen erscheinen wieder.
+Prüfungsfehler bleiben in der Versionskarte nachvollziehbar, ohne die Lektüre zu unterbrechen.
+
+„Im Store öffnen“ wartet auf aktive Dokument-/Navigationsguards und die Speicherung des
+beibehaltenen Readers. Fehler verhindern den Wechsel; zwischenzeitliche Navigation oder ein
+Kontowechsel verwerfen einen verspäteten Öffnungsversuch. Es gibt keine erzwungene Installation,
+keine Push-Berechtigung und keine automatische Veröffentlichung durch diese Funktion.
 
 ## Reader-Zustand
 

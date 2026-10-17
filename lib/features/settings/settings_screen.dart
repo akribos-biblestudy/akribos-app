@@ -4,6 +4,7 @@ import '../../core/api_client.dart';
 import '../../core/app_scope.dart';
 import '../../widgets/action_form.dart';
 import '../../widgets/remote_page.dart';
+import '../../widgets/app_update_details.dart';
 import '../reader/verse_text.dart';
 import '../../widgets/common.dart';
 import '../reader/reader_controller.dart';
@@ -222,6 +223,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
+            const AppUpdateDetails(),
           ],
         );
       },

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
+import 'app_updates.dart';
 
 class AppScope extends InheritedWidget {
   const AppScope({
@@ -17,11 +18,15 @@ class AppScope extends InheritedWidget {
     this.notesChapter = '',
     this.notesChapterEnabled = true,
     this.setNotesChapterEnabled,
+    this.updates,
+    this.openUpdateStore,
     required super.child,
   });
   final String notesChapter;
   final bool notesChapterEnabled;
   final Future<void> Function(bool)? setNotesChapterEnabled;
+  final AppUpdateController? updates;
+  final Future<void> Function()? openUpdateStore;
   final AppApi api;
   final Future<void> Function(String path) open;
   final Future<void> Function() refreshSession;
@@ -51,5 +56,7 @@ class AppScope extends InheritedWidget {
       setEInk != oldWidget.setEInk ||
       notesChapter != oldWidget.notesChapter ||
       notesChapterEnabled != oldWidget.notesChapterEnabled ||
-      setNotesChapterEnabled != oldWidget.setNotesChapterEnabled;
+      setNotesChapterEnabled != oldWidget.setNotesChapterEnabled ||
+      updates != oldWidget.updates ||
+      openUpdateStore != oldWidget.openUpdateStore;
 }
