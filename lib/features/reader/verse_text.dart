@@ -1,3 +1,5 @@
+import 'dart:ui' show BoxHeightStyle;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -282,6 +284,9 @@ class VerseTextState extends State<VerseText> {
         baseOffset: _starts[index],
         extentOffset: _starts[index] + 1,
       ),
+      // The verse number is smaller than its first word. Use the tallest run
+      // on its line so restoring the verse cannot clip scripture or a note.
+      boxHeightStyle: BoxHeightStyle.max,
     );
     return boxes == null || boxes.isEmpty ? 0 : boxes.first.top;
   }

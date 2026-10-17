@@ -196,6 +196,21 @@ void main() {
           )
           .single;
       expect(state.passageAt(box.toRect().center), 1);
+      final numberStart = text.lastIndexOf('2\u00a0');
+      final number = paragraph
+          .getBoxesForSelection(
+            TextSelection(
+              baseOffset: numberStart,
+              extentOffset: numberStart + 1,
+            ),
+          )
+          .single;
+      expect(
+        number.top,
+        greaterThan(box.top),
+        reason: 'The smaller number must not define the scrolling crop.',
+      );
+      expect(state.passageTop(1), greaterThan(0));
       expect(state.passageTop(1), lessThanOrEqualTo(box.top));
       expect(tester.takeException(), isNull);
     },
