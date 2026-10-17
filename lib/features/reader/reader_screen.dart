@@ -20,6 +20,8 @@ import 'reader_verse_menu.dart';
 import 'reader_state.dart';
 import 'verse_text.dart';
 import 'reader_local_store.dart';
+import 'reader_companion.dart';
+import 'reader_tab_grid.dart';
 
 class ReaderScreen extends StatefulWidget {
   const ReaderScreen({
@@ -105,10 +107,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
           workspace['layoutSizes'] = asMap(saved?['layoutSizes']);
           data['readerWorkspaceDetached'] = true;
           data['versePerLine'] = saved?['versePerLine'] == true;
+          data['companion'] = ReaderCompanion.fromJson(saved?['companion'])
+              .toJson();
           await store.write(
             readerPath(workspace, asString(data['readerState'])),
             layoutSizes: asMap(workspace['layoutSizes']),
             versePerLine: data['versePerLine'] == true,
+            companion: ReaderCompanion.fromJson(data['companion']),
           );
           if (mounted && generation == _generation) {
             setState(() => _data = data);
@@ -208,10 +213,15 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
   String? _saveError;
   String? _mobileTile;
   bool _versePerLine = false;
+  ReaderCompanion _companion = const ReaderCompanion();
+  final _companionPane = GlobalKey<_ChapterPaneState>();
   void _adopt([Json? incoming]) {
     _data = asMap(jsonDecode(jsonEncode(incoming ?? widget.data)));
     if (_data.containsKey('versePerLine')) {
       _versePerLine = _data['versePerLine'] == true;
+    }
+    if (_data.containsKey('companion')) {
+      _companion = ReaderCompanion.fromJson(_data['companion']);
     }
     _data['readerWorkspaceDetached'] = true;
     _workspace = asMap(_data['workspace']);
@@ -285,6 +295,15 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     }
   }
 
+  @override
+  void didChangeMetrics() {
+    // Window metrics arrive before relayout, while the old glyph positions and
+    // transforms can still be read. Finish a pending scroll capture now.
+    for (final pane in _panes.values) {
+      pane.currentState?.capturePosition();
+    }
+  }
+
   String get _state => encodeReaderState(_workspace, _searches, _filterState);
   void _bindController() {
     widget.controller?.attach(
@@ -292,7 +311,19 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       showTabs: _showTabs,
       flush: _flush,
       setVersePerLine: _setVersePerLine,
+      setCompanion: _setCompanion,
     );
+  }
+
+  Future<bool> _setCompanion(ReaderCompanion value) async {
+    if (_companion == value) return _flush();
+    if (!await _flush() || !mounted) return false;
+    setState(() {
+      _companion = value;
+      _dirty = true;
+      _revision++;
+    });
+    return _save();
   }
 
   Future<bool> _setVersePerLine(bool value) async {
@@ -338,6 +369,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
           readerPath(_workspace, _state),
           layoutSizes: asMap(_workspace['layoutSizes']),
           versePerLine: _versePerLine,
+          companion: _companion,
         );
         if (revision == _revision) _dirty = false;
       }
@@ -374,6 +406,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       reference,
     );
     widget.controller?.updateReference(reference);
+    _companionPane.currentState?.align(reference);
     _dirty = true;
     _revision++;
     _timer?.cancel();
@@ -958,52 +991,44 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (sheet) => readerOverlayScope(
-        context,
-        SizedBox(
-          height: MediaQuery.sizeOf(sheet).height * .86,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Geöffnete Werke',
-                        style: Theme.of(context).textTheme.titleLarge,
+      builder: (sheet) => StatefulBuilder(
+        builder: (sheet, setSheetState) => readerOverlayScope(
+          context,
+          SizedBox(
+            height: MediaQuery.sizeOf(sheet).height * .86,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Geöffnete Werke',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: 'Fertig',
-                      onPressed: () => Navigator.pop(sheet),
-                      icon: const Icon(Icons.check),
-                    ),
-                  ],
+                      IconButton(
+                        tooltip: 'Fertig',
+                        onPressed: () => Navigator.pop(sheet),
+                        icon: const Icon(Icons.check),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final tiles = asMaps(_workspace['tiles']);
-                    final choices = _flatTabs(tiles);
-                    final scaler = MediaQuery.textScalerOf(context);
-                    final columns =
-                        constraints.maxWidth < 360 || scaler.scale(14) > 20
-                        ? 1
-                        : constraints.maxWidth < 640
-                        ? 2
-                        : (constraints.maxWidth / 230).floor().clamp(3, 5);
-                    return GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: columns,
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
-                        mainAxisExtent: ReaderTabCard.heightFor(scaler),
-                      ),
-                      itemCount: choices.length + 1,
-                      itemBuilder: (_, index) {
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final tiles = asMaps(_workspace['tiles']);
+                      final choices = _flatTabs(tiles);
+                      final scaler = MediaQuery.textScalerOf(context);
+                      final columns =
+                          constraints.maxWidth < 360 || scaler.scale(14) > 20
+                          ? 1
+                          : constraints.maxWidth < 640
+                          ? 2
+                          : (constraints.maxWidth / 230).floor().clamp(3, 5);
+                      Widget card(int index) {
                         if (index == choices.length) {
                           return Card(
                             key: const ValueKey('reader-add-tab'),
@@ -1088,55 +1113,87 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                             ],
                           ),
                         );
-                      },
-                    );
-                  },
-                ),
-              ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-                  child: Wrap(
-                    spacing: 4,
-                    children: [
-                      IconButton(
-                        tooltip: 'Schrift verkleinern',
-                        onPressed: () {
-                          Navigator.pop(sheet);
-                          _mutate('adjustFontSize', {'delta': -5});
+                      }
+
+                      return ReaderTabGrid(
+                        ids: [
+                          for (final choice in choices)
+                            asString(asMap(choice['tab'])['id']),
+                        ],
+                        cards: [
+                          for (var index = 0; index < choices.length; index++)
+                            card(index),
+                        ],
+                        addCard: card(choices.length),
+                        columns: columns,
+                        cardHeight: ReaderTabCard.heightFor(scaler),
+                        enabled: !_busy,
+                        onMove: (id, index) async {
+                          await _moveTab(id, index);
+                          if (sheet.mounted) setSheetState(() {});
                         },
-                        icon: const Icon(Icons.text_decrease),
-                      ),
-                      IconButton(
-                        tooltip: 'Schrift vergrößern',
-                        onPressed: () {
-                          Navigator.pop(sheet);
-                          _mutate('adjustFontSize', {'delta': 5});
-                        },
-                        icon: const Icon(Icons.text_increase),
-                      ),
-                      IconButton(
-                        tooltip: 'Ansicht teilen',
-                        onPressed: () => SharePlus.instance.share(
-                          ShareParams(
-                            text: _scope!.api.origin
-                                .resolve(readerPath(_workspace, _state))
-                                .toString(),
-                            sharePositionOrigin: _shareOrigin,
-                          ),
-                        ),
-                        icon: const Icon(Icons.ios_share),
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
-              ),
-            ],
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                    child: Wrap(
+                      spacing: 4,
+                      children: [
+                        IconButton(
+                          tooltip: 'Schrift verkleinern',
+                          onPressed: () {
+                            Navigator.pop(sheet);
+                            _mutate('adjustFontSize', {'delta': -5});
+                          },
+                          icon: const Icon(Icons.text_decrease),
+                        ),
+                        IconButton(
+                          tooltip: 'Schrift vergrößern',
+                          onPressed: () {
+                            Navigator.pop(sheet);
+                            _mutate('adjustFontSize', {'delta': 5});
+                          },
+                          icon: const Icon(Icons.text_increase),
+                        ),
+                        IconButton(
+                          tooltip: 'Ansicht teilen',
+                          onPressed: () => SharePlus.instance.share(
+                            ShareParams(
+                              text: _scope!.api.origin
+                                  .resolve(readerPath(_workspace, _state))
+                                  .toString(),
+                              sharePositionOrigin: _shareOrigin,
+                            ),
+                          ),
+                          icon: const Icon(Icons.ios_share),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _moveTab(String id, int destination) async {
+    if (_busy || !await _flush() || !mounted) return;
+    setState(() {
+      if (!moveReaderTab(_workspace, id, destination)) return;
+      _mobileTile = asString(_workspace['focusedTileId']);
+      _displayedTabs.clear();
+      _dirty = true;
+      _revision++;
+      _showSelectedPage();
+    });
+    await _save();
   }
 
   Json _addTargetTile() {
@@ -1147,8 +1204,8 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     );
   }
 
-  // Every resource is one local tab, regardless of device width. Server URL
-  // coordinates remain stable while the native presentation stays flat.
+  // Every ordinary resource is one local tab. The optional tablet companion
+  // follows the visible Bible without becoming a tab or a server workspace.
   List<Json> _flatTabs(List<Json> tiles) => [
     for (final tile in tiles)
       for (final tab in asMaps(tile['tabs'])) {'tile': tile, 'tab': tab},
@@ -1219,6 +1276,134 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       },
     );
   }
+
+  Widget _readerPanes(
+    List<Json> tiles,
+    Json selectedTab,
+    Json selectedResource,
+  ) => LayoutBuilder(
+    builder: (context, constraints) {
+      final reader = _resourcePages(tiles);
+      if (!_companion.enabled ||
+          selectedResource['kind'] != 'bible' ||
+          !canShowReaderCompanion(
+            constraints.maxWidth,
+            MediaQuery.textScalerOf(context),
+          )) {
+        return reader;
+      }
+      final commentaries = asMaps(_data['readerResources'])
+          .where((resource) => resource['kind'] == 'commentary');
+      final resource = _companion.resourceId.isEmpty
+          ? commentaries.firstOrNull
+          : commentaries
+                .where((resource) => resource['id'] == _companion.resourceId)
+                .firstOrNull;
+      final companion = Expanded(
+        key: const ValueKey('reader-companion'),
+        child: ColoredBox(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        resource == null
+                            ? 'Kommentarspalte'
+                            : asString(resource['name']),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Kommentarspalte schließen',
+                    icon: const Icon(Icons.close),
+                    onPressed: () =>
+                        _setCompanion(_companion.copyWith(enabled: false)),
+                  ),
+                ],
+              ),
+              if (_scope!.eInk)
+                const SizedBox(
+                  width: double.infinity,
+                  height: 2,
+                  child: ColoredBox(color: Colors.black),
+                ),
+              Expanded(
+                child: resource == null
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            'Der ausgewählte Kommentar ist nicht verfügbar. '
+                            'Bitte wähle in den Einstellungen einen verfügbaren Kommentar.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    : _ChapterPane(
+                        key: _companionPane,
+                        initial: const {},
+                        cache: _chapterCaches.putIfAbsent(
+                          'companion:${resource['id']}',
+                          _ChapterCache.new,
+                        ),
+                        resource: resource,
+                        reference: Map.of(asMap(selectedTab['reference'])),
+                        active: widget.active,
+                        follower: true,
+                        fontScale: asInt(_data['readerFontScale'], 100) / 100,
+                        versePerLine: _versePerLine,
+                        // Scrolling comments must never move the Bible or its
+                        // linked tabs; only Bible scrolling drives the follower.
+                        onPosition: (_) {},
+                        onWord: (_, _, _) {},
+                        onVerse: (_, _, _) {},
+                        onReference: (reference) => _mutate('setTabReference', {
+                          'tileId': _mobileTile,
+                          'tabId': selectedTab['id'],
+                          'reference': referenceLabel(reference),
+                        }),
+                        onReferenceText: (reference) =>
+                            _mutate('setTabReference', {
+                              'tileId': _mobileTile,
+                              'tabId': selectedTab['id'],
+                              'reference': reference,
+                            }),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      );
+      final primary = Expanded(
+        key: const ValueKey('reader-primary'),
+        child: reader,
+      );
+      return Row(
+        key: const ValueKey('reader-two-columns'),
+        children: [
+          _companion.onLeft ? companion : primary,
+          VerticalDivider(
+            width: _scope!.eInk ? 2 : 1,
+            thickness: _scope!.eInk ? 2 : 1,
+            color: _scope!.eInk
+                ? Colors.black
+                : Theme.of(context).colorScheme.outlineVariant,
+          ),
+          _companion.onLeft ? primary : companion,
+        ],
+      );
+    },
+  );
 
   Widget _groupChoice(Json tab, String group) {
     final link = group.isEmpty ? null : group;
@@ -1319,6 +1504,12 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
               ),
             ],
           ),
+          if (_scope!.eInk)
+            const SizedBox(
+              width: double.infinity,
+              height: 2,
+              child: ColoredBox(color: Colors.black),
+            ),
           if (query.isNotEmpty)
             Material(
               color: Theme.of(context).colorScheme.secondaryContainer,
@@ -1416,6 +1607,16 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     final abbreviation = asString(selectedResource['abbrev']);
     widget.controller?.update(
       tabCount: _flatTabs(tiles).length,
+      companion: _companion,
+      commentaries: [
+        for (final resource in asMaps(_data['readerResources']))
+          if (resource['kind'] == 'commentary')
+            ReaderSearchResource(
+              id: asString(resource['id']),
+              title: asString(resource['name'], asString(resource['id'])),
+              kind: 'commentary',
+            ),
+      ],
       versePerLine: _versePerLine,
       activeTitle: _resourceTitle(selectedTab),
       reference: asMap(selectedTab['reference']),
@@ -1483,7 +1684,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
         Expanded(
           child: tiles.isEmpty
               ? const Center(child: Text('Kein Werk verfügbar.'))
-              : _resourcePages(tiles),
+              : _readerPanes(tiles, selectedTab, selectedResource),
         ),
       ],
     );
@@ -1574,6 +1775,7 @@ class _ChapterCache {
   Json? reference;
   double? fontScale;
   bool? versePerLine;
+  double? viewportWidth;
 }
 
 class _ChapterPane extends StatefulWidget {
@@ -1591,11 +1793,12 @@ class _ChapterPane extends StatefulWidget {
     required this.active,
     this.fontScale = 1,
     this.versePerLine = false,
+    this.follower = false,
   });
   final Json initial, resource, reference;
   final _ChapterCache cache;
   final double fontScale;
-  final bool active, versePerLine;
+  final bool active, versePerLine, follower;
   final void Function(Json) onPosition, onReference;
   final void Function(String) onReferenceText;
   final void Function(Json, Json, int) onWord;
@@ -1628,6 +1831,7 @@ class _ChapterPaneState extends State<_ChapterPane> {
   String? _error, _anchorKey;
   Timer? _timer;
   Json? _nextAlignment;
+  Json? _requestedReference;
   int _generation = 0;
 
   String _key(Json reference) =>
@@ -1750,6 +1954,7 @@ class _ChapterPaneState extends State<_ChapterPane> {
 
   Future<void> align(Json reference) async {
     if (!mounted || !widget.active || reference.isEmpty) return;
+    _requestedReference = Map.of(reference);
     if (_aligning) {
       _nextAlignment = Map.of(reference);
       return;
@@ -1781,6 +1986,9 @@ class _ChapterPaneState extends State<_ChapterPane> {
             duration: Duration.zero,
             alignment: 0,
           );
+          // A zero-duration scroll updates pixels before the paragraph's paint
+          // transform. Wait for layout before measuring the in-flow verse.
+          await WidgetsBinding.instance.endOfFrame;
         } else {
           // Rebase the two lazy slivers on the target. No estimated heights and no
           // eager layout of the preceding verses are needed for an exact jump.
@@ -1819,10 +2027,14 @@ class _ChapterPaneState extends State<_ChapterPane> {
       widget.cache.reference = Map.of(reference);
       widget.cache.versePerLine = widget.versePerLine;
       widget.cache.fontScale = widget.fontScale;
+      if (_error != null && mounted) {
+        setState(() => _error = null);
+      }
     } catch (error) {
       if (mounted && generation == _generation) {
         setState(() {
           _error = '$error';
+          if (widget.follower) _chapters.clear();
           _refreshEntries();
         });
       }
@@ -2275,13 +2487,37 @@ class _ChapterPaneState extends State<_ChapterPane> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final previousWidth = widget.cache.viewportWidth;
+      widget.cache.viewportWidth = constraints.maxWidth;
+      if (!widget.active &&
+          previousWidth != null &&
+          previousWidth != constraints.maxWidth) {
+        widget.cache.reference = null;
+      }
+      if (widget.active &&
+          previousWidth != null &&
+          previousWidth != constraints.maxWidth) {
+        // Settings flush before changing the split; didChangeMetrics captures
+        // window resizes before layout. Reuse their verse, never an old pixel
+        // offset or transforms from a tree that is currently being laid out.
+        final reference = Map<String, dynamic>.of(
+          widget.cache.reference ?? widget.reference,
+        );
+        WidgetsBinding.instance.addPostFrameCallback((_) => align(reference));
+      }
+      return _buildContent(context);
+    },
+  );
+
+  Widget _buildContent(BuildContext context) {
     if (_chapters.isEmpty) {
       return Center(
         child: _error == null
             ? const CircularProgressIndicator()
             : TextButton.icon(
-                onPressed: () => align(widget.reference),
+                onPressed: () => align(_requestedReference ?? widget.reference),
                 icon: const Icon(Icons.refresh),
                 label: Text('Erneut laden: $_error'),
               ),

@@ -63,7 +63,16 @@ Credential autofill must be explicit per field. Keep the login identifier and pa
 in the same group, cancel on abandonment, and save credentials only after server-confirmed
 success. Ordinary text fields must not be offered as usernames or passwords.
 
-On every phone/tablet width, render Reader resources as one flat tab sequence. Store tabs,
+On every phone/tablet width, keep Reader resources in one flat tab sequence. An optional
+tablet commentary companion follows the visible Bible when the available window width
+and system text scaling allow two usable columns. Settings choose its resource and side;
+the companion is not a tab/workspace and its scrolling never changes Bible/group positions.
+Use only currently readable resources and the ordinary Reader chapter endpoint. Explicitly
+unavailable commentaries show an explanation, never their cached private text. The encrypted
+local snapshot stores companion enabled/side/resource preferences outside the shared URL.
+Tab cards support long-press drag with edge autoscroll and screen-reader move actions.
+Reordering normalizes imported multi-tile URL state to one local tile, preserving every tab's
+ID/content, group, search and selected identity; resize alone never rearranges tabs. Store tabs,
 positions, groups and searches locally per origin and account (guests separate), encrypted,
 with serial writes. A different phone/tablet has its own independent tabs. Never import,
 activate or publish named browser workspaces. Send x-akribos-reader-mode: local; Reader
@@ -71,7 +80,7 @@ actions are explicitly detached and carry no named-workspace selection/content v
 Do not call workspace follow/view APIs or expose workspace-management UI. Respect current
 server resource permissions when restoring local tabs; never cache private Bible text.
 The tab overview ends with an empty plus card; adding it opens the resource chooser without
-creating a persistent empty tab. Mehr > Einstellungen offers Textdarstellung with Versweise
+creating a persistent empty tab; dropping a tab there moves it to the end. Mehr > Einstellungen offers Textdarstellung with Versweise
 and Fließtext, available to guests too; never put it in the tab overview. Appearance belongs only to Settings;
 signed-in settings reuse /account actions for reading font, default Bible and highlight colors.
 Refresh the retained Reader after font/style edits, preserving its flushed local position.

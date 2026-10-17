@@ -7,6 +7,7 @@ import '../../widgets/remote_page.dart';
 import '../reader/verse_text.dart';
 import '../../widgets/common.dart';
 import '../reader/reader_controller.dart';
+import '../reader/reader_companion.dart';
 
 /// Device-local appearance settings, also available without a signed-in account.
 class SettingsScreen extends StatefulWidget {
@@ -32,6 +33,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         showError(
           context,
           'Die Textdarstellung konnte nicht gespeichert werden.',
+        );
+      }
+    } catch (error) {
+      if (mounted) showError(context, error);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _setCompanion(ReaderCompanion value) async {
+    setState(() => _saving = true);
+    try {
+      if (!await widget.readerController.setCompanion(value) && mounted) {
+        showError(
+          context,
+          'Die Kommentarspalte konnte nicht gespeichert werden.',
         );
       }
     } catch (error) {
@@ -85,6 +102,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     enabled: enabled,
                     onTap: enabled ? () => _setVersePerLine(option.$1) : null,
                   ),
+              ],
+            ),
+            SectionCard(
+              title: 'Kommentarspalte',
+              children: [
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Kommentar neben der Bibel'),
+                  subtitle: const Text(
+                    'Zwei Spalten auf breiten Bildschirmen. Bei wenig Platz bleibt die Bibel allein sichtbar.',
+                  ),
+                  value: reader.companion.enabled,
+                  onChanged: !_saving && reader.canSetCompanion
+                      ? (value) => _setCompanion(
+                          reader.companion.copyWith(enabled: value),
+                        )
+                      : null,
+                ),
+                if (reader.companion.enabled) ...[
+                  DropdownButtonFormField<String>(
+                    key: ValueKey(reader.companion.resourceId),
+                    initialValue: reader.companion.resourceId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Kommentar'),
+                    items: [
+                      const DropdownMenuItem(
+                        value: '',
+                        child: Text('Automatisch'),
+                      ),
+                      if (reader.companion.resourceId.isNotEmpty &&
+                          !reader.commentaries.any(
+                            (resource) =>
+                                resource.id == reader.companion.resourceId,
+                          ))
+                        DropdownMenuItem(
+                          value: reader.companion.resourceId,
+                          child: const Text('Momentan nicht verfügbar'),
+                        ),
+                      for (final resource in reader.commentaries)
+                        DropdownMenuItem(
+                          value: resource.id,
+                          child: Text(
+                            resource.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: !_saving && reader.canSetCompanion
+                        ? (value) => _setCompanion(
+                            reader.companion.copyWith(resourceId: value),
+                          )
+                        : null,
+                  ),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Kommentar links anzeigen'),
+                    subtitle: const Text('Die Bibel steht dann rechts.'),
+                    value: reader.companion.onLeft,
+                    onChanged: !_saving && reader.canSetCompanion
+                        ? (value) => _setCompanion(
+                            reader.companion.copyWith(onLeft: value),
+                          )
+                        : null,
+                  ),
+                ],
               ],
             ),
             SectionCard(

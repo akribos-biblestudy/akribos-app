@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:akribos_app/core/api_client.dart';
 import 'package:akribos_app/features/reader/reader_local_store.dart';
+import 'package:akribos_app/features/reader/reader_companion.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -69,6 +70,7 @@ void main() {
         'path': second,
         'layoutSizes': sizes,
         'versePerLine': false,
+        'companion': const ReaderCompanion().toJson(),
       });
       expect(await store(storage, user: 'another').read(), isNull);
       expect(await store(storage, user: null).read(), isNull);
@@ -129,6 +131,20 @@ void main() {
       expect((await read)?['path'], second);
     },
   );
+
+  test('companion settings persist only for this origin/account', () async {
+    final storage = ControlledStorage();
+    const companion = ReaderCompanion(
+      enabled: true,
+      onLeft: true,
+      resourceId: 'COMMENTARY',
+    );
+    await store(storage).write(second, companion: companion);
+    expect((await store(storage).read())?['companion'], companion.toJson());
+    expect(await store(storage, user: 'another').read(), isNull);
+    expect(await store(storage, server: 'https://other.test').read(), isNull);
+    expect(await store(storage, user: null).read(), isNull);
+  });
 
   test('failed persistence stays visible, preserves the prior snapshot and permits retry', () async {
     final storage = ControlledStorage();

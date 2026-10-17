@@ -21,6 +21,36 @@ Json activeTab(Json tile) => asMaps(tile['tabs']).firstWhere(
   orElse: () => <String, dynamic>{},
 );
 
+/// Native tabs form one sequence. Reordering an imported multi-tile URL
+/// normalizes that sequence to one local tile without losing tab contents,
+/// link groups, lookup context, IDs or the currently selected tab.
+bool moveReaderTab(Json workspace, String tabId, int destination) {
+  final tiles = asMaps(workspace['tiles']);
+  final tabs = [for (final tile in tiles) ...asMaps(tile['tabs'])];
+  final oldIndex = tabs.indexWhere((tab) => tab['id'] == tabId);
+  if (oldIndex < 0 || destination < 0 || destination > tabs.length) {
+    return false;
+  }
+  final newIndex = destination.clamp(0, tabs.length - 1);
+  if (oldIndex == newIndex) return false;
+  final focused = tiles.firstWhere(
+    (tile) => tile['id'] == workspace['focusedTileId'],
+    orElse: () => tiles.first,
+  );
+  final selected = activeTab(focused);
+  tabs.insert(newIndex, tabs.removeAt(oldIndex));
+  workspace['layout'] = 'single';
+  workspace['tiles'] = [
+    {
+      ...focused,
+      'tabs': tabs,
+      'activeTabId': selected['id'] ?? tabs.first['id'],
+    },
+  ];
+  workspace['focusedTileId'] = focused['id'];
+  return true;
+}
+
 /// Local activation follows the existing link-group rule without a server write.
 void activateReaderTab(Json workspace, String tileId, String tabId) {
   final tiles = asMaps(workspace['tiles']);

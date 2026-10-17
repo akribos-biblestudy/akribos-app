@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../core/json.dart';
+import 'reader_companion.dart';
 
 /// Exact resource currently displayed by the native Reader, independent of the
 /// saved workspace's other tiles and translations.
@@ -34,6 +35,14 @@ class ReaderController extends ChangeNotifier {
   Future<void> Function()? _showTabs;
   Future<bool> Function()? _flush;
   Future<bool> Function(bool)? _setVersePerLine;
+  Future<bool> Function(ReaderCompanion)? _setCompanion;
+  ReaderCompanion _companion = const ReaderCompanion();
+  List<ReaderSearchResource> _commentaries = const [];
+  ReaderCompanion get companion => _companion;
+  List<ReaderSearchResource> get commentaries => _commentaries;
+  bool get canSetCompanion => _setCompanion != null;
+  Future<bool> setCompanion(ReaderCompanion value) async =>
+      await _setCompanion?.call(value) ?? false;
   bool _versePerLine = false;
   bool get versePerLine => _versePerLine;
   bool get canSetTextPresentation => _setVersePerLine != null;
@@ -60,11 +69,13 @@ class ReaderController extends ChangeNotifier {
     required Future<void> Function() showTabs,
     required Future<bool> Function() flush,
     Future<bool> Function(bool)? setVersePerLine,
+    Future<bool> Function(ReaderCompanion)? setCompanion,
   }) {
     _owner = owner;
     _showTabs = showTabs;
     _flush = flush;
     _setVersePerLine = setVersePerLine;
+    _setCompanion = setCompanion;
   }
 
   void detach(Object owner) {
@@ -73,6 +84,7 @@ class ReaderController extends ChangeNotifier {
     _showTabs = null;
     _flush = null;
     _setVersePerLine = null;
+    _setCompanion = null;
     update(tabCount: 0, activeTitle: '');
   }
 
@@ -82,15 +94,21 @@ class ReaderController extends ChangeNotifier {
     ReaderSearchResource? activeResource,
     Json reference = const {},
     bool versePerLine = false,
+    ReaderCompanion companion = const ReaderCompanion(),
+    List<ReaderSearchResource> commentaries = const [],
   }) {
     _reference = Map.of(reference);
     if (_tabCount == tabCount &&
         _activeTitle == activeTitle &&
         _activeResource == activeResource &&
-        _versePerLine == versePerLine) {
+        _versePerLine == versePerLine &&
+        _companion == companion &&
+        listEquals(_commentaries, commentaries)) {
       return;
     }
     _versePerLine = versePerLine;
+    _companion = companion;
+    _commentaries = List.unmodifiable(commentaries);
     _activeResource = activeResource;
     _tabCount = tabCount;
     _activeTitle = activeTitle;
