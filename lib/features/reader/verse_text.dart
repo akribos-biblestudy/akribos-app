@@ -14,6 +14,7 @@ class VerseRun {
     this.position,
     this.wordIndex,
     this.note,
+    this.assignment = false,
     this.italic = false,
     this.divineName = false,
     this.redLetter = false,
@@ -23,6 +24,7 @@ class VerseRun {
   final int? position;
   final int? wordIndex;
   final String? note;
+  final bool assignment;
   final bool italic;
   final bool divineName;
   final bool redLetter;
@@ -116,14 +118,15 @@ List<VerseRun> verseRuns(List<dynamic> segments, {String? studiedStrong}) {
             text.trim().replaceAll(RegExp(r'\s+'), ' ') == assignmentNote;
         if (!automatic) {
           result.add(
-            VerseRun(marker.isEmpty ? ' ⁎ ' : ' $marker ', note: text),
+            VerseRun(marker.trim().isEmpty ? '*' : marker.trim(), note: text),
           );
         } else if (studiedStrong != null &&
             precedingWord != null &&
             strongNumbers(precedingWord).contains(studiedStrong)) {
           result.add(
             VerseRun(
-              ' ⓘ ',
+              'ⓘ',
+              assignment: true,
               note:
                   'Die Strong-Zuordnung von „${precedingWord['text']}“ zu $studiedStrong ist fachlich noch nicht bestätigt.',
             ),
@@ -135,6 +138,55 @@ List<VerseRun> verseRuns(List<dynamic> segments, {String? studiedStrong}) {
   }
 
   visit(segments);
+  return _placeVerseNotes(result);
+}
+
+// A leading note has no preceding word anchor and describes the whole verse.
+// Keep source word/highlight indices: this is a display-only ordering of runs.
+List<VerseRun> _placeVerseNotes(List<VerseRun> source) {
+  final letters = RegExp(r'[\p{L}\p{N}]', unicode: true);
+  final first = source.indexWhere(
+    (run) => run.note == null && letters.hasMatch(run.text),
+  );
+  final last = source.lastIndexWhere(
+    (run) => run.note == null && letters.hasMatch(run.text),
+  );
+  final ending = <VerseRun>[];
+  final result = <VerseRun>[];
+  for (var i = 0; i < source.length; i++) {
+    final run = source[i];
+    if (run.note != null && !run.assignment && (i < first || i > last)) {
+      ending.add(run);
+    } else {
+      result.add(run);
+    }
+  }
+  if (ending.isNotEmpty) {
+    final markers = ending.map((run) => run.text).toSet();
+    final note = VerseRun(
+      markers.join(', '),
+      note: ending.length == 1
+          ? ending.single.note
+          : ending.map((run) => '${run.text}: ${run.note}').join('\n\n'),
+    );
+    var insert = result.length;
+    while (insert > 0 && result[insert - 1].text.trim().isEmpty) {
+      insert--;
+    }
+    result.insert(insert, note);
+  }
+  // Source XML sometimes separates a word from its marker with whitespace.
+  // Move that whitespace behind the marker, keeping the scripture bytes and
+  // previously computed word indices unchanged.
+  for (var i = 1; i < result.length; i++) {
+    if (result[i].note == null ||
+        result[i - 1].note != null ||
+        result[i - 1].text.trim().isNotEmpty) {
+      continue;
+    }
+    final gap = result.removeAt(i - 1);
+    result.insert(i, gap);
+  }
   return result;
 }
 
@@ -331,25 +383,60 @@ class VerseTextState extends State<VerseText> {
       for (final run in runs) {
         runOffsets.add(offset);
         final text = run.divineName ? run.text.toUpperCase() : run.text;
-        offset += text.length;
-        TapGestureRecognizer? recognizer;
         if (run.note != null) {
-          recognizer = _tap(
-            () => showDialog<void>(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('Anmerkung'),
-                content: SelectableText(run.note!),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Schließen'),
+          // WidgetSpan occupies one UTF-16 placeholder. The word joiner prevents
+          // a marker from becoming an orphan at the start of the next line.
+          spans.add(const TextSpan(text: '\u2060'));
+          spans.add(
+            WidgetSpan(
+              alignment: PlaceholderAlignment.aboveBaseline,
+              baseline: TextBaseline.alphabetic,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: widget.fontSize * .18),
+                child: Semantics(
+                  button: true,
+                  label: 'Hinweis ${run.text} öffnen',
+                  child: GestureDetector(
+                    onTap: () => showDialog<void>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Anmerkung'),
+                        content: SingleChildScrollView(
+                          child: SelectableText(run.note!),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Schließen'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    child: Text(
+                      run.text,
+                      // RichText already scales inline widgets with the body.
+                      textScaler: TextScaler.noScaling,
+                      style: TextStyle(
+                        fontFamily: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.fontFamily,
+                        fontSize: widget.fontSize * .65,
+                        height: 1,
+                        color: colors.primary,
+                      ),
+                    ),
                   ),
-                ],
+                ),
               ),
             ),
           );
-        } else if (run.word != null && passage.onWord != null) {
+          offset += 2;
+          continue;
+        }
+        offset += text.length;
+        TapGestureRecognizer? recognizer;
+        if (run.word != null && passage.onWord != null) {
           recognizer = _tap(() => passage.onWord!(run.word!, run.position!));
         }
         final searchHit = widget.needles.any(
@@ -362,17 +449,11 @@ class VerseTextState extends State<VerseText> {
             text: text,
             recognizer: recognizer,
             style: TextStyle(
-              fontFamily: run.note == null ? 'AkribosText' : null,
+              fontFamily: 'AkribosText',
               fontFamilyFallback: const ['NotoSansHebrew'],
               fontStyle: run.italic ? FontStyle.italic : null,
-              fontSize: run.note != null
-                  ? widget.fontSize * .75
-                  : run.divineName
-                  ? widget.fontSize * .9
-                  : null,
-              color: run.note != null
-                  ? colors.primary
-                  : run.redLetter && !highContrast
+              fontSize: run.divineName ? widget.fontSize * .9 : null,
+              color: run.redLetter && !highContrast
                   ? const Color(0xffa53731)
                   : null,
               backgroundColor: searchHit ? colors.tertiaryContainer : null,

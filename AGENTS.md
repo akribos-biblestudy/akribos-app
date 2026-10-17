@@ -98,6 +98,13 @@ headings scale with the reading font (1.2/1.4), including accessibility scaling.
 Commentary and lexicon article bodies, original forms and search excerpts use the same
 reading scale; navigation labels retain their UI sizes. Flow verse numbers use a
 non-breaking space before the first word, keeping source word positions unchanged.
+Source notes before the first scripture word describe the verse and display at its end.
+Combine them with final-word/end notes into one superscript marker and dialog; retain source
+markers/numbers and all bodies. Ordinary word notes stay attached without inserted spaces.
+This is display-only: stored source segments, tagged positions and highlight word indices never
+change. Automatic Strong-assignment warnings keep their original word binding and visibility.
+Inline note widgets occupy one paragraph placeholder plus a word joiner; count these in glyph
+offsets so subsequent selection, Strong actions and highlighting stay aligned.
 The verse menu has four fixed actions: Markieren, Sammlungen, Notiz and Teilen.
 Use single-line icon/text buttons; measure actual label widths including system text scaling
 before choosing columns. Keep at least 48px touch targets and all main actions visible at

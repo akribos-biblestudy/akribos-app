@@ -165,7 +165,10 @@ void main() {
           .single;
       final range = painter.ranges.single;
       final text = painter.paragraph()!.text.toPlainText();
-      expect(text.substring(range.start, range.end), 'HERR  a ist gut');
+      expect(
+        text.substring(range.start, range.end),
+        'HERR\u2060\ufffc ist gut',
+      );
       expect(painter.rectangles(range), hasLength(1));
       expect(tester.takeException(), isNull);
     },
