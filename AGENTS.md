@@ -112,8 +112,14 @@ Combine them with final-word/end notes into one superscript marker and dialog; r
 markers/numbers and all bodies. Ordinary word notes stay attached without inserted spaces.
 This is display-only: stored source segments, tagged positions and highlight word indices never
 change. Automatic Strong-assignment warnings keep their original word binding and visibility.
-Inline note widgets occupy one paragraph placeholder plus a word joiner; count these in glyph
-offsets so subsequent selection, Strong actions and highlighting stay aligned.
+Note markers remain native text spans joined to the preceding word by a word joiner;
+WidgetSpan can orphan them after punctuation in justified text. Count the joiner plus the
+actual UTF-16 marker length in glyph offsets. Foreground paint raises the visible glyphs
+without changing native shaping, line breaking, selection or accessible tap actions;
+include their raised bounds in hit testing. Shape the cached paint overlay with the
+complete native paragraph context and layout parameters, not isolated marker strings:
+mixed RTL/LTR text can split a marker into multiple visual runs. Keep all marker text
+at the reading scale and dispose the cached TextPainter with its owning state.
 The verse menu has four fixed actions: Markieren, Sammlungen, Notiz and Teilen.
 Use single-line icon/text buttons; measure actual label widths including system text scaling
 before choosing columns. Keep at least 48px touch targets and all main actions visible at

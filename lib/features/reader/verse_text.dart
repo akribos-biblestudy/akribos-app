@@ -268,6 +268,7 @@ class VerseText extends StatefulWidget {
 
 class VerseTextState extends State<VerseText> {
   final _recognizers = <TapGestureRecognizer>[];
+  final _noteTextPainter = TextPainter();
   final _textKey = GlobalKey();
   final _starts = <int>[];
   List<VersePassage> _passages = [];
@@ -318,6 +319,7 @@ class VerseTextState extends State<VerseText> {
   @override
   void dispose() {
     _clearRecognizers();
+    _noteTextPainter.dispose();
     super.dispose();
   }
 
@@ -346,6 +348,17 @@ class VerseTextState extends State<VerseText> {
         ];
     final spans = <InlineSpan>[];
     final marks = <VerseMarkerRange>[];
+    final notes = <VerseNoteRange>[];
+    final textScaler = MediaQuery.textScalerOf(context);
+    final noteStyle = DefaultTextStyle.of(context).style.copyWith(
+      fontFamily: 'AkribosText',
+      fontFamilyFallback: const ['NotoSansHebrew'],
+      fontSize: widget.fontSize * .65,
+      fontWeight: FontWeight.w400,
+      height: 1,
+      letterSpacing: 0,
+      color: colors.primary,
+    );
     var offset = 0;
     for (final passage in _passages) {
       if (spans.isNotEmpty) {
@@ -389,54 +402,33 @@ class VerseTextState extends State<VerseText> {
         runOffsets.add(offset);
         final text = run.divineName ? run.text.toUpperCase() : run.text;
         if (run.note != null) {
-          // WidgetSpan occupies one UTF-16 placeholder. The word joiner prevents
-          // a marker from becoming an orphan at the start of the next line.
-          spans.add(const TextSpan(text: '\u2060'));
-          spans.add(
-            WidgetSpan(
-              alignment: PlaceholderAlignment.aboveBaseline,
-              baseline: TextBaseline.alphabetic,
-              child: Padding(
-                padding: EdgeInsets.only(bottom: widget.fontSize * .18),
-                child: Semantics(
-                  button: true,
-                  label: 'Hinweis ${run.text} öffnen',
-                  child: GestureDetector(
-                    onTap: () => showDialog<void>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Anmerkung'),
-                        content: SingleChildScrollView(
-                          child: SelectableText(run.note!),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Schließen'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    child: Text(
-                      run.text,
-                      // RichText already scales inline widgets with the body.
-                      textScaler: TextScaler.noScaling,
-                      style: TextStyle(
-                        fontFamily: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.fontFamily,
-                        fontSize: widget.fontSize * .65,
-                        height: 1,
-                        color: colors.primary,
-                      ),
-                    ),
-                  ),
+          // The native paragraph must measure the actual marker with its word.
+          // WidgetSpan can break after punctuation even behind a word joiner in
+          // justified paragraphs. Only its visual baseline is raised below.
+          final marker = run.text.replaceAll(RegExp(r'\s'), '\u00a0');
+          void openNote() => showDialog<void>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Anmerkung'),
+              content: SingleChildScrollView(child: SelectableText(run.note!)),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Schließen'),
                 ),
-              ),
+              ],
             ),
           );
-          offset += 2;
+          spans.add(
+            TextSpan(
+              text: '\u2060$marker',
+              semanticsLabel: 'Hinweis ${run.text} öffnen',
+              style: noteStyle.copyWith(color: Colors.transparent),
+              recognizer: _tap(openNote),
+            ),
+          );
+          notes.add(VerseNoteRange(offset + 1, marker, openNote));
+          offset += marker.length + 1;
           continue;
         }
         offset += text.length;
@@ -501,6 +493,28 @@ class VerseTextState extends State<VerseText> {
       ),
     );
     final direction = widget.direction ?? verseDirection(widget.segments);
+    final paragraphText = TextSpan(style: style, children: spans);
+    // Keep the entire shaping context: bidi runs can separate a marker's parts,
+    // and a long source marker can occupy more than one line.
+    final noteStarts = notes.map((note) => note.start - 1).toSet();
+    var paintOffset = 0;
+    TextSpan noteOverlay(TextSpan span) {
+      final visible = noteStarts.contains(paintOffset);
+      paintOffset += span.text?.length ?? 0;
+      return TextSpan(
+        text: span.text,
+        style: (span.style ?? const TextStyle()).copyWith(
+          foreground: Paint()
+            ..color = visible ? colors.primary : Colors.transparent,
+          background: Paint()..color = Colors.transparent,
+          decoration: TextDecoration.none,
+          shadows: const [],
+        ),
+        children: span.children?.cast<TextSpan>().map(noteOverlay).toList(),
+      );
+    }
+
+    _noteTextPainter.text = notes.isEmpty ? null : noteOverlay(paragraphText);
     Widget text = Builder(
       builder: (textContext) => CustomPaint(
         painter: VerseMarkerPainter(
@@ -510,9 +524,15 @@ class VerseTextState extends State<VerseText> {
           inkColor: colors.onSurface,
           devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
         ),
+        foregroundPainter: VerseNotePainter(
+          paragraph: () => paragraph,
+          notes: notes,
+          textPainter: _noteTextPainter,
+          lift: textScaler.scale(widget.fontSize) * .18,
+        ),
         child: RichText(
           key: _textKey,
-          text: TextSpan(style: style, children: spans),
+          text: paragraphText,
           textDirection: direction,
           textAlign: widget.passages == null
               ? TextAlign.start
@@ -525,21 +545,109 @@ class VerseTextState extends State<VerseText> {
         ),
       ),
     );
+    text = GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      // The raised top edge can lie above RenderParagraph's native glyph hit
+      // box. Native span taps win inside it; this catches only remaining taps.
+      onTapUp: (details) {
+        final render = paragraph;
+        if (render == null) return;
+        final local = render.globalToLocal(details.globalPosition);
+        final painter = VerseNotePainter(
+          paragraph: () => render,
+          notes: notes,
+          textPainter: _noteTextPainter,
+          lift: textScaler.scale(widget.fontSize) * .18,
+        );
+        for (final note in notes) {
+          if (painter.rectangles(note).any((rect) => rect.contains(local))) {
+            note.onOpen();
+            return;
+          }
+        }
+      },
+      onLongPressStart: widget.selectable
+          ? null
+          : (details) {
+              final render = paragraph;
+              if (render == null) return;
+              _passages[passageAt(render.globalToLocal(details.globalPosition))]
+                  .onOpen
+                  ?.call();
+            },
+      child: text,
+    );
     if (widget.selectable) return SelectionArea(child: text);
-    if (!widget.selectable) {
-      text = GestureDetector(
-        onLongPressStart: (details) {
-          final render = paragraph;
-          if (render == null) return;
-          _passages[passageAt(render.globalToLocal(details.globalPosition))]
-              .onOpen
-              ?.call();
-        },
-        child: text,
-      );
-    }
     return text;
   }
+}
+
+class VerseNoteRange {
+  const VerseNoteRange(this.start, this.text, this.onOpen);
+  final int start;
+  final String text;
+  final VoidCallback onOpen;
+}
+
+/// Superscript is a paint offset only. The native paragraph owns line breaking,
+/// advances, selection, semantics and taps, including arbitrarily named markers.
+class VerseNotePainter extends CustomPainter {
+  VerseNotePainter({
+    required this.paragraph,
+    required this.notes,
+    required this.textPainter,
+    required this.lift,
+  });
+  final RenderParagraph? Function() paragraph;
+  final List<VerseNoteRange> notes;
+  final TextPainter textPainter;
+  final double lift;
+
+  List<Rect> rectangles(VerseNoteRange note) =>
+      paragraph()
+          ?.getBoxesForSelection(
+            TextSelection(
+              baseOffset: note.start,
+              extentOffset: note.start + note.text.length,
+            ),
+          )
+          .map((box) => box.toRect().shift(Offset(0, -lift)))
+          .toList() ??
+      [];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final render = paragraph();
+    if (render == null) return;
+    final clip = canvas.getLocalClipBounds();
+    if (!notes.any(
+      (note) => rectangles(note).any((rect) => rect.overlaps(clip)),
+    )) {
+      return;
+    }
+    // Match RenderParagraph's layout, not an isolated marker. The state owns
+    // and disposes this painter; repeated paints reuse its shaped paragraph.
+    textPainter
+      ..textDirection = render.textDirection
+      ..textAlign = render.textAlign
+      ..textScaler = render.textScaler
+      ..strutStyle = render.strutStyle
+      ..textWidthBasis = render.textWidthBasis
+      ..textHeightBehavior = render.textHeightBehavior
+      ..locale = render.locale
+      ..maxLines = render.maxLines
+      ..ellipsis = render.overflow == TextOverflow.ellipsis ? '\u2026' : null
+      ..layout(
+        minWidth: render.constraints.minWidth,
+        maxWidth: render.softWrap || render.overflow == TextOverflow.ellipsis
+            ? render.constraints.maxWidth
+            : double.infinity,
+      );
+    textPainter.paint(canvas, Offset(0, -lift));
+  }
+
+  @override
+  bool shouldRepaint(VerseNotePainter oldDelegate) => true;
 }
 
 class VerseMarkerRange {
