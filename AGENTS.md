@@ -36,7 +36,9 @@ Ordinary app use requires no API key, USB or ADB. The ignored artifact and its S
 file are written to `artifacts/`; store signing remains a separate explicit task.
 
 Keep the PWA palette and compact reader chrome; the floating bottom navigation has
-16px side margins, no expensive backdrop blur, and explicit E-Ink behavior. Reader tabs
+16px side margins, no expensive backdrop blur, and explicit E-Ink behavior. E-Ink
+navigation uses opaque black 2px boundaries: a frame around the bottom bar and separators
+below the app header and resource navigation; keep these independent of shadows or gray fills. Reader tabs
 are browsable as visual cards and by swipe. Sources are in docs/MOBILE-DESIGN.md.
 Preserve loaded screen/scroll state on ordinary section switches, but invalidate all private
 branches immediately at authentication boundaries, even if bootstrap fails. Delayed hidden
@@ -61,7 +63,16 @@ Credential autofill must be explicit per field. Keep the login identifier and pa
 in the same group, cancel on abandonment, and save credentials only after server-confirmed
 success. Ordinary text fields must not be offered as usernames or passwords.
 
-On every phone/tablet width, render Reader resources as one flat tab sequence. Store tabs,
+On every phone/tablet width, keep Reader resources in one flat tab sequence. An optional
+tablet commentary companion follows the visible Bible when the available window width
+and system text scaling allow two usable columns. Settings choose its resource and side;
+the companion is not a tab/workspace and its scrolling never changes Bible/group positions.
+Use only currently readable resources and the ordinary Reader chapter endpoint. Explicitly
+unavailable commentaries show an explanation, never their cached private text. The encrypted
+local snapshot stores companion enabled/side/resource preferences outside the shared URL.
+Tab cards support long-press drag with edge autoscroll and screen-reader move actions.
+Reordering normalizes imported multi-tile URL state to one local tile, preserving every tab's
+ID/content, group, search and selected identity; resize alone never rearranges tabs. Store tabs,
 positions, groups and searches locally per origin and account (guests separate), encrypted,
 with serial writes. A different phone/tablet has its own independent tabs. Never import,
 activate or publish named browser workspaces. Send x-akribos-reader-mode: local; Reader
@@ -69,7 +80,7 @@ actions are explicitly detached and carry no named-workspace selection/content v
 Do not call workspace follow/view APIs or expose workspace-management UI. Respect current
 server resource permissions when restoring local tabs; never cache private Bible text.
 The tab overview ends with an empty plus card; adding it opens the resource chooser without
-creating a persistent empty tab. Mehr > Einstellungen offers Textdarstellung with Versweise
+creating a persistent empty tab; dropping a tab there moves it to the end. Mehr > Einstellungen offers Textdarstellung with Versweise
 and Fließtext, available to guests too; never put it in the tab overview. Appearance belongs only to Settings;
 signed-in settings reuse /account actions for reading font, default Bible and highlight colors.
 Refresh the retained Reader after font/style edits, preserving its flushed local position.
@@ -85,12 +96,30 @@ visible for both the deletion entry and the operator-information button.
 Do not expose API-key management or a duplicate account destination in More. Fließtext uses
 justified paragraphs, Versweise stays start-aligned. Settings use the attached ReaderController
 to flush positions and change the retained reader, including when it is offstage. Store
-versePerLine in the existing encrypted local snapshot (missing means true), never in shared
+versePerLine in the existing encrypted local snapshot (missing means false; explicit saved
+choices remain unchanged), never in shared
 Reader URLs or server workspaces. Flow paragraphs keep source headings/line breaks and
 per-verse word positions, actions and scroll anchors. Use actual RenderParagraph glyph boxes
 for continuous marker strokes and in-paragraph verse alignment; include spaces, preserve
-partial word boundaries and retain monochrome underlines in E-Ink. Scripture section/chapter
+partial word boundaries and retain opaque, pixel-aligned monochrome underlines without
+antialiasing in E-Ink. Scripture section/chapter
 headings scale with the reading font (1.2/1.4), including accessibility scaling.
+Commentary and lexicon article bodies, original forms and search excerpts use the same
+reading scale; navigation labels retain their UI sizes. Flow verse numbers use a
+non-breaking space before the first word, keeping source word positions unchanged.
+Source notes before the first scripture word describe the verse and display at its end.
+Combine them with final-word/end notes into one superscript marker and dialog; retain source
+markers/numbers and all bodies. Ordinary word notes stay attached without inserted spaces.
+This is display-only: stored source segments, tagged positions and highlight word indices never
+change. Automatic Strong-assignment warnings keep their original word binding and visibility.
+Note markers remain native text spans joined to the preceding word by a word joiner;
+WidgetSpan can orphan them after punctuation in justified text. Count the joiner plus the
+actual UTF-16 marker length in glyph offsets. Foreground paint raises the visible glyphs
+without changing native shaping, line breaking, selection or accessible tap actions;
+include their raised bounds in hit testing. Shape the cached paint overlay with the
+complete native paragraph context and layout parameters, not isolated marker strings:
+mixed RTL/LTR text can split a marker into multiple visual runs. Keep all marker text
+at the reading scale and dispose the cached TextPainter with its owning state.
 The verse menu has four fixed actions: Markieren, Sammlungen, Notiz and Teilen.
 Use single-line icon/text buttons; measure actual label widths including system text scaling
 before choosing columns. Keep at least 48px touch targets and all main actions visible at

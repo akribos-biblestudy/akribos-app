@@ -1,3 +1,5 @@
+import 'dart:ui' show BoxHeightStyle;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -14,6 +16,7 @@ class VerseRun {
     this.position,
     this.wordIndex,
     this.note,
+    this.assignment = false,
     this.italic = false,
     this.divineName = false,
     this.redLetter = false,
@@ -23,6 +26,7 @@ class VerseRun {
   final int? position;
   final int? wordIndex;
   final String? note;
+  final bool assignment;
   final bool italic;
   final bool divineName;
   final bool redLetter;
@@ -116,14 +120,15 @@ List<VerseRun> verseRuns(List<dynamic> segments, {String? studiedStrong}) {
             text.trim().replaceAll(RegExp(r'\s+'), ' ') == assignmentNote;
         if (!automatic) {
           result.add(
-            VerseRun(marker.isEmpty ? ' ⁎ ' : ' $marker ', note: text),
+            VerseRun(marker.trim().isEmpty ? '*' : marker.trim(), note: text),
           );
         } else if (studiedStrong != null &&
             precedingWord != null &&
             strongNumbers(precedingWord).contains(studiedStrong)) {
           result.add(
             VerseRun(
-              ' ⓘ ',
+              'ⓘ',
+              assignment: true,
               note:
                   'Die Strong-Zuordnung von „${precedingWord['text']}“ zu $studiedStrong ist fachlich noch nicht bestätigt.',
             ),
@@ -135,6 +140,55 @@ List<VerseRun> verseRuns(List<dynamic> segments, {String? studiedStrong}) {
   }
 
   visit(segments);
+  return _placeVerseNotes(result);
+}
+
+// A leading note has no preceding word anchor and describes the whole verse.
+// Keep source word/highlight indices: this is a display-only ordering of runs.
+List<VerseRun> _placeVerseNotes(List<VerseRun> source) {
+  final letters = RegExp(r'[\p{L}\p{N}]', unicode: true);
+  final first = source.indexWhere(
+    (run) => run.note == null && letters.hasMatch(run.text),
+  );
+  final last = source.lastIndexWhere(
+    (run) => run.note == null && letters.hasMatch(run.text),
+  );
+  final ending = <VerseRun>[];
+  final result = <VerseRun>[];
+  for (var i = 0; i < source.length; i++) {
+    final run = source[i];
+    if (run.note != null && !run.assignment && (i < first || i > last)) {
+      ending.add(run);
+    } else {
+      result.add(run);
+    }
+  }
+  if (ending.isNotEmpty) {
+    final markers = ending.map((run) => run.text).toSet();
+    final note = VerseRun(
+      markers.join(', '),
+      note: ending.length == 1
+          ? ending.single.note
+          : ending.map((run) => '${run.text}: ${run.note}').join('\n\n'),
+    );
+    var insert = result.length;
+    while (insert > 0 && result[insert - 1].text.trim().isEmpty) {
+      insert--;
+    }
+    result.insert(insert, note);
+  }
+  // Source XML sometimes separates a word from its marker with whitespace.
+  // Move that whitespace behind the marker, keeping the scripture bytes and
+  // previously computed word indices unchanged.
+  for (var i = 1; i < result.length; i++) {
+    if (result[i].note == null ||
+        result[i - 1].note != null ||
+        result[i - 1].text.trim().isNotEmpty) {
+      continue;
+    }
+    final gap = result.removeAt(i - 1);
+    result.insert(i, gap);
+  }
   return result;
 }
 
@@ -214,6 +268,7 @@ class VerseText extends StatefulWidget {
 
 class VerseTextState extends State<VerseText> {
   final _recognizers = <TapGestureRecognizer>[];
+  final _noteTextPainter = TextPainter();
   final _textKey = GlobalKey();
   final _starts = <int>[];
   List<VersePassage> _passages = [];
@@ -230,6 +285,9 @@ class VerseTextState extends State<VerseText> {
         baseOffset: _starts[index],
         extentOffset: _starts[index] + 1,
       ),
+      // The verse number is smaller than its first word. Use the tallest run
+      // on its line so restoring the verse cannot clip scripture or a note.
+      boxHeightStyle: BoxHeightStyle.max,
     );
     return boxes == null || boxes.isEmpty ? 0 : boxes.first.top;
   }
@@ -261,6 +319,7 @@ class VerseTextState extends State<VerseText> {
   @override
   void dispose() {
     _clearRecognizers();
+    _noteTextPainter.dispose();
     super.dispose();
   }
 
@@ -289,6 +348,17 @@ class VerseTextState extends State<VerseText> {
         ];
     final spans = <InlineSpan>[];
     final marks = <VerseMarkerRange>[];
+    final notes = <VerseNoteRange>[];
+    final textScaler = MediaQuery.textScalerOf(context);
+    final noteStyle = DefaultTextStyle.of(context).style.copyWith(
+      fontFamily: 'AkribosText',
+      fontFamilyFallback: const ['NotoSansHebrew'],
+      fontSize: widget.fontSize * .65,
+      fontWeight: FontWeight.w400,
+      height: 1,
+      letterSpacing: 0,
+      color: colors.primary,
+    );
     var offset = 0;
     for (final passage in _passages) {
       if (spans.isNotEmpty) {
@@ -297,7 +367,9 @@ class VerseTextState extends State<VerseText> {
       }
       _starts.add(offset);
       if (passage.number != null) {
-        final number = '${passage.number} ';
+        // Keep the number with the first word without creating a separate
+        // widget: glyph offsets and Strong-word positions stay in one paragraph.
+        final number = '${passage.number}\u00a0';
         spans.add(
           TextSpan(
             text: number,
@@ -316,29 +388,52 @@ class VerseTextState extends State<VerseText> {
         passage.segments,
         studiedStrong: widget.studiedStrong,
       );
+      // Imported verse-leading whitespace must not reopen the break after
+      // the number. Remove it only from this presentation, not stored segments.
+      if (passage.number != null) {
+        while (runs.isNotEmpty &&
+            runs.first.note == null &&
+            runs.first.text.trim().isEmpty) {
+          runs.removeAt(0);
+        }
+      }
       final runOffsets = <int>[];
       for (final run in runs) {
         runOffsets.add(offset);
         final text = run.divineName ? run.text.toUpperCase() : run.text;
-        offset += text.length;
-        TapGestureRecognizer? recognizer;
         if (run.note != null) {
-          recognizer = _tap(
-            () => showDialog<void>(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('Anmerkung'),
-                content: SelectableText(run.note!),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Schließen'),
-                  ),
-                ],
-              ),
+          // The native paragraph must measure the actual marker with its word.
+          // WidgetSpan can break after punctuation even behind a word joiner in
+          // justified paragraphs. Only its visual baseline is raised below.
+          final marker = run.text.replaceAll(RegExp(r'\s'), '\u00a0');
+          void openNote() => showDialog<void>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Anmerkung'),
+              content: SingleChildScrollView(child: SelectableText(run.note!)),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Schließen'),
+                ),
+              ],
             ),
           );
-        } else if (run.word != null && passage.onWord != null) {
+          spans.add(
+            TextSpan(
+              text: '\u2060$marker',
+              semanticsLabel: 'Hinweis ${run.text} öffnen',
+              style: noteStyle.copyWith(color: Colors.transparent),
+              recognizer: _tap(openNote),
+            ),
+          );
+          notes.add(VerseNoteRange(offset + 1, marker, openNote));
+          offset += marker.length + 1;
+          continue;
+        }
+        offset += text.length;
+        TapGestureRecognizer? recognizer;
+        if (run.word != null && passage.onWord != null) {
           recognizer = _tap(() => passage.onWord!(run.word!, run.position!));
         }
         final searchHit = widget.needles.any(
@@ -351,17 +446,11 @@ class VerseTextState extends State<VerseText> {
             text: text,
             recognizer: recognizer,
             style: TextStyle(
-              fontFamily: run.note == null ? 'AkribosText' : null,
+              fontFamily: 'AkribosText',
               fontFamilyFallback: const ['NotoSansHebrew'],
               fontStyle: run.italic ? FontStyle.italic : null,
-              fontSize: run.note != null
-                  ? widget.fontSize * .75
-                  : run.divineName
-                  ? widget.fontSize * .9
-                  : null,
-              color: run.note != null
-                  ? colors.primary
-                  : run.redLetter && !highContrast
+              fontSize: run.divineName ? widget.fontSize * .9 : null,
+              color: run.redLetter && !highContrast
                   ? const Color(0xffa53731)
                   : null,
               backgroundColor: searchHit ? colors.tertiaryContainer : null,
@@ -404,6 +493,28 @@ class VerseTextState extends State<VerseText> {
       ),
     );
     final direction = widget.direction ?? verseDirection(widget.segments);
+    final paragraphText = TextSpan(style: style, children: spans);
+    // Keep the entire shaping context: bidi runs can separate a marker's parts,
+    // and a long source marker can occupy more than one line.
+    final noteStarts = notes.map((note) => note.start - 1).toSet();
+    var paintOffset = 0;
+    TextSpan noteOverlay(TextSpan span) {
+      final visible = noteStarts.contains(paintOffset);
+      paintOffset += span.text?.length ?? 0;
+      return TextSpan(
+        text: span.text,
+        style: (span.style ?? const TextStyle()).copyWith(
+          foreground: Paint()
+            ..color = visible ? colors.primary : Colors.transparent,
+          background: Paint()..color = Colors.transparent,
+          decoration: TextDecoration.none,
+          shadows: const [],
+        ),
+        children: span.children?.cast<TextSpan>().map(noteOverlay).toList(),
+      );
+    }
+
+    _noteTextPainter.text = notes.isEmpty ? null : noteOverlay(paragraphText);
     Widget text = Builder(
       builder: (textContext) => CustomPaint(
         painter: VerseMarkerPainter(
@@ -411,10 +522,17 @@ class VerseTextState extends State<VerseText> {
           ranges: marks,
           highContrast: highContrast,
           inkColor: colors.onSurface,
+          devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+        ),
+        foregroundPainter: VerseNotePainter(
+          paragraph: () => paragraph,
+          notes: notes,
+          textPainter: _noteTextPainter,
+          lift: textScaler.scale(widget.fontSize) * .18,
         ),
         child: RichText(
           key: _textKey,
-          text: TextSpan(style: style, children: spans),
+          text: paragraphText,
           textDirection: direction,
           textAlign: widget.passages == null
               ? TextAlign.start
@@ -427,21 +545,109 @@ class VerseTextState extends State<VerseText> {
         ),
       ),
     );
+    text = GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      // The raised top edge can lie above RenderParagraph's native glyph hit
+      // box. Native span taps win inside it; this catches only remaining taps.
+      onTapUp: (details) {
+        final render = paragraph;
+        if (render == null) return;
+        final local = render.globalToLocal(details.globalPosition);
+        final painter = VerseNotePainter(
+          paragraph: () => render,
+          notes: notes,
+          textPainter: _noteTextPainter,
+          lift: textScaler.scale(widget.fontSize) * .18,
+        );
+        for (final note in notes) {
+          if (painter.rectangles(note).any((rect) => rect.contains(local))) {
+            note.onOpen();
+            return;
+          }
+        }
+      },
+      onLongPressStart: widget.selectable
+          ? null
+          : (details) {
+              final render = paragraph;
+              if (render == null) return;
+              _passages[passageAt(render.globalToLocal(details.globalPosition))]
+                  .onOpen
+                  ?.call();
+            },
+      child: text,
+    );
     if (widget.selectable) return SelectionArea(child: text);
-    if (!widget.selectable) {
-      text = GestureDetector(
-        onLongPressStart: (details) {
-          final render = paragraph;
-          if (render == null) return;
-          _passages[passageAt(render.globalToLocal(details.globalPosition))]
-              .onOpen
-              ?.call();
-        },
-        child: text,
-      );
-    }
     return text;
   }
+}
+
+class VerseNoteRange {
+  const VerseNoteRange(this.start, this.text, this.onOpen);
+  final int start;
+  final String text;
+  final VoidCallback onOpen;
+}
+
+/// Superscript is a paint offset only. The native paragraph owns line breaking,
+/// advances, selection, semantics and taps, including arbitrarily named markers.
+class VerseNotePainter extends CustomPainter {
+  VerseNotePainter({
+    required this.paragraph,
+    required this.notes,
+    required this.textPainter,
+    required this.lift,
+  });
+  final RenderParagraph? Function() paragraph;
+  final List<VerseNoteRange> notes;
+  final TextPainter textPainter;
+  final double lift;
+
+  List<Rect> rectangles(VerseNoteRange note) =>
+      paragraph()
+          ?.getBoxesForSelection(
+            TextSelection(
+              baseOffset: note.start,
+              extentOffset: note.start + note.text.length,
+            ),
+          )
+          .map((box) => box.toRect().shift(Offset(0, -lift)))
+          .toList() ??
+      [];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final render = paragraph();
+    if (render == null) return;
+    final clip = canvas.getLocalClipBounds();
+    if (!notes.any(
+      (note) => rectangles(note).any((rect) => rect.overlaps(clip)),
+    )) {
+      return;
+    }
+    // Match RenderParagraph's layout, not an isolated marker. The state owns
+    // and disposes this painter; repeated paints reuse its shaped paragraph.
+    textPainter
+      ..textDirection = render.textDirection
+      ..textAlign = render.textAlign
+      ..textScaler = render.textScaler
+      ..strutStyle = render.strutStyle
+      ..textWidthBasis = render.textWidthBasis
+      ..textHeightBehavior = render.textHeightBehavior
+      ..locale = render.locale
+      ..maxLines = render.maxLines
+      ..ellipsis = render.overflow == TextOverflow.ellipsis ? '\u2026' : null
+      ..layout(
+        minWidth: render.constraints.minWidth,
+        maxWidth: render.softWrap || render.overflow == TextOverflow.ellipsis
+            ? render.constraints.maxWidth
+            : double.infinity,
+      );
+    textPainter.paint(canvas, Offset(0, -lift));
+  }
+
+  @override
+  bool shouldRepaint(VerseNotePainter oldDelegate) => true;
 }
 
 class VerseMarkerRange {
@@ -458,11 +664,13 @@ class VerseMarkerPainter extends CustomPainter {
     required this.ranges,
     required this.highContrast,
     required this.inkColor,
+    this.devicePixelRatio = 1,
   });
   final Color inkColor;
   final RenderParagraph? Function() paragraph;
   final List<VerseMarkerRange> ranges;
   final bool highContrast;
+  final double devicePixelRatio;
 
   List<Rect> rectangles(VerseMarkerRange range) {
     final render = paragraph();
@@ -505,12 +713,20 @@ class VerseMarkerPainter extends CustomPainter {
     for (final range in ranges) {
       for (final rect in rectangles(range)) {
         if (highContrast) {
-          canvas.drawLine(
-            Offset(rect.left, rect.bottom - 1),
-            Offset(rect.right, rect.bottom - 1),
+          // Fractional antialiased strokes can contain no fully opaque pixels.
+          // E-Ink threshold/dither modes need a solid band on the first frame.
+          final bottom = (rect.bottom * devicePixelRatio).floorToDouble();
+          final thickness = (2 * devicePixelRatio).ceilToDouble();
+          canvas.drawRect(
+            Rect.fromLTRB(
+              (rect.left * devicePixelRatio).floor() / devicePixelRatio,
+              (bottom - thickness) / devicePixelRatio,
+              (rect.right * devicePixelRatio).ceil() / devicePixelRatio,
+              bottom / devicePixelRatio,
+            ),
             Paint()
-              ..color = inkColor
-              ..strokeWidth = 1.5,
+              ..color = inkColor.withValues(alpha: 1)
+              ..isAntiAlias = false,
           );
           continue;
         }

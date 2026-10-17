@@ -98,7 +98,7 @@ void main() {
         expect(rect.left, closeTo(0, 1));
         expect(rect.right, closeTo(paragraph.size.width, 1));
       }
-      final text = paragraph.text.toPlainText();
+      final text = paragraph.text.toPlainText(includeSemanticsLabels: false);
       final gap = text.indexOf(' ');
       final whitespace = paragraph
           .getBoxesForSelection(
@@ -164,8 +164,10 @@ void main() {
           .whereType<VerseMarkerPainter>()
           .single;
       final range = painter.ranges.single;
-      final text = painter.paragraph()!.text.toPlainText();
-      expect(text.substring(range.start, range.end), 'HERR  a ist gut');
+      final text = painter.paragraph()!.text.toPlainText(
+        includeSemanticsLabels: false,
+      );
+      expect(text.substring(range.start, range.end), 'HERR\u2060a ist gut');
       expect(painter.rectangles(range), hasLength(1));
       expect(tester.takeException(), isNull);
     },

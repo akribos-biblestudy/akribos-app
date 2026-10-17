@@ -73,7 +73,7 @@ Apple-Plattformregeln abhängig.
 ## Reader-Zustand
 
 Die App besitzt ihre Tabs selbst. `ReaderLocalStore` speichert den vollständigen Readerpfad
-mit URL-Snapshot, `layoutSizes` und `versePerLine` im verschlüsselten Plattform-Speicher, getrennt nach
+mit URL-Snapshot, `layoutSizes`, `versePerLine` und den `companion`-Darstellungsoptionen im verschlüsselten Plattform-Speicher, getrennt nach
 Server-Origin und Konto-ID; Gäste verwenden einen eigenen Bereich. Start und Neustart laden
 diesen lokalen Stand. Ohne Stand beginnt die App mit der ersten verfügbaren Bibel bei Johannes 1.
 Browser-Arbeitsbereiche werden nicht importiert. Abmelden macht den bisherigen Kontostand nicht
@@ -104,10 +104,32 @@ Werkwechsler. Die lokale Tab-Suche bleibt im Tabmenü, ohne Suchbutton neben dem
 Auf jeder Fensterbreite stellt eine einzige `PageView` alle geöffneten Ressourcen als flache
 Tabfolge dar. Die interne Kachel-/Tabstruktur dient weiterhin dem Reader-URL-Vertrag; leere Kacheln
 erscheinen nicht als leere Seiten oder Tabkarten. Ein Breitenwechsel ordnet die lokalen Tabs nicht
-um. Es gibt keine Split-, Layout- oder Trennerbedienung. Jeder Ressourcentab behält Kapitelcache,
+um. Es gibt keinen Layouteditor oder verschiebbaren Trenner. Jeder Ressourcentab behält Kapitelcache,
 Suchkontext und Lesestelle; A–E koppelt aktive und inaktive Tabs derselben Gruppe innerhalb dieses
 lokalen Stands. Die Tabübersicht endet immer mit einer leeren Plus-Karte zum Öffnen der
 Werkauswahl. Erst die Auswahl eines Werkes legt einen Tab an.
+
+Langes Drücken und Ziehen verschiebt die Tabkarten, einschließlich automatischem Scrollen am
+oberen/unteren Rand; die Plus-Karte ist auch ein Ablageziel für das Ende der Folge. Screenreader
+erhalten entsprechende Verschiebeaktionen. Beim Verschieben wird eine importierte Mehrkachel-
+Adresse zu einer einzelnen lokalen Kachel normalisiert. Alle Tabinhalte, IDs, Gruppen, Suchen,
+Wortstudien und die aktive Auswahl bleiben erhalten. Die neue Reihenfolge steht im gespeicherten
+Reader-URL-Snapshot und damit auch in bewusst geteilten Ansichten.
+
+„Einstellungen → Kommentarspalte“ ergänzt auf Wunsch eine zweite Spalte neben der aktuell
+sichtbaren Bibel. Das konkrete Kommentarwerk und „Kommentar links anzeigen“ werden lokal pro
+Server/Konto gespeichert; standardmäßig steht die Bibel links. Die Spalte erscheint nur ab
+760 logischen Pixeln und genügend Platz für die Systemschrift. Schmale Fenster, OS-Split-Screen
+und große Schrift behalten die Präferenz, zeigen aber nur den normalen Reader. Die Zusatzspalte
+ist kein Tab und verändert die Tabgruppen nicht. Bibelstellen und Bibelscrolls richten den
+Kommentar aus, Kommentar-Scrolls ändern keine Bibelstelle. Kapitel werden über den unveränderten
+Reader-Endpunkt unter den aktuellen Leserechten geladen. Nicht mehr verfügbare ausgewählte Werke
+werden erklärt, nicht still ersetzt oder aus einem alten Cache angezeigt.
+Scheitert das Nachführen, verschwindet der alte Kommentartext aus dieser Spalte und eine sichtbare
+Wiederholen-Aktion lädt genau die angefragte neue Stelle. Verzögerte Antworten eines zuvor gewählten
+Werks dürfen den neuen Kommentar nicht ersetzen. Nach einer Breitenänderung wird die gespeicherte
+Bibelstelle anhand des neu umbrochenen Textes ausgerichtet; alte Pixelpositionen gelten nur bei
+gleicher Spaltenbreite. Die Messung wartet den Layout-Frame eines vorherigen Sofort-Scrolls ab.
 
 „Mehr → Einstellungen“ bündelt Darstellung/E-Ink und die Textdarstellung auch für Gäste.
 Angemeldete Nutzer laden darunter Leseschrift, Standardbibel und Markierungsfarben über den
@@ -118,8 +140,9 @@ seinen Datenstand nach, jeweils erst nach Sicherung der lokalen Lesestelle. Das 
 öffnet weiterhin Profil, Passwort und Abmelden. Unter Mehr gibt es keinen Konto-Eintrag mehr,
 API-Schlüsselverwaltung ist kein Bestandteil der mobilen Kontooberfläche.
 
-Unter „Mehr → Einstellungen“ bietet „Textdarstellung“ die Optionen „Versweise“ (Standard und
-Rückfall für alte lokale Stände) und „Fließtext“. Diese gerätelokale Seite ist auch für Gäste
+Unter „Mehr → Einstellungen“ bietet „Textdarstellung“ die Optionen „Versweise“ und „Fließtext“
+(Standard bei Neuinstallation und fehlender gespeicherter Wahl). Eine ausdrücklich gespeicherte
+Auswahl bleibt bei Updates erhalten. Diese gerätelokale Seite ist auch für Gäste
 erreichbar; die Tabübersicht enthält keine Darstellungsumschaltung. Fließtext steht im Blocksatz,
 Versweise bleibt am Zeilenanfang ausgerichtet. Der angehängte `ReaderController` sichert beim
 Wechsel zuerst die Lesestelle und ändert den erhaltenen Reader auch außerhalb der sichtbaren
@@ -136,6 +159,11 @@ leicht unregelmäßigen Farbfläche pro Zeile, ohne neue Wortindizes oder Strong
 erfinden. Teilmarkierungen behalten ihre gespeicherten Grenzen. E-Ink verwendet stattdessen
 schwarze Unterstreichungen und benannte Markierungen. Abschnitts- und Kapitelüberschriften
 verwenden das 1,2- beziehungsweise 1,4-Fache der gewählten Leseschriftgröße.
+Kommentar- und Lexikontexte sowie die Fundstellen verwenden ebenfalls die persönliche
+Leseskalierung; UI-Labels bleiben unabhängig davon. Versnummer und erstes Wort verbindet
+ein geschütztes Leerzeichen, ohne die gespeicherten Wortpositionen zu verändern.
+E-Ink-Unterstreichungen sind deckend, pixelgenau und ohne Kantenglättung gezeichnet,
+damit dünne Linien beim Schwellenwert-Rendering nicht verschwinden.
 
 `ReaderVerseMenu` zeigt vier feste Aktionen: Markieren, Sammlungen, Notiz und Teilen.
 Symbole stehen neben einzeiligen Beschriftungen. Die tatsächlichen Textbreiten einschließlich

@@ -520,11 +520,16 @@ class SearchHit extends StatelessWidget {
             if (hit['bodyHtml'] != null)
               Directionality(
                 textDirection: direction ?? TextDirection.ltr,
-                child: HtmlContent(html: asString(hit['bodyHtml'])),
+                child: HtmlContent(
+                  html: asString(hit['bodyHtml']),
+                  textStyle: readingTextStyle(context),
+                  scalableListMarkers: true,
+                ),
               ),
             if (hit['segments'] is List)
               VerseText(
                 segments: hit['segments'] as List,
+                fontSize: readingTextStyle(context).fontSize!,
                 direction: direction,
                 studiedStrong: strong,
                 needles: needles,
@@ -547,6 +552,7 @@ class SearchHit extends StatelessWidget {
                 ),
               VerseText(
                 segments: cell['segments'] as List? ?? [],
+                fontSize: readingTextStyle(context).fontSize!,
                 direction: direction,
                 studiedStrong: strong,
                 needles: needles,
@@ -600,17 +606,27 @@ class _StrongDetailsState extends State<StrongDetails> {
         const SizedBox(height: 16),
         Text(
           '${widget.data['strong'] ?? entry['strong'] ?? ''}  ${entry['lemma'] ?? ''}',
-          style: Theme.of(context).textTheme.headlineMedium,
+          style: readingTextStyle(context).copyWith(
+            fontSize: readingTextStyle(context).fontSize! * 1.4,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         if (asString(entry['transliteration']).isNotEmpty)
-          Text(asString(entry['transliteration'])),
+          Text(
+            asString(entry['transliteration']),
+            style: readingTextStyle(context),
+          ),
         if (asString(entry['pronunciation']).isNotEmpty)
-          Text('Aussprache: ${entry['pronunciation']}'),
+          Text(
+            'Aussprache: ${entry['pronunciation']}',
+            style: readingTextStyle(context),
+          ),
         if (original.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
               'Originalform: ${original['word'] ?? ''}  ${original['morph'] ?? ''}',
+              style: readingTextStyle(context),
             ),
           ),
         if (widget.data['assignmentStatus'] != null)
@@ -673,7 +689,11 @@ class _StrongDetailsState extends State<StrongDetails> {
           'kjvDefinitionHtml',
         ])
           if (asString(text[key]).isNotEmpty)
-            HtmlContent(html: asString(text[key])),
+            HtmlContent(
+              html: asString(text[key]),
+              textStyle: readingTextStyle(context),
+              scalableListMarkers: true,
+            ),
         if (entry.isEmpty && widget.showMissingEntry)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),

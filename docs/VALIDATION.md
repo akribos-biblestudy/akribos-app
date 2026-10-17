@@ -1,4 +1,50 @@
-# Prüfstand 16. Oktober 2026
+# Prüfstand 17. Oktober 2026
+
+## Release 0.5.0: Reader-Issues #2, #3 und #8–#14
+
+Die optionale Kommentarspalte folgt auf Tablets der sichtbaren Bibelstelle. Auswahl
+und Seitenwechsel stehen in den Einstellungen; bei schmalem Fenster oder großer
+Systemschrift bleibt die vorhandene einspaltige Ansicht erhalten. Tabkarten lassen
+sich durch langes Drücken und Ziehen umsortieren, einschließlich Rand-Autoscroll
+und zugänglicher Verschiebeaktionen. Die verschlüsselte lokale Speicherung behält
+Konten-/Servertrennung, Tabidentität, Gruppen und Lesestellen.
+
+Fließtext ist der Standard, ausdrücklich gespeicherte Einstellungen bleiben erhalten.
+Kommentar-/Lexikontexte verwenden die Leseschriftgröße. Versnummer und erstes Wort
+bleiben zusammen. Vershinweise stehen am Versende; dort zusammenfallende Hinweise
+öffnen ein gemeinsames Fenster mit allen ursprünglichen Inhalten. Hinweiszeichen
+bleiben beim vorherigen Wort, auch hinter Satzzeichen im Blocksatz. Ihre sichtbare
+Hochstellung verändert keine Quellsegmente, Strong-Positionen oder Markierungsgrenzen.
+
+E-Ink-Markierungen erhalten deckende, pixelgenaue Linien ohne Kantenglättung. Zuvor
+bestanden schmale Linien teilweise überwiegend aus Graupixeln; ein allgemeines Fehlen
+der ersten Zeichenoperation wurde nicht nachgewiesen. Navigationselemente werden
+mit schwarzen Zwei-Pixel-Grenzen vom Lesetext getrennt. Der Nutzer bestätigt, dass
+beim gemeldeten Boox-Fehler der E-Ink-Modus eingeschaltet war. Die tatsächliche
+Darstellung und vollständige Behebung bleiben separat am Gerät zu prüfen.
+
+Gezielte lokale Prüfungen decken Umbruch, Hinweisdialoge und Screenreader-Aktionen,
+100/200-%-Textskalierung, gemischte RTL/LTR-Hinweiszeichen, Markierungs-Pixel, Navigation zum vollständigen Versanfang,
+Kommentar-Nachführung einschließlich Fehler/Wiederholen, Spaltenwechsel, Tabreihenfolge
+und lokale Persistenz ab. Auf dem endgültigen Stand sind 76 gezielte Flutter-Tests
+erfolgreich; zusätzlich sind die öffentlichen Screenshot-Aufnahmen geprüft. Format-,
+Diffprüfung und vollständige Flutter-Analyse sind ohne Befund, der Android-Debug-Build
+ist erfolgreich. Die umfassende Suite läuft in GitHub CI.
+
+Die aktualisierten Bilder `docs/screenshots/{phone,phone-dark,phone-tabs,tablet,eink}.png`
+entstehen aus echten Flutter-Widgets mit anonym geladenen öffentlichen Daten von
+`akribos.de` (SCHL2000, Johannes 1), lokalen Schriften und synthetischen Fenstergrößen.
+Sie sind keine Geräteaufnahmen. Es wurden keine privaten Konten oder Notizen verwendet
+und keine APK auf dem angeschlossenen Telefon installiert. iOS-/Boox-Geräteabnahme
+bleibt offen; Store-Signierung und Internal-Test-Upload erfolgen im Release-Workflow.
+
+[Web-PR #330](https://github.com/akribos-biblestudy/akribos/pull/330) ist nach grüner
+CI zusammengeführt und produktiv deployed. Healthcheck erfolgreich; Live-Prüfung bei
+1360 und 390 Pixeln bestätigt Vershinweise am Ende, erhaltene Wortanmerkungen und
+den gemeinsamen Endhinweis in Johannes 1,20, ohne verwaiste Zeichen, horizontalen
+Überlauf oder JavaScript-Fehler.
+
+## Vorheriger Prüfstand: 16. Oktober 2026
 
 ## Folgeänderung: Einzeiliges Versmenü ohne eigenen Kopierbutton
 

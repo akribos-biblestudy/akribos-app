@@ -8,6 +8,24 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/api_client.dart';
 import '../core/app_scope.dart';
 
+/// The account's reading size applies to content, independently of UI labels.
+/// TextScaler remains Flutter's responsibility so accessibility scaling is added once.
+TextStyle readingTextStyle(BuildContext context, {double? fontScale}) =>
+    TextStyle(
+      fontFamily: 'AkribosText',
+      fontFamilyFallback: const ['NotoSansHebrew'],
+      fontSize:
+          19 *
+          (fontScale ??
+                  asInt(
+                        AppScope.of(context).api.bootstrap['readerFontScale'],
+                        100,
+                      ) /
+                      100)
+              .clamp(.7, 2),
+      height: 1.65,
+    );
+
 class HtmlContent extends StatelessWidget {
   const HtmlContent({
     super.key,

@@ -11,7 +11,7 @@ oder Logos-Funktionsnamen als eigene Akribos-Funktion übernommen.
 | --- | --- | --- |
 | [Logos v53, 25.08.2026](https://www.logos.com/grow/release-august-2026/) | Fünf Hauptziele; erneuter Tap auf aktives Read öffnet die Panelübersicht; Study bündelt Ressourcen und Werkzeuge, More Einstellungen. | Lesen als stabiler Ausgangspunkt; zweiter Tap öffnet Ansichten. Häufige Ziele direkt erreichbar, weitere Funktionen unter Mehr. |
 | [Logos Mobile Einstieg](https://support.logos.com/hc/en-us/articles/360035659011-Get-Started-with-Logos-Mobile) | Zuletzt gelesene Ressource beim Start; Kontextleiste mit Werktitel, Stelle, Suche und Panelmenü. | Lesen fortsetzen; Werk- und Stellenwahl sowie lokale Aktionen am Ressourcentab; Werksuche im Tabmenü. |
-| [Logos Layouts, Abschnitt Mobile](https://support.logos.com/hc/en-us/articles/360016599631-Set-Up-Your-Workspace-with-Layouts) | Tabübersicht mit Plus, Split, zweiter Ressourcenauswahl und Linkgruppen; verschiebbarer Trenner; gespeicherte Layouts; zusätzliche Tablet-Vorlagen. | Vorschaukarten mit echten Werken und Stellen; eine flache Tabfolge auf Telefon und Tablet. Tabs werden ausschließlich lokal pro Gerät gespeichert; Browser-Arbeitsbereiche, Split und Layouteditor werden nicht übernommen. |
+| [Logos Layouts, Abschnitt Mobile](https://support.logos.com/hc/en-us/articles/360016599631-Set-Up-Your-Workspace-with-Layouts) | Tabübersicht mit Plus, Split, zweiter Ressourcenauswahl und Linkgruppen; verschiebbarer Trenner; gespeicherte Layouts; zusätzliche Tablet-Vorlagen. | Vorschaukarten mit echten Werken und Stellen; eine flache Tabfolge auf Telefon und Tablet. Tabs werden ausschließlich lokal pro Gerät gespeichert; Browser-Arbeitsbereiche und Layouteditor werden nicht übernommen. Eine optionale Kommentarspalte ergänzt die Bibel auf breiten Fenstern. |
 | [Logos Link Sets, Abschnitt Mobile](https://support.logos.com/hc/en-us/articles/360016827711-How-to-Link-Resources-to-Scroll-Together) | Gleich bezeichnete Gruppen navigieren synchron; zusätzlich einseitiges Follow only. | Vorhandene Akribos-Gruppen A–E sichtbar machen. Einseitiges Folgen ohne eigenes fachliches Modell nicht anbieten. |
 | [Telegram Android, 09.02.2026](https://telegram.org/blog/crafting-android-design-and-more) | Neue Bottom Bar für direkten Wechsel der Hauptbereiche; abschaltbare Effekte. | Kompakte, schwebende Hauptnavigation mit eindeutigem aktiven Ziel und großen Touchflächen. |
 | [Telegram iOS, 03.01.2026](https://telegram.org/blog/new-design-ai-summaries) | Liquid Glass mit Transparenz und Lichtbrechung; Effekte unter Power Saving steuerbar. | Opake Leiste ohne Blur für geringe Renderkosten; E-Ink zusätzlich ohne Bewegungsanimation. |
@@ -25,10 +25,13 @@ getrennt nach Server und Konto. Sie übernimmt keine Browser-Arbeitsbereiche und
 deren Tabs noch die Tabs eines anderen App-Geräts. Eine Verwaltung benannter Arbeitsbereiche
 ist nicht Bestandteil der App.
 
-Smartphones und Tablets zeigen denselben einzelnen Lesebereich mit einer flachen Folge aller
+Smartphones und Tablets zeigen dieselbe flache Folge aller
 geöffneten Ressourcen. Wischen und Tabkarten erreichen jedes geöffnete Werk. Ein Fensterwechsel
 ordnet die lokalen Tabs nicht um. Die interne Readerstruktur erscheint nicht als zusätzliche
-Kachelhierarchie. Split-, Layout- und Trennerbedienung entfallen. Zurück und Hauptnavigation beachten
+Kachelhierarchie. In den Einstellungen lässt sich eine mitlesende Kommentarspalte für breite
+Fenster aktivieren und links oder rechts platzieren. Schmale Fenster behalten einen Lesebereich.
+Tabkarten lassen sich durch langes Drücken und Ziehen umordnen. Ein Layouteditor und verschiebbare
+Trenner entfallen. Zurück und Hauptnavigation beachten
 vorhandene Konflikte und sichern ausstehende Dokument- und Readeränderungen.
 
 Beim Öffnen zeigt die Hauptnavigation „Suche“ das aktuell im Reader gewählte Werk samt Titel.

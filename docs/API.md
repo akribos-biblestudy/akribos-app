@@ -127,7 +127,13 @@ offenes CORS, keinen frei wählbaren Upstream und keine Umgehung der öffentlich
 Die native Textdarstellung unter Mehr → Einstellungen („Versweise“/„Fließtext“ im Blocksatz)
 ist eine lokale Einstellung ohne
 Serveraktion oder Änderung des geteilten Reader-URL-Vertrags. Fehlendes `versePerLine` in
-älteren Geräteständen bedeutet weiterhin „Versweise“.
+älteren Geräteständen bedeutet „Fließtext“; ausdrücklich gespeicherte Entscheidungen bleiben erhalten.
+
+Die optionale Tablet-Kommentarspalte lädt ausschließlich über den vorhandenen
+`/api/reader/[book]/[chapter]?resource=…`-Endpunkt unter den aktuellen Leserechten. Aktivierung,
+Ressourcenwahl und Seitenwechsel bleiben im lokalen `companion`-Snapshot, außerhalb der
+Reader-URL. Kommentar-Scrolls schreiben keine Bibel-/Tabpositionen. Verschieben von Tabs
+ändert nur deren lokalen URL-Snapshot; es gibt dafür keine Serveraktion.
 
 Die Notizbibliothek verwendet standardmäßig `/notes?kind=note&passage=Joh3` (Beispiel),
 wobei das Kapitel nach dem Reader-Flush aus der sichtbaren Lesestelle stammt. Der vorhandene

@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../core/api_client.dart';
 import 'reader_state.dart';
+import 'reader_companion.dart';
 
 /// Stores only navigation state, never Bible text, cookies or server workspace IDs.
 /// Secure storage remains on this installation; every origin/account has its own key.
@@ -47,7 +48,8 @@ class ReaderLocalStore {
       return {
         'path': localReaderAddress(path),
         'layoutSizes': asMap(snapshot['layoutSizes']),
-        'versePerLine': snapshot['versePerLine'] != false,
+        'versePerLine': snapshot['versePerLine'] == true,
+        'companion': ReaderCompanion.fromJson(snapshot['companion']).toJson(),
       };
     } catch (_) {
       throw const ApiException(
@@ -59,7 +61,8 @@ class ReaderLocalStore {
   Future<void> write(
     String path, {
     Json layoutSizes = const {},
-    bool versePerLine = true,
+    bool versePerLine = false,
+    ReaderCompanion companion = const ReaderCompanion(),
   }) {
     if (!_validPath(path)) {
       throw const ApiException(
@@ -72,6 +75,7 @@ class ReaderLocalStore {
       'path': localReaderAddress(path),
       'layoutSizes': layoutSizes,
       'versePerLine': versePerLine,
+      'companion': companion.toJson(),
     });
     final prior = _writes[storageKey];
     final task = () async {

@@ -7,11 +7,11 @@ und auf deren aktuelle serverseitige Leserechte. Der tatsächliche Prüfstand st
 
 | Bereich | Native Umsetzung |
 | --- | --- |
-| Lesen | Stellenwahl, Bibeln, Kommentare, Lexika, Parallelstellen, strukturierte Verse, unter Mehr → Einstellungen umschaltbar zwischen Versweise und Fließtext im Blocksatz, skalierende Überschriften, Fußnoten, Strong-Wörter und Quellenangaben |
-| Tabs | Eine flache Folge aller Ressourcen auf jeder Fensterbreite, visuelle Tabkarten mit zusätzlicher Plus-Karte, Hinzufügen/Schließen, A–E-Kopplung mit Web-Farben und Buchstaben, unabhängige Tabs |
+| Lesen | Stellenwahl, Bibeln, Kommentare, Lexika, Parallelstellen, strukturierte Verse, unter Mehr → Einstellungen umschaltbar zwischen Versweise und Fließtext im Blocksatz (Standard), skalierende Kommentar- und Lexikontexte, skalierende Überschriften, Fußnoten, Strong-Wörter und Quellenangaben |
+| Tabs | Eine flache Folge aller Ressourcen auf jeder Fensterbreite, visuelle Tabkarten per langem Drücken verschiebbar, zusätzliche Plus-Karte, Hinzufügen/Schließen, A–E-Kopplung mit Web-Farben und Buchstaben, unabhängige Tabs |
 | Lokaler Readerstand | Tabs, Lesestellen, Tabgruppen, Suchen und Notizfilter pro Gerät, Server und Konto im sicheren Speicher; eigener Gaststand, Wiederherstellung bei Neustart |
 | Unabhängigkeit | Keine Übernahme oder Änderung von Browser-Arbeitsbereichen, keine Synchronisierung der Tabs zwischen App-Geräten, keine Workspace-Verwaltung |
-| Telefon/Tablet | Floating-Hauptnavigation, Wischwechsel zwischen allen Werken, Hoch-/Querformat und Fensterwechsel ohne Umordnung der lokalen Tabs |
+| Telefon/Tablet | Floating-Hauptnavigation, Wischwechsel zwischen allen Werken, optionale mitlesende Kommentarspalte mit Seitenwechsel in Einstellungen, automatischer Einspaltenrückfall bei wenig Platz, Fensterwechsel ohne Umordnung der lokalen Tabs |
 | E-Ink | Kontrastreiche helle Darstellung, reduzierte Animationen, direktes Blättern in Bildschirmabschnitten, erkennbare Markierungen ohne Farberkennung |
 | Suche | Wort-/Phrasensuche, Vorschläge, Buchfilter und Seiten; beim Öffnen übernimmt die Hauptnavigation das aktuelle Reader-Werk samt Titel und sucht bei geändertem Werk den bisherigen Begriff erneut; lokale Werksuche im Tabmenü |
 | Wortstudium | Herunterwischbarer Lexikon-Dialog bei Wortklick, Strong-Artikel, Quellwort/Position, Morphologie, Übersetzungsformen, Häufigkeiten und Fundstellen |

@@ -5,6 +5,7 @@ import 'package:akribos_app/core/api_client.dart';
 import 'package:akribos_app/features/reader/reader_controller.dart';
 import 'package:akribos_app/features/reader/reader_screen.dart';
 import 'package:akribos_app/features/reader/reader_local_store.dart';
+import 'package:akribos_app/features/reader/reader_companion.dart';
 import 'package:akribos_app/features/search/search_screen.dart';
 import 'package:akribos_app/features/reader/reader_state.dart';
 import 'package:akribos_app/features/reader/reader_tab_card.dart';
@@ -40,6 +41,7 @@ class ControlledLocalStore extends ReaderLocalStore {
     String path, {
     Json layoutSizes = const {},
     bool versePerLine = true,
+    ReaderCompanion companion = const ReaderCompanion(),
   }) async {
     writes.add(path);
     await paused?.future;
@@ -52,6 +54,7 @@ class ControlledLocalStore extends ReaderLocalStore {
       path,
       layoutSizes: layoutSizes,
       versePerLine: versePerLine,
+      companion: companion,
     );
   }
 }
