@@ -114,6 +114,50 @@ Future<void> settings(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('tablet settings enable notes and switch their side locally', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1100, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = _SettingsApi();
+    addTearDown(api.dispose);
+    await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
+    await tester.pumpAndSettle();
+    await settings(tester);
+    expect(find.text('Notizenspalte'), findsOneWidget);
+    expect(find.text('Kommentarspalte'), findsNothing);
+    expect(find.text('Kommentar neben der Bibel'), findsNothing);
+    await tester.ensureVisible(find.text('Notizen neben der Bibel'));
+    await tester.tap(find.text('Notizen neben der Bibel'));
+    await tester.pumpAndSettle();
+    expect((await api.localStore.read())?['companion'], {
+      'enabled': true,
+      'onLeft': false,
+    });
+    await tester.ensureVisible(find.text('Notizen links anzeigen'));
+    await tester.tap(find.text('Notizen links anzeigen'));
+    await tester.pumpAndSettle();
+    expect((await api.localStore.read())?['companion'], {
+      'enabled': true,
+      'onLeft': true,
+    });
+    await tester.tap(find.text('Lesen'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('reader-companion'))).dx,
+      lessThan(
+        tester.getTopLeft(find.byKey(const ValueKey('reader-primary'))).dx,
+      ),
+    );
+    expect(find.text('Notizen'), findsWidgets);
+    expect(api.actions, isEmpty);
+    expect(api.requests, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'settings save existing account contracts and refresh reading font and style choices',
     (tester) async {

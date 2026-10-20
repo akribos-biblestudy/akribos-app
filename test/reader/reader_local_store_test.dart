@@ -132,13 +132,28 @@ void main() {
     },
   );
 
+  test(
+    'legacy commentary choice is discarded without changing reader tabs',
+    () async {
+      final storage = ControlledStorage();
+      await store(storage).write(second);
+      final key = store(storage).storageKey;
+      final legacy = asMap(jsonDecode(storage.values[key]!));
+      legacy['companion'] = {
+        'enabled': true,
+        'onLeft': true,
+        'resourceId': 'OLD-COMMENTARY',
+      };
+      storage.values[key] = jsonEncode(legacy);
+      final snapshot = await store(storage).read();
+      expect(snapshot?['path'], second);
+      expect(snapshot?['companion'], {'enabled': true, 'onLeft': true});
+    },
+  );
+
   test('companion settings persist only for this origin/account', () async {
     final storage = ControlledStorage();
-    const companion = ReaderCompanion(
-      enabled: true,
-      onLeft: true,
-      resourceId: 'COMMENTARY',
-    );
+    const companion = ReaderCompanion(enabled: true, onLeft: true);
     await store(storage).write(second, companion: companion);
     expect((await store(storage).read())?['companion'], companion.toJson());
     expect(await store(storage, user: 'another').read(), isNull);

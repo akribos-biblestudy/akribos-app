@@ -2,7 +2,9 @@
 
 Android/iOS smartphones and tablets only, Flutter 3.47 / Dart 3.13, German UI.
 Normal-user features only: no administration, resource import or admin help.
-E-Ink mode must work without a proprietary device SDK. Run formatting, `flutter analyze`,
+E-Ink mode must work without a proprietary device SDK. Keep contrast and reduced
+animations; reading uses continuous scrolling without screen-page controls.
+Run formatting, `flutter analyze`,
 targeted regression tests and an Android build when relevant. Full local test suites
 are not a release gate; leave comprehensive testing to CI as requested by the user.
 The server repository is `../akribos`; the first-party protocol is documented in
@@ -46,6 +48,15 @@ redirects must resume on the next visit; explicit Reader links must reload even 
 Do not infer performance from debug builds. Direct device APKs use AOT release and must match
 the already installed certificate; never regenerate the signing key for an update.
 
+Defer horizontal swipe activation and its linked-position/storage work until the
+PageView settles; navigation guards must flush an interrupted gesture's visible choice.
+Reuse chapter slivers and VerseText presentation across selection/save-only updates.
+Invalidate presentation for replacement chapter data, reading preferences and inherited
+styles. Chapter reloads replace segment lists; cached actions must resolve current
+callbacks rather than retain an earlier tab's handlers. Performance regressions must
+exercise long Fließtext paragraphs as well as versewise rows, without equating widget
+test timing to release-device frame rates.
+
 Word-triggered lexicon lookup is a temporary draggable bottom sheet using the read-only
 Strong API. Keep the source Bible mounted with its scroll position and workspace untouched;
 Back and dismiss return to it. Explicit lexicon resources still work as normal tabs. Carry
@@ -64,12 +75,16 @@ in the same group, cancel on abandonment, and save credentials only after server
 success. Ordinary text fields must not be offered as usernames or passwords.
 
 On every phone/tablet width, keep Reader resources in one flat tab sequence. An optional
-tablet commentary companion follows the visible Bible when the available window width
-and system text scaling allow two usable columns. Settings choose its resource and side;
+tablet notes companion follows the visible Bible chapter when the available window width
+and system text scaling allow two usable columns. Settings choose visibility and side;
 the companion is not a tab/workspace and its scrolling never changes Bible/group positions.
-Use only currently readable resources and the ordinary Reader chapter endpoint. Explicitly
-unavailable commentaries show an explanation, never their cached private text. The encrypted
-local snapshot stores companion enabled/side/resource preferences outside the shared URL.
+Use the existing owner-only `/api/documents?kind=note&passage=…` endpoint without a resource
+filter so notes match across translations. Only chapter changes reload, never each verse;
+failed or pending chapter requests hide old summaries, and late responses cannot replace the
+current chapter. Guests see sign-in instead of requesting private notes. Opening/creating
+notes flushes Reader positions and uses the existing guarded WebView document editor;
+returning refreshes summaries. The encrypted local snapshot stores only companion enabled/side
+preferences outside the shared URL; ignore old commentary resourceId without changing tabs.
 Tab cards support long-press drag with edge autoscroll and screen-reader move actions.
 Reordering normalizes imported multi-tile URL state to one local tile, preserving every tab's
 ID/content, group, search and selected identity; resize alone never rearranges tabs. Store tabs,

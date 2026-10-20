@@ -1,4 +1,45 @@
-# Prüfstand 17. Oktober 2026
+# Prüfstand 20. Oktober 2026
+
+## Tablet-Notizen, Scrollen und Werkwechsel
+
+Die optionale Tablet-Zweitspalte zeigt eigene Notizen zum sichtbaren Kapitel,
+einschließlich Suche, Tagfilter, abschaltbarem Kapitelbezug und Zugang zum vorhandenen
+Editor. Ein Verswechsel lädt die Liste nicht erneut; ein Kapitelwechsel und die
+Rückkehr aus dem Editor aktualisieren sie. Alte Kommentarspalten-Präferenzen werden
+ohne Entfernen regulärer Kommentar-Tabs übernommen. Die E-Ink-Bildschirmblätterbuttons
+sind entfernt; vertikales Scrollen, Kontrast und monochrome Markierungen bleiben.
+
+Der neue Gestentest reproduzierte vor der Korrektur einen lokalen Schreibvorgang,
+während der Finger nach Überschreiten der Seitenmitte noch auf dem Bildschirm lag.
+Nun aktiviert und speichert der Reader erst nach Ende der Seitenbewegung. Auch ein
+vorher gestarteter Positions-Timer wartet darauf. Ein expliziter Navigations-Flush
+stoppt die Bewegung auf der sichtbaren Seite und wartet deren Speicherung ab.
+Unveränderte Kapitel behalten ihre Sliver, Textspans, Gestenerkennung und
+Fußnoten-Darstellung. Tests mit 300 Versen decken jetzt auch Fließtext ab.
+
+75 gezielte Flutter-Tests sind erfolgreich: 51 Reader-/Gesten-/Darstellungs-/Lexikon-/
+Hinweisprüfungen sowie 24 Tablet-/Notiz-/Lokalspeicher-/Settingsprüfungen. Sie prüfen
+auch unterbrochene Gesten, schnelle Wechsel bei wartendem Speicher, explizite Wiederholung
+nach Schreibfehlern, identischen Textaufbau und Pixelposition beim Zurückwischen,
+aktuelle Aktionen nach Cache-Wiederverwendung, Kapitelwechsel mit verspäteten Antworten,
+Gastzugriff, Editor-Navigation und Migration alter Einstellungen. Die vollständige
+Flutter-Analyse ist ohne Befund.
+
+Der Android-AOT-Release-Build für ARM64 mit festem Server `https://akribos.de`
+ist erfolgreich (`flutter build apk --no-pub --release --target-platform android-arm64
+--dart-define=AKRIBOS_SERVER=https://akribos.de`). Das Buildartefakt ist unsigniert;
+es wurde weder installiert noch als Store-Release veröffentlicht.
+
+Die [Tablet-Aufnahme](screenshots/tablet-notes.png) stammt aus dem nativen
+Flutter-Widgettest mit lokalen Schriften und synthetischen, unpersönlichen
+Beispielinhalten. Beide Spalten und sämtliche Notiz-Bedienelemente wurden visuell
+geprüft. Sie ist keine Geräteaufnahme.
+
+Dies belegt die vermiedenen Berechnungen und das Verhalten im Flutter-Test. Eine
+Frametime-Messung auf dem betroffenen Smartphone und die Boox-/iOS-Geräteabnahme
+stehen noch aus; Debug-Widgettests sind kein Nachweis für eine bestimmte Bildrate.
+
+## Vorheriger Prüfstand: 17. Oktober 2026
 
 ## Folgeänderung ohne neues Release: Version und Store-Updates
 
@@ -705,7 +746,7 @@ wurde anschließend nicht erneut am Gerät beobachtet.
 | `flutter analyze` im endgültigen Repository | Keine Befunde |
 | Vollständige Flutter-Suite mit isoliertem HTTP-Testserver | 52 Tests erfolgreich |
 | Smartphone-/Tablet-Widgets | 320, 840 und 1280 Pixel; zusätzliche Tests mit 170 % Textskalierung |
-| E-Ink | Persistente Einstellung, Kontrast, Dialogkontext und Bildschirmblättern geprüft |
+| E-Ink | Persistente Einstellung, Kontrast, Dialogkontext und damaliges Bildschirmblättern geprüft (Blätterfunktion am 20. Oktober 2026 entfernt) |
 | App-Protokoll im Akribos-Backend | 38 Unit-Tests erfolgreich |
 | Produktionsbuild-API-E2E im Backend | 3 Tests erfolgreich |
 | Akribos `pnpm check` | Keine Fehler; 14 bereits vorhandene Warnungen |

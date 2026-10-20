@@ -1,5 +1,6 @@
 import 'dart:ui' show BoxHeightStyle;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -272,6 +273,8 @@ class VerseTextState extends State<VerseText> {
   final _textKey = GlobalKey();
   final _starts = <int>[];
   List<VersePassage> _passages = [];
+  List<Object?>? _presentationInputs;
+  Widget? _presentation;
   RenderParagraph? get paragraph {
     final render = _textKey.currentContext?.findRenderObject();
     return render is RenderParagraph ? render : null;
@@ -331,10 +334,12 @@ class VerseTextState extends State<VerseText> {
 
   @override
   Widget build(BuildContext context) {
-    _clearRecognizers();
-    _starts.clear();
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final highContrast = MediaQuery.highContrastOf(context);
+    final textScaler = MediaQuery.textScalerOf(context);
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final inheritedStyle = DefaultTextStyle.of(context).style;
     _passages =
         widget.passages ??
         [
@@ -346,11 +351,50 @@ class VerseTextState extends State<VerseText> {
             onOpen: widget.onVerseNumber,
           ),
         ];
+    // Chapter reloads replace their segment lists. Selecting another tab or
+    // persisting a position only recreates passage/highlight wrappers: keep the
+    // shaped paragraph, recognizers and note overlay intact for those updates.
+    // Actions resolve the current passage below instead of retaining callbacks
+    // from a previous parent build.
+    final inputs = <Object?>[
+      colors,
+      theme.textTheme.labelSmall?.fontFamily,
+      inheritedStyle,
+      highContrast,
+      textScaler,
+      devicePixelRatio,
+      widget.fontSize,
+      widget.direction,
+      if (widget.direction == null) widget.segments,
+      widget.studiedStrong,
+      widget.selectable,
+      widget.passages != null,
+      widget.needles.length,
+      ...widget.needles,
+      _passages.length,
+      for (final passage in _passages) ...[
+        passage.segments,
+        passage.number,
+        passage.onOpen != null,
+        passage.onWord != null,
+        passage.highlights.length,
+        for (final range in passage.highlights) ...[
+          range['start'],
+          range['end'],
+          range['color'],
+        ],
+      ],
+    ];
+    if (_presentation != null && listEquals(inputs, _presentationInputs)) {
+      return _presentation!;
+    }
+    _presentationInputs = inputs;
+    _clearRecognizers();
+    _starts.clear();
     final spans = <InlineSpan>[];
     final marks = <VerseMarkerRange>[];
     final notes = <VerseNoteRange>[];
-    final textScaler = MediaQuery.textScalerOf(context);
-    final noteStyle = DefaultTextStyle.of(context).style.copyWith(
+    final noteStyle = inheritedStyle.copyWith(
       fontFamily: 'AkribosText',
       fontFamilyFallback: const ['NotoSansHebrew'],
       fontSize: widget.fontSize * .65,
@@ -360,7 +404,12 @@ class VerseTextState extends State<VerseText> {
       color: colors.primary,
     );
     var offset = 0;
-    for (final passage in _passages) {
+    for (
+      var passageIndex = 0;
+      passageIndex < _passages.length;
+      passageIndex++
+    ) {
+      final passage = _passages[passageIndex];
       if (spans.isNotEmpty) {
         spans.add(const TextSpan(text: ' '));
         offset++;
@@ -373,12 +422,14 @@ class VerseTextState extends State<VerseText> {
         spans.add(
           TextSpan(
             text: number,
-            recognizer: passage.onOpen == null ? null : _tap(passage.onOpen!),
+            recognizer: passage.onOpen == null
+                ? null
+                : _tap(() => _passages[passageIndex].onOpen?.call()),
             style: TextStyle(
               fontSize: widget.fontSize * .65,
               fontWeight: FontWeight.w700,
               color: colors.primary,
-              fontFamily: Theme.of(context).textTheme.labelSmall?.fontFamily,
+              fontFamily: theme.textTheme.labelSmall?.fontFamily,
             ),
           ),
         );
@@ -434,7 +485,10 @@ class VerseTextState extends State<VerseText> {
         offset += text.length;
         TapGestureRecognizer? recognizer;
         if (run.word != null && passage.onWord != null) {
-          recognizer = _tap(() => passage.onWord!(run.word!, run.position!));
+          recognizer = _tap(
+            () =>
+                _passages[passageIndex].onWord?.call(run.word!, run.position!),
+          );
         }
         final searchHit = widget.needles.any(
           (needle) =>
@@ -483,7 +537,7 @@ class VerseTextState extends State<VerseText> {
         marks.add(VerseMarkerRange(runOffsets[indices.first], end, color));
       }
     }
-    final style = DefaultTextStyle.of(context).style.merge(
+    final style = inheritedStyle.merge(
       TextStyle(
         fontWeight: FontWeight.w400,
         fontFamily: 'AkribosText',
@@ -522,7 +576,7 @@ class VerseTextState extends State<VerseText> {
           ranges: marks,
           highContrast: highContrast,
           inkColor: colors.onSurface,
-          devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+          devicePixelRatio: devicePixelRatio,
         ),
         foregroundPainter: VerseNotePainter(
           paragraph: () => paragraph,
@@ -537,7 +591,7 @@ class VerseTextState extends State<VerseText> {
           textAlign: widget.passages == null
               ? TextAlign.start
               : TextAlign.justify,
-          textScaler: MediaQuery.textScalerOf(context),
+          textScaler: textScaler,
           selectionRegistrar: widget.selectable
               ? SelectionContainer.maybeOf(textContext)
               : null,
@@ -577,8 +631,9 @@ class VerseTextState extends State<VerseText> {
             },
       child: text,
     );
-    if (widget.selectable) return SelectionArea(child: text);
-    return text;
+    return _presentation = widget.selectable
+        ? SelectionArea(child: text)
+        : text;
   }
 }
 

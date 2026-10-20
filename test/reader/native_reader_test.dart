@@ -446,7 +446,7 @@ void main() {
   );
 
   testWidgets(
-    'e-ink paging persists its visible position locally without workspace writes',
+    'e-ink scrolls without paging controls and persists its visible position locally',
     (tester) async {
       tester.view.physicalSize = const Size(600, 900);
       tester.view.devicePixelRatio = 1;
@@ -458,8 +458,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Markiert: Verheißung'), findsOneWidget);
-      expect(find.byTooltip('Nächste Bildschirmseite'), findsOneWidget);
-      await tester.tap(find.byTooltip('Nächste Bildschirmseite'));
+      expect(find.byTooltip('Vorherige Bildschirmseite'), findsNothing);
+      expect(find.byTooltip('Nächste Bildschirmseite'), findsNothing);
+      expect(find.text('Blättern'), findsNothing);
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 900));
       await tester.pumpAndSettle();

@@ -37,9 +37,7 @@ class ReaderController extends ChangeNotifier {
   Future<bool> Function(bool)? _setVersePerLine;
   Future<bool> Function(ReaderCompanion)? _setCompanion;
   ReaderCompanion _companion = const ReaderCompanion();
-  List<ReaderSearchResource> _commentaries = const [];
   ReaderCompanion get companion => _companion;
-  List<ReaderSearchResource> get commentaries => _commentaries;
   bool get canSetCompanion => _setCompanion != null;
   Future<bool> setCompanion(ReaderCompanion value) async =>
       await _setCompanion?.call(value) ?? false;
@@ -95,20 +93,17 @@ class ReaderController extends ChangeNotifier {
     Json reference = const {},
     bool versePerLine = false,
     ReaderCompanion companion = const ReaderCompanion(),
-    List<ReaderSearchResource> commentaries = const [],
   }) {
     _reference = Map.of(reference);
     if (_tabCount == tabCount &&
         _activeTitle == activeTitle &&
         _activeResource == activeResource &&
         _versePerLine == versePerLine &&
-        _companion == companion &&
-        listEquals(_commentaries, commentaries)) {
+        _companion == companion) {
       return;
     }
     _versePerLine = versePerLine;
     _companion = companion;
-    _commentaries = List.unmodifiable(commentaries);
     _activeResource = activeResource;
     _tabCount = tabCount;
     _activeTitle = activeTitle;

@@ -49,7 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!await widget.readerController.setCompanion(value) && mounted) {
         showError(
           context,
-          'Die Kommentarspalte konnte nicht gespeichert werden.',
+          'Die Notizenspalte konnte nicht gespeichert werden.',
         );
       }
     } catch (error) {
@@ -106,11 +106,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
             SectionCard(
-              title: 'Kommentarspalte',
+              title: 'Notizenspalte',
               children: [
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Kommentar neben der Bibel'),
+                  title: const Text('Notizen neben der Bibel'),
                   subtitle: const Text(
                     'Zwei Spalten auf breiten Bildschirmen. Bei wenig Platz bleibt die Bibel allein sichtbar.',
                   ),
@@ -122,44 +122,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       : null,
                 ),
                 if (reader.companion.enabled) ...[
-                  DropdownButtonFormField<String>(
-                    key: ValueKey(reader.companion.resourceId),
-                    initialValue: reader.companion.resourceId,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Kommentar'),
-                    items: [
-                      const DropdownMenuItem(
-                        value: '',
-                        child: Text('Automatisch'),
-                      ),
-                      if (reader.companion.resourceId.isNotEmpty &&
-                          !reader.commentaries.any(
-                            (resource) =>
-                                resource.id == reader.companion.resourceId,
-                          ))
-                        DropdownMenuItem(
-                          value: reader.companion.resourceId,
-                          child: const Text('Momentan nicht verfügbar'),
-                        ),
-                      for (final resource in reader.commentaries)
-                        DropdownMenuItem(
-                          value: resource.id,
-                          child: Text(
-                            resource.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
-                    onChanged: !_saving && reader.canSetCompanion
-                        ? (value) => _setCompanion(
-                            reader.companion.copyWith(resourceId: value),
-                          )
-                        : null,
-                  ),
                   SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Kommentar links anzeigen'),
+                    title: const Text('Notizen links anzeigen'),
                     subtitle: const Text('Die Bibel steht dann rechts.'),
                     value: reader.companion.onLeft,
                     onChanged: !_saving && reader.canSetCompanion
@@ -194,7 +159,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: const Text('E-Ink-Modus'),
                   subtitle: const Text(
-                    'Hoher Kontrast und direktes Blättern, z. B. für Boox-Tablets.',
+                    'Hoher Kontrast und reduzierte Animationen, z. B. für Boox-Tablets.',
                   ),
                   value: scope.eInk,
                   onChanged: scope.setEInk,

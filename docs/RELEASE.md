@@ -153,7 +153,7 @@ funktioniert unabhängig von der automatischen HTTPS-Linkzuordnung.
 | Android-Telefon | Start, Anmeldung/Neustart, Zurück, lange Texte, Tastatur, Dateiauswahl, Teilen, Rücksetzlinks; Suche im aktuellen Werk und Notizen-Einstieg |
 | iPhone, spätere Freigabe | Keychain-Sitzung, Login-Code, Tastatur/Safe Areas, System-Share, Link-Rückkehr |
 | Android-Tablet; iPad später | Flache Tabfolge aller lokalen Werke, Querformat und Fensterwechsel ohne Umordnung; sämtliche Werke und Lesestellen bleiben erreichbar |
-| Boox/E-Ink | Kontrast, Ghosting, Bildschirmblättern, Touch-Reaktion, Lesbarkeit von Markierungen |
+| Boox/E-Ink | Kontrast, Ghosting, fortlaufendes Scrollen, Touch-Reaktion, Lesbarkeit von Markierungen |
 | Barrierefreiheit | Große Systemschrift, Screenreader, Kontrast, Bedienung der Dialoge |
 | Schlechte Verbindung | Sichtbare Fehler, Erhalt von Dokumententwürfen, erneutes Speichern, keine stillen Konfliktüberschreibungen |
 | Mehrere Geräte/Konten | Lokale Tabs, Stellen und Suchen bleiben beim Neustart erhalten und voneinander getrennt; App-Navigation verändert keine Browser-Arbeitsbereiche; Dokumentrevisionen und Rechtewiderruf |

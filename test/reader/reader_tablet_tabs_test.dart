@@ -18,8 +18,27 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'native_reader_test.dart' show ReaderApi, app, readerFixture;
 
-class CommentaryApi extends ReaderApi {
-  CommentaryApi() : super(readerFixture(tiles: 2)) {
+File captureRobotoFont() {
+  const override = String.fromEnvironment('CAPTURE_ROBOTO_TTF');
+  if (override.isNotEmpty) return File(override);
+  // flutter_tester is under the SDK's bin/cache/artifacts/engine directory.
+  // Find the bundled font without requiring a machine-specific capture flag.
+  var directory = File(Platform.resolvedExecutable).parent;
+  while (true) {
+    final font = File('${directory.path}/material_fonts/Roboto-Regular.ttf');
+    if (font.existsSync()) return font;
+    final parent = directory.parent;
+    if (parent.path == directory.path) break;
+    directory = parent;
+  }
+  throw StateError(
+    'Die Roboto-Schrift des Flutter-SDK wurde nicht gefunden. '
+    'Bitte --dart-define=CAPTURE_ROBOTO_TTF=/pfad/Roboto-Regular.ttf angeben.',
+  );
+}
+
+class NotesApi extends ReaderApi {
+  NotesApi() : super(readerFixture(tiles: 2)) {
     for (final column in asMaps(data['columns'])) {
       for (final row in asMaps(
         asMap(asMap(column['initialChapter'])['chapter'])['rows'],
@@ -44,54 +63,40 @@ class CommentaryApi extends ReaderApi {
     bootstrap = asMap(jsonDecode(jsonEncode(data)));
   }
 
+  bool failNotes = false;
+
   @override
   Future<dynamic> get(String path) async {
+    if (!path.startsWith('/api/documents?')) return super.get(path);
     reads.add(path);
     final uri = Uri.parse(path);
-    final chapter = int.parse(uri.pathSegments.last);
-    return {
-      'reference': {'book': 43, 'chapter': chapter},
-      'fullTitle': 'Johannes $chapter',
-      'chapter': {'rows': []},
-      'referenceResources': {
-        'commentaries': [
-          for (var verse = 1; verse <= 30; verse++)
-            {
-              'id': 'comment-$chapter-$verse',
-              'verseStart': verse,
-              'bodyHtml':
-                  '<p>Kommentar zu Vers $verse: Eine Erläuterung zum Bibeltext.</p>',
-            },
-        ],
-      },
-      'navigation': {},
-    };
-  }
-}
-
-class FailingFollowApi extends CommentaryApi {
-  bool fail = true;
-  @override
-  Future<dynamic> get(String path) {
-    if (fail &&
-        path.contains('/43/2?') &&
-        path.contains('resource=COMMENTARY')) {
-      reads.add(path);
-      return Future.error(const ApiException('Kommentarzugriff widerrufen'));
+    if (failNotes && uri.queryParameters['passage'] == 'Joh2') {
+      throw const ApiException('Notizen konnten nicht geladen werden');
     }
-    return super.get(path);
+    return {
+      'documents': [
+        for (var index = 1; index <= 20; index++)
+          {
+            'id': 'note-$index',
+            'kind': 'note',
+            'title': "Notiz $index zu ${uri.queryParameters['passage']}",
+            'excerpt': 'Gedanken zu Hoffnung, Geduld und Zuversicht.',
+          },
+      ],
+      'truncated': false,
+    };
   }
 }
 
 void main() {
   testWidgets(
-    'failed commentary follow surfaces visible retry at the current passage',
+    'notes follow the chapter, clear failed results and retry the current passage',
     (tester) async {
       tester.view.physicalSize = const Size(1100, 850);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final api = FailingFollowApi();
+      final api = NotesApi()..failNotes = true;
       final controller = ReaderController();
       addTearDown(controller.dispose);
       addTearDown(api.dispose);
@@ -100,67 +105,49 @@ void main() {
       );
       await tester.pumpAndSettle();
       final enable = controller.setCompanion(
-        const ReaderCompanion(enabled: true, resourceId: 'COMMENTARY'),
+        const ReaderCompanion(enabled: true),
       );
       await tester.pumpAndSettle();
       expect(await enable, isTrue);
       final companion = find.byKey(const ValueKey('reader-companion'));
-      expect(
-        find.descendant(
-          of: companion,
-          matching: find.textContaining(
-            'Kommentar zu Vers',
-            findRichText: true,
-          ),
-        ),
-        findsWidgets,
+      expect(find.text('Notiz 1 zu Joh1'), findsOneWidget);
+      final firstRequest = Uri.parse(
+        api.reads.firstWhere((path) => path.startsWith('/api/documents?')),
       );
+      expect(firstRequest.queryParameters, {'kind': 'note', 'passage': 'Joh1'});
+      expect(api.reads.any((path) => path.contains('COMMENTARY')), isFalse);
       await tester.tap(find.widgetWithText(TextButton, 'Bibel 0 · Joh1').first);
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(OutlinedButton, '2'));
       await tester.pumpAndSettle();
       expect(controller.reference['chapter'], 2);
+      expect(find.text('Notiz 1 zu Joh1'), findsNothing);
       expect(
         find.descendant(
           of: companion,
-          matching: find.textContaining('Kommentarzugriff widerrufen'),
+          matching: find.textContaining('Notizen konnten nicht geladen werden'),
         ),
-        findsWidgets,
+        findsOneWidget,
       );
-      expect(
-        find.descendant(
-          of: companion,
-          matching: find.textContaining(
-            'Kommentar zu Vers',
-            findRichText: true,
-          ),
-        ),
-        findsNothing,
-      );
-      api.fail = false;
+      api.failNotes = false;
       await tester.tap(
         find.descendant(
           of: companion,
           matching: find.widgetWithText(
             TextButton,
-            'Erneut laden: Kommentarzugriff widerrufen',
+            'Erneut versuchen: Notizen konnten nicht geladen werden',
           ),
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.text('Notiz 1 zu Joh2'), findsOneWidget);
       expect(
         api.reads
             .where(
-              (path) =>
-                  path.contains('/43/2?') &&
-                  path.contains('resource=COMMENTARY'),
+              (path) => Uri.parse(path).queryParameters['passage'] == 'Joh2',
             )
             .length,
         2,
-      );
-      expect(
-        find.descendant(of: companion, matching: find.text('Johannes 2')),
-        findsOneWidget,
       );
       expect(tester.takeException(), isNull);
     },
@@ -266,7 +253,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final api = CommentaryApi();
+      final api = NotesApi();
       final controller = ReaderController();
       addTearDown(controller.dispose);
       const capturePath = String.fromEnvironment('TABLET_CAPTURE_PATH');
@@ -287,9 +274,7 @@ void main() {
           await reading.load();
           final controls = FontLoader('Roboto')
             ..addFont(
-              File(const String.fromEnvironment('CAPTURE_ROBOTO_TTF'))
-                  .readAsBytes()
-                  .then(ByteData.sublistView),
+              captureRobotoFont().readAsBytes().then(ByteData.sublistView),
             );
           await controls.load();
           final icons = FontLoader('MaterialIcons')
@@ -338,7 +323,7 @@ void main() {
       }
 
       final enable = controller.setCompanion(
-        const ReaderCompanion(enabled: true, resourceId: 'COMMENTARY'),
+        const ReaderCompanion(enabled: true),
       );
       await tester.pumpAndSettle();
       expect(await enable, isTrue);
@@ -355,9 +340,10 @@ void main() {
         });
       }
       expect(find.byKey(const ValueKey('reader-two-columns')), findsOneWidget);
-      expect(find.text('Studienkommentar'), findsOneWidget);
+      expect(find.text('Notizen'), findsOneWidget);
+      expect(find.text('Notiz 1 zu Joh1'), findsOneWidget);
       expect(
-        api.reads.any((path) => path.contains('resource=COMMENTARY')),
+        api.reads.any((path) => path.startsWith('/api/documents?')),
         isTrue,
       );
       final primaryX = tester
