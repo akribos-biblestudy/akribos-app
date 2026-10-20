@@ -164,6 +164,21 @@ für Fließtext die tatsächliche Glyphenposition. Regressionen prüfen diese Da
 ausdrücklich neben versweisen Listen; Gerätebildraten erfordern einen Release-Build
 auf dem betreffenden Gerät.
 
+`ReaderRichText` verwendet weiterhin Flutters `RenderParagraph` für Layout, Zeichnung
+und sämtliche semantischen Wortknoten. Nur deren Hierarchie wird rekursiv in Gruppen
+mit höchstens 32 Kindern aufgeteilt. Lange Fließtextabsätze können sonst tausende
+Geschwister erzeugen, deren räumliche Sortierung bei aktivierten Bedienungshilfen
+quadratische Arbeit auslöst. Ordinale Sortierschlüssel allein verhindern diese vorher
+ausgeführte Sortierung nicht. Unbenannte Strukturknoten behalten die nativen Labels,
+Aktionen, IDs, Sichtbarkeitsmerkmale und Rechtecke der Wortknoten bei. Alle Rechtecke
+bleiben im Koordinatensystem des Absatzes; die vorhandenen Aktionen zum Sichtbarmachen
+eines Wortes dürfen keine zusätzliche Verschiebung erhalten. Beim Abschalten der
+Semantik werden nur eigene Referenzen verworfen, weil deren Owner bereits zerstört
+sein kann. Regressionen vergleichen die native Darstellung mit aktivierter Semantik,
+einschließlich Schrift-/Breitenwechsel, RTL, schnellen Gesten und erneuter Aktivierung.
+Die Semantik läuft nach dem Compositing: niedrige `FrameTiming`-Build-/Rasterwerte allein
+schließen deshalb lange Blockaden der Eingabeverarbeitung nicht aus.
+
 Langes Drücken und Ziehen verschiebt die Tabkarten, einschließlich automatischem Scrollen am
 oberen/unteren Rand; die Plus-Karte ist auch ein Ablageziel für das Ende der Folge. Screenreader
 erhalten entsprechende Verschiebeaktionen. Beim Verschieben wird eine importierte Mehrkachel-

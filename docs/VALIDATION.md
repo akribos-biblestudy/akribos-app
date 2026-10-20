@@ -1,5 +1,66 @@
 # Prüfstand 20. Oktober 2026
 
+## Nachprüfung: starkes Ruckeln bei schnellen Wischgesten
+
+Der Nutzer hat den unten dokumentierten Stand `de0ac7c` ausdrücklich als wesentlich
+schlechter und praktisch unbenutzbar zurückgewiesen. Langsames Ziehen war vergleichsweise
+flüssig; kurze schnelle Gesten und das Nachlaufen nach dem Loslassen stockten stark.
+Die frühere positive Bewertung anhand überwiegend kurzer Build-/Rasterzeiten war
+unzureichend. Die historischen Messwerte bleiben zur Nachvollziehbarkeit erhalten,
+stellen aber keine erfolgreiche Geräteabnahme dar.
+
+Eine native Perfetto-Aufzeichnung mit schnellen 80-ms-Gesten statt der früheren
+350–400-ms-Gesten zeigte wiederholt 138–174 ms ununterbrochene CPU-Arbeit auf dem
+Hauptthread. Ein gesonderter AOT-Profile-Build lokalisierte bei 8.285 CPU-Samples
+56,08 % in `flushSemantics`, darunter 47,85 % in `sortedWithinKnot` (jeweils inklusiv).
+Die Semantik wird nach dem Compositing verarbeitet und erschien deshalb nicht als
+lange Build-/Rasterarbeit in der früheren Probe. Die aktivierten Android-
+Bedienungshilfen blieben während aller Prüfungen unverändert. Eine separat geprüfte
+Android-Refresh-Policy-Änderung half nicht und gehört nicht zur Korrektur.
+
+Die Korrektur begrenzt die Geschwisterzahl in der Semantik langer Wortabsätze auf
+32 durch rekursive Strukturgruppen. Native Wortknoten einschließlich Labels, Aktionen,
+IDs, Sichtbarkeit und Glyphenrechtecken bleiben erhalten. Die neuen Regressionen
+aktivieren Semantik ausdrücklich und vergleichen diese Eigenschaften mit dem nativen
+`RichText`; sie prüfen außerdem RTL, Schrift-/Breitenwechsel, Abschalten und erneutes
+Aktivieren von Bedienungshilfen sowie schnelle Gesten im Reader mit 300 Versen.
+Zusätzlich prüft ein Wechsel von 1.200 auf zwölf und zurück auf 1.200 Wortknoten die
+rekursiven Ebenen, erhaltene IDs und das Entfernen alter Gruppen. Insgesamt bestehen
+28 gezielte Tests; die vollständige Flutter-Analyse ist ohne Befund.
+
+Der korrigierte ARM64-AOT-Release wurde um 10:09 Uhr als Update ausschließlich von
+„Akribos Test“ installiert. Die tatsächlich installierte APK stimmt mit dem geprüften
+Artefakt überein:
+`54e5a5ff4110462ebb2b1b0f9e284f29154b13c1353cd1f3594d4bbf70f71059`.
+Sie ist nicht debuggable, enthält keine FrameTiming-Probe und verwendet unverändert
+die ursprüngliche MainActivity. Der temporäre Profile-Build wurde damit ersetzt;
+keine ADB-Portweiterleitung blieb offen. Keine erfassten Flutter-/Runtime-Fehler.
+
+Der native Vorher-/Nachhervergleich enthält vier schnelle vertikale Gesten mit
+Nachlauf und zwei schnelle Werkwechsel, jeweils 80 ms. Die Hauptthread-Zustände
+decken alle sechs ausgewerteten Zeitfenster in beiden Aufzeichnungen vollständig ab:
+
+| Hauptthread-Messung, sechs schnelle Gesten | Vorher | Korrigiert |
+| --- | ---: | ---: |
+| Ununterbrochene CPU-Abschnitte über 100 ms | 24 | 0 |
+| Ununterbrochene CPU-Abschnitte über 30 ms | 28 | 2 |
+| Längster ununterbrochener CPU-Abschnitt | 173,59 ms | 34,86 ms |
+| CPU-Arbeit in den sechs Zeitfenstern | 6.531,96 ms | 4.073,61 ms |
+
+Die wiederkehrenden 169–187-ms-Abstände zwischen Frame-Callbacks nach dem Loslassen
+sind ebenfalls verschwunden. Einzelne Abstände von 33–68 ms bleiben; solche Abstände
+können auch Ruhezeiten enthalten und sind kein direktes Maß der dargestellten FPS.
+Die Zeitfenster sind durch dieselben Gesten und Pausen definiert, ihre Wallclock-
+Summen unterscheiden sich wegen schneller abgeschlossener ADB-Befehle (12,40 bzw.
+11,42 Sekunden). Der Ringpuffer des korrigierten Traces hat die frühen langsamen
+Gesten teilweise verworfen; diese wurden ausdrücklich nicht verglichen. Eine
+Bestätigung des Bediengefühls durch den Nutzer steht noch aus.
+
+Die Play-App `de.akribos.app` bleibt bei 0.5.0 (17), unveränderten Installationszeiten
+und Datenverzeichnis-Inodes. Paketdaten, native Traces, CPU-Profil, Skripte,
+unabhängige Auswertung und Hashmanifest liegen ausschließlich lokal unter
+`artifacts/scroll-regression-20261020/`. Kein Remote-Push oder Store-Release.
+
 ## Tablet-Notizen, Scrollen und Werkwechsel
 
 Die optionale Tablet-Zweitspalte zeigt eigene Notizen zum sichtbaren Kapitel,
@@ -35,7 +96,7 @@ Flutter-Widgettest mit lokalen Schriften und synthetischen, unpersönlichen
 Beispielinhalten. Beide Spalten und sämtliche Notiz-Bedienelemente wurden visuell
 geprüft. Sie ist keine Geräteaufnahme.
 
-### Physischer Vergleich auf dem Pixel 9 Pro
+### Historischer physischer Vergleich – vom Nutzer nicht abgenommen
 
 Am 20. Oktober wurde das angeschlossene Pixel 9 Pro mit Android 17 geprüft.
 Die vorhandene Play-Installation `de.akribos.app`, Version 0.5.0 (17), hat eine andere
@@ -87,8 +148,8 @@ und iOS sind nicht Teil dieser Abnahme.
 
 Nach dem Vergleich wurde „Akribos Test“ durch denselben neuen Release ohne
 Messinstrumentierung ersetzt. Das Entfernen der Probe aus dem AOT-Code und
-ausbleibende Messausgaben am Gerät wurden geprüft. Diese Test-App bleibt zum
-Ausprobieren installiert. SHA-256 der installierten APK:
+ausbleibende Messausgaben am Gerät wurden geprüft. Diese inzwischen ersetzte Test-App
+wurde vom Nutzer als unbenutzbar zurückgewiesen. SHA-256 der damaligen APK:
 `90179133484926ceb3479b34a6a5f9ad3126b5e5eee02b379b87673a2dba5ef0`.
 
 In dieser Fassung wurden zusätzlich geprüft:

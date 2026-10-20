@@ -57,6 +57,15 @@ callbacks rather than retain an earlier tab's handlers. Performance regressions 
 exercise long Fließtext paragraphs as well as versewise rows, without equating widget
 test timing to release-device frame rates.
 
+ReaderRichText inherits native RenderParagraph layout, painting and semantic leaves.
+Only its semantics hierarchy is grouped recursively into at most 32 siblings, avoiding
+quadratic spatial sorting of long linked paragraphs. Preserve native labels, actions,
+node IDs, clipping and paragraph-local rectangles; do not disable accessibility or
+replace word actions with a single paragraph label. Regression tests must enable
+semantics and cover fast flings, reflow and disabling/re-enabling semantics. FrameTiming
+build/raster values alone miss semantic work after compositing; verify fast release-device
+gestures and post-release scrolling with native thread traces and practical feedback.
+
 Word-triggered lexicon lookup is a temporary draggable bottom sheet using the read-only
 Strong API. Keep the source Bible mounted with its scroll position and workspace untouched;
 Back and dismiss return to it. Explicit lexicon resources still work as normal tabs. Carry

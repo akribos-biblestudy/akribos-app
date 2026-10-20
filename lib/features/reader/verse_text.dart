@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../core/json.dart';
+import 'reader_rich_text.dart';
 
 const assignmentNote =
     'Automatische Wortzuordnung; fachlich noch nicht bestätigt.';
@@ -584,7 +585,7 @@ class VerseTextState extends State<VerseText> {
           textPainter: _noteTextPainter,
           lift: textScaler.scale(widget.fontSize) * .18,
         ),
-        child: RichText(
+        child: ReaderRichText(
           key: _textKey,
           text: paragraphText,
           textDirection: direction,
