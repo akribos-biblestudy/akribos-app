@@ -35,9 +35,74 @@ Flutter-Widgettest mit lokalen Schriften und synthetischen, unpersönlichen
 Beispielinhalten. Beide Spalten und sämtliche Notiz-Bedienelemente wurden visuell
 geprüft. Sie ist keine Geräteaufnahme.
 
-Dies belegt die vermiedenen Berechnungen und das Verhalten im Flutter-Test. Eine
-Frametime-Messung auf dem betroffenen Smartphone und die Boox-/iOS-Geräteabnahme
-stehen noch aus; Debug-Widgettests sind kein Nachweis für eine bestimmte Bildrate.
+### Physischer Vergleich auf dem Pixel 9 Pro
+
+Am 20. Oktober wurde das angeschlossene Pixel 9 Pro mit Android 17 geprüft.
+Die vorhandene Play-Installation `de.akribos.app`, Version 0.5.0 (17), hat eine andere
+Signatur als der lokale Testschlüssel. Sie wurde weder ersetzt noch deinstalliert;
+Installations-/Updatezeit und Datenverzeichnis-Inodes waren vor und nach dem Test
+identisch. Stattdessen liefen isolierte AOT-Release-Builds unter
+`de.akribos.app.performancetest` (Launcher „Akribos Test“), ohne App-Link-Registrierung
+und mit eigenen Provider-Authorities. Die vorhandene lokale Signieridentität blieb
+unverändert. Keine privaten Konten oder Notizen wurden geöffnet.
+
+Verglichen wurden `aea162d` (vor den Reader-Änderungen) und `de0ac7c` (danach), mit
+demselben SDK, Lockfile, ARM64-Ziel, Versionscode und temporären Messcode. Beide
+lasen als Gast Johannes 1 aus AKRIBOS.ELB und GERKINGCOMMENTS von `https://akribos.de`
+im Fließtext. Nach dem Aufwärmen beider Werke folgten pro Build drei identische
+Runden, insgesamt 24 vertikale Scrollgesten und 36 horizontale Werkwechsel.
+Geräte-Wallclock-Fenster grenzen die Phasen ab und schließen den Start aus.
+Beide Starts meldeten 120 Hz; Display-, Animations- und Dichte-Einstellungen wurden
+nicht verändert. Der Akkustand blieb bei 92 %, die Temperatur am jeweiligen Laufende
+lag bei 29,0 bzw. 31,6 °C.
+
+Die temporäre `FrameTiming`-Probe erfasst Flutter-Build, Raster und Gesamtspanne.
+Ein erster Lauf wurde wegen Android-seitig abgeschnittener Logzeilen vollständig
+verworfen. Die wiederholten Läufe mit vier Frames je Zeile sind vollständig:
+1.738 bzw. 2.005 eindeutige Frames einschließlich Aufwärmphase, keine fehlenden
+Batches oder ungültigen Zeilen. Zwei voneinander unabhängige Auswertungen prüfen
+Zeitstempel, Phasengrenzen und Quantile. Die Tabelle fasst jeweils die einzelnen
+Frames aller drei Messfenster zusammen, ohne Quantile zu mitteln:
+
+| Messung | Vorher | Nachher |
+| --- | ---: | ---: |
+| Scrollen: ausgewertete Frames | 656 | 821 |
+| Scrollen: UI-Build p99 | 24,99 ms | 1,14 ms |
+| Scrollen: Build oder Raster über 16,67 ms | 20 (3,05 %) | 1 (0,12 %) |
+| Werkwechsel: ausgewertete Frames | 967 | 1.025 |
+| Werkwechsel: UI-Build p99 | 25,67 ms | 4,86 ms |
+| Werkwechsel: Build oder Raster über 16,67 ms | 40 (4,14 %) | 1 (0,10 %) |
+| Werkwechsel: Gesamtspanne p95 | 19,27 ms | 11,38 ms |
+| Werkwechsel: Gesamtspanne p99 | 163,50 ms | 178,27 ms |
+
+Lange Build-/Raster-Arbeit ist in diesem Vergleich deutlich seltener. Vollständige
+Ruckelfreiheit ist damit nicht belegt: Beim Werkwechsel bleiben 17 hohe
+`vsyncOverhead`-Werte vor dem eigentlichen Build, mit Pausen von etwa 164–180 ms
+seit dem vorherigen Rasterabschluss. Sie treten teilweise in Ketten auf; die
+Aufzeichnung belegt keine Ursache. Display-FPS, tatsächliche Eingabelatenz und
+Android-Jank wurden nicht gemessen. Ein Gerät, die feste Reihenfolge vorher/nachher,
+unterschiedliche Framezahlen und Temperaturen sowie Gastzustand und automatisierte
+Gesten begrenzen die Aussage. Die privaten Kontodaten der Store-App, Boox-Hardware
+und iOS sind nicht Teil dieser Abnahme.
+
+Nach dem Vergleich wurde „Akribos Test“ durch denselben neuen Release ohne
+Messinstrumentierung ersetzt. Das Entfernen der Probe aus dem AOT-Code und
+ausbleibende Messausgaben am Gerät wurden geprüft. Diese Test-App bleibt zum
+Ausprobieren installiert. SHA-256 der installierten APK:
+`90179133484926ceb3479b34a6a5f9ad3126b5e5eee02b379b87673a2dba5ef0`.
+
+In dieser Fassung wurden zusätzlich geprüft:
+
+- Wechsel zu „Mehr“ und zurück: Bibeltext und Scrollposition bleiben pixelidentisch.
+- Neustart des Prozesses: dieselbe gespeicherte Bibelstelle (Johannes 1,15) öffnet.
+- Einstellungen zeigen die Notizenspalte; E-Ink zeigt keine Blätterbuttons,
+  vertikales Scrollen und monochrome Darstellung funktionieren weiterhin.
+- E-Ink wurde anschließend wieder ausgeschaltet, die ursprüngliche
+  Systemdarstellung wiederhergestellt; keine erfassten Flutter-/Runtime-Fehler.
+
+Gefilterte Messdaten, Auswertungsskripte, Buildmetadaten, öffentliche Gastaufnahmen
+und Hashmanifest liegen lokal unter `artifacts/device-performance-20261020/`
+(nicht versioniert). Es gab keinen Remote-Push, Store-Upload oder neuen Release.
 
 ## Vorheriger Prüfstand: 17. Oktober 2026
 
