@@ -1,4 +1,244 @@
-# Prüfstand 17. Oktober 2026
+# Prüfstand 20. Oktober 2026
+
+## Weitere Korrektur: unveränderte Wortknoten beim Scrollen erhalten
+
+Der Nutzer bestätigt für `464ac4a` eine deutliche Verbesserung, empfindet das Scrollen
+aber weiterhin als wesentlich ruckeliger als Logos oder die Bibel-App. Dieser Stand
+ist deshalb weiterhin keine erfolgreiche Geräteabnahme.
+
+Die erneute Auswertung desselben Release-Traces ordnet die verbleibenden 36 Abstände
+von 32,5–67,6 ms zwischen Frame-Callbacks während der schnellen Gesten genauer zu:
+Der Hauptthread arbeitet darin zu 64–94 %, insgesamt 80,25 % der Zeit auf der CPU.
+Es handelt sich überwiegend um echte Arbeit während der Bewegung. GPU-Präsentations-
+und erfasste Wartezeiten erklären diese Lücken nicht. Der Trace enthält keine
+auswertbaren App-Surface-FrameTimeline-Einträge; daraus werden keine FPS abgeleitet.
+
+Ein AOT-CPU-Profil des korrigierten Quellstands mit 6.124 Samples zeigt 82,30 % in
+`flushSemantics`, davon 66,43 % in `sendSemanticsUpdate` (inklusiv). Die nativen
+Aufrufe zum Aktualisieren der Semantik und der einzelnen Knoten belegen allein
+41,93 bzw. 19,43 % exklusiv. Die räumliche Sortierung ist auf 2,60 % gesunken.
+Der vorherige Fix hat also den ursprünglichen Sortierengpass beseitigt, überträgt
+aber weiterhin zu viele unveränderte Wörter an Android.
+
+Neue Regressionen reproduzieren die unnötigen Änderungen: Bei unverändertem Absatz
+werden im bisherigen gruppierten Aufbau alle 311 Knoten erneut als geändert markiert.
+Bei einem reinen Clip-Wechsel werden alle 120 Wortknoten markiert, obwohl nur zwölf
+ihre Sichtbarkeit ändern. Die weitere Korrektur erhält die native Konfiguration
+und Gruppenzuordnung bei reinen Scrollbewegungen und aktualisiert nur solche Änderungen.
+Dies reduziert die als geändert markierten Knoten im unveränderten Absatz von 311 auf
+null, beim Clip-Wechsel von 120 auf genau zwölf. Native Wortknoten und ihre
+`showOnScreen`-Callbacks bleiben bestehen; Text-/Layout-/Metadatenänderungen und
+geänderte Recognizer-Callbacks erzwingen weiterhin einen vollständigen nativen Aufbau.
+
+32 gezielte Tests bestehen, einschließlich geändertem, entferntem und erneut
+aktiviertem Callback desselben Recognizers sowie echtem `SemanticsOwner`-Aufruf zum
+Sichtbarmachen eines Wortes nach Scrollen und Reflow. Die vollständige Flutter-Analyse
+ist ohne Befund. Diese Tests messen die inkrementelle Änderung des Semantikbaums,
+keine Gerätebildrate.
+
+Der neue ARM64-AOT-Release wurde um 10:28 Uhr als Update von „Akribos Test“ installiert.
+Die installierte APK ist nicht debuggable, enthält keine Messprobe und stimmt mit
+dem geprüften Artefakt überein:
+`a219166ecd9cd56b61b72b47ad4fe00bea894eb62aa2956119e1d35b11b2b885`.
+Die Store-App, ihr Datenbestand, Bedienungshilfen und Displayeinstellungen blieben
+unverändert. Die temporäre Profiler-Portweiterleitung wurde entfernt; keine erfassten
+Flutter-/Runtime-Fehler.
+
+Der erneute native Vergleich verwendet dieselben vier schnellen vertikalen Gesten
+und zwei Werkwechsel mit jeweils 80 ms. Alle sechs ausgewerteten Hauptthread-
+Zeitfenster sind in beiden Traces vollständig erhalten, einschließlich aller
+Touch-UP-Ereignisse. Die Auswertung beschränkt sich auf diese Fenster; globale
+Trace-Verwerfungszähler werden nicht als Vollständigkeit der gesamten Aufzeichnung
+interpretiert.
+
+| Messung, sechs schnelle Gesten | `464ac4a` | Weitere Korrektur |
+| --- | ---: | ---: |
+| Callback-Lücken über 30 ms in den ersten 800 ms nach Touch-UP | 36 | 0 |
+| Ununterbrochene Hauptthread-CPU-Abschnitte über 30 ms | 2 | 0 |
+| Längster ununterbrochener Hauptthread-CPU-Abschnitt | 34,86 ms | 26,23 ms |
+| Hauptthread-CPU in den sechs Zeitfenstern | 4.073,61 ms | 3.736,29 ms |
+| Frame-Callbacks in den sechs 800-ms-Nachlauf-Fenstern | 409 | 534 |
+
+Die gesamten Zeitfenster sind mit 11,416 bzw. 11,420 Sekunden praktisch gleich lang.
+Die CPU-Arbeit sinkt um 8,28 %, während die Verarbeitung regelmäßiger erfolgt;
+die zuvor CPU-lastigen 33–68-ms-Lücken verschwinden in diesen Messfenstern. Die
+Callback-Anzahl ist keine Messung der dargestellten FPS. Der Nutzer hat die auf
+dem Smartphone installierte weitere Korrektur anschließend als „echte Verbesserung“
+bestätigt und ausdrücklich Commit und neues Release beauftragt. Damit liegt eine
+positive praktische Rückmeldung zu diesem Scroll-Fix vor; eine vergleichende Messung
+mit Logos oder der Bibel-App und eine vollständige iOS-/Tablet-Abnahme werden nicht behauptet.
+Nachweise und Hashmanifest liegen lokal unter
+`artifacts/scroll-regression-round2-20261020/`. Während der Geräteprüfung erfolgte
+kein Remote-Push oder Store-Release. Die anschließende Veröffentlichung läuft über
+den vorhandenen GitHub-/Google-Play-Internal-Testing-Prozess.
+
+## Nachprüfung: starkes Ruckeln bei schnellen Wischgesten
+
+Der Nutzer hat den unten dokumentierten Stand `de0ac7c` ausdrücklich als wesentlich
+schlechter und praktisch unbenutzbar zurückgewiesen. Langsames Ziehen war vergleichsweise
+flüssig; kurze schnelle Gesten und das Nachlaufen nach dem Loslassen stockten stark.
+Die frühere positive Bewertung anhand überwiegend kurzer Build-/Rasterzeiten war
+unzureichend. Die historischen Messwerte bleiben zur Nachvollziehbarkeit erhalten,
+stellen aber keine erfolgreiche Geräteabnahme dar.
+
+Eine native Perfetto-Aufzeichnung mit schnellen 80-ms-Gesten statt der früheren
+350–400-ms-Gesten zeigte wiederholt 138–174 ms ununterbrochene CPU-Arbeit auf dem
+Hauptthread. Ein gesonderter AOT-Profile-Build lokalisierte bei 8.285 CPU-Samples
+56,08 % in `flushSemantics`, darunter 47,85 % in `sortedWithinKnot` (jeweils inklusiv).
+Die Semantik wird nach dem Compositing verarbeitet und erschien deshalb nicht als
+lange Build-/Rasterarbeit in der früheren Probe. Die aktivierten Android-
+Bedienungshilfen blieben während aller Prüfungen unverändert. Eine separat geprüfte
+Android-Refresh-Policy-Änderung half nicht und gehört nicht zur Korrektur.
+
+Die Korrektur begrenzt die Geschwisterzahl in der Semantik langer Wortabsätze auf
+32 durch rekursive Strukturgruppen. Native Wortknoten einschließlich Labels, Aktionen,
+IDs, Sichtbarkeit und Glyphenrechtecken bleiben erhalten. Die neuen Regressionen
+aktivieren Semantik ausdrücklich und vergleichen diese Eigenschaften mit dem nativen
+`RichText`; sie prüfen außerdem RTL, Schrift-/Breitenwechsel, Abschalten und erneutes
+Aktivieren von Bedienungshilfen sowie schnelle Gesten im Reader mit 300 Versen.
+Zusätzlich prüft ein Wechsel von 1.200 auf zwölf und zurück auf 1.200 Wortknoten die
+rekursiven Ebenen, erhaltene IDs und das Entfernen alter Gruppen. Insgesamt bestehen
+28 gezielte Tests; die vollständige Flutter-Analyse ist ohne Befund.
+
+Der korrigierte ARM64-AOT-Release wurde um 10:09 Uhr als Update ausschließlich von
+„Akribos Test“ installiert. Die tatsächlich installierte APK stimmt mit dem geprüften
+Artefakt überein:
+`54e5a5ff4110462ebb2b1b0f9e284f29154b13c1353cd1f3594d4bbf70f71059`.
+Sie ist nicht debuggable, enthält keine FrameTiming-Probe und verwendet unverändert
+die ursprüngliche MainActivity. Der temporäre Profile-Build wurde damit ersetzt;
+keine ADB-Portweiterleitung blieb offen. Keine erfassten Flutter-/Runtime-Fehler.
+
+Der native Vorher-/Nachhervergleich enthält vier schnelle vertikale Gesten mit
+Nachlauf und zwei schnelle Werkwechsel, jeweils 80 ms. Die Hauptthread-Zustände
+decken alle sechs ausgewerteten Zeitfenster in beiden Aufzeichnungen vollständig ab:
+
+| Hauptthread-Messung, sechs schnelle Gesten | Vorher | Korrigiert |
+| --- | ---: | ---: |
+| Ununterbrochene CPU-Abschnitte über 100 ms | 24 | 0 |
+| Ununterbrochene CPU-Abschnitte über 30 ms | 28 | 2 |
+| Längster ununterbrochener CPU-Abschnitt | 173,59 ms | 34,86 ms |
+| CPU-Arbeit in den sechs Zeitfenstern | 6.531,96 ms | 4.073,61 ms |
+
+Die wiederkehrenden 169–187-ms-Abstände zwischen Frame-Callbacks nach dem Loslassen
+sind ebenfalls verschwunden. Einzelne Abstände von 33–68 ms bleiben; solche Abstände
+können auch Ruhezeiten enthalten und sind kein direktes Maß der dargestellten FPS.
+Die Zeitfenster sind durch dieselben Gesten und Pausen definiert, ihre Wallclock-
+Summen unterscheiden sich wegen schneller abgeschlossener ADB-Befehle (12,40 bzw.
+11,42 Sekunden). Der Ringpuffer des korrigierten Traces hat die frühen langsamen
+Gesten teilweise verworfen; diese wurden ausdrücklich nicht verglichen. Eine
+Bestätigung vollständiger Flüssigkeit liegt nicht vor: Der Nutzer meldet anschließend
+eine deutliche Verbesserung, aber weiterhin störendes Ruckeln (siehe weitere Korrektur oben).
+
+Die Play-App `de.akribos.app` bleibt bei 0.5.0 (17), unveränderten Installationszeiten
+und Datenverzeichnis-Inodes. Paketdaten, native Traces, CPU-Profil, Skripte,
+unabhängige Auswertung und Hashmanifest liegen ausschließlich lokal unter
+`artifacts/scroll-regression-20261020/`. Kein Remote-Push oder Store-Release.
+
+## Tablet-Notizen, Scrollen und Werkwechsel
+
+Die optionale Tablet-Zweitspalte zeigt eigene Notizen zum sichtbaren Kapitel,
+einschließlich Suche, Tagfilter, abschaltbarem Kapitelbezug und Zugang zum vorhandenen
+Editor. Ein Verswechsel lädt die Liste nicht erneut; ein Kapitelwechsel und die
+Rückkehr aus dem Editor aktualisieren sie. Alte Kommentarspalten-Präferenzen werden
+ohne Entfernen regulärer Kommentar-Tabs übernommen. Die E-Ink-Bildschirmblätterbuttons
+sind entfernt; vertikales Scrollen, Kontrast und monochrome Markierungen bleiben.
+
+Der neue Gestentest reproduzierte vor der Korrektur einen lokalen Schreibvorgang,
+während der Finger nach Überschreiten der Seitenmitte noch auf dem Bildschirm lag.
+Nun aktiviert und speichert der Reader erst nach Ende der Seitenbewegung. Auch ein
+vorher gestarteter Positions-Timer wartet darauf. Ein expliziter Navigations-Flush
+stoppt die Bewegung auf der sichtbaren Seite und wartet deren Speicherung ab.
+Unveränderte Kapitel behalten ihre Sliver, Textspans, Gestenerkennung und
+Fußnoten-Darstellung. Tests mit 300 Versen decken jetzt auch Fließtext ab.
+
+75 gezielte Flutter-Tests sind erfolgreich: 51 Reader-/Gesten-/Darstellungs-/Lexikon-/
+Hinweisprüfungen sowie 24 Tablet-/Notiz-/Lokalspeicher-/Settingsprüfungen. Sie prüfen
+auch unterbrochene Gesten, schnelle Wechsel bei wartendem Speicher, explizite Wiederholung
+nach Schreibfehlern, identischen Textaufbau und Pixelposition beim Zurückwischen,
+aktuelle Aktionen nach Cache-Wiederverwendung, Kapitelwechsel mit verspäteten Antworten,
+Gastzugriff, Editor-Navigation und Migration alter Einstellungen. Die vollständige
+Flutter-Analyse ist ohne Befund.
+
+Der Android-AOT-Release-Build für ARM64 mit festem Server `https://akribos.de`
+ist erfolgreich (`flutter build apk --no-pub --release --target-platform android-arm64
+--dart-define=AKRIBOS_SERVER=https://akribos.de`). Das Buildartefakt ist unsigniert;
+es wurde weder installiert noch als Store-Release veröffentlicht.
+
+Die [Tablet-Aufnahme](screenshots/tablet-notes.png) stammt aus dem nativen
+Flutter-Widgettest mit lokalen Schriften und synthetischen, unpersönlichen
+Beispielinhalten. Beide Spalten und sämtliche Notiz-Bedienelemente wurden visuell
+geprüft. Sie ist keine Geräteaufnahme.
+
+### Historischer physischer Vergleich – vom Nutzer nicht abgenommen
+
+Am 20. Oktober wurde das angeschlossene Pixel 9 Pro mit Android 17 geprüft.
+Die vorhandene Play-Installation `de.akribos.app`, Version 0.5.0 (17), hat eine andere
+Signatur als der lokale Testschlüssel. Sie wurde weder ersetzt noch deinstalliert;
+Installations-/Updatezeit und Datenverzeichnis-Inodes waren vor und nach dem Test
+identisch. Stattdessen liefen isolierte AOT-Release-Builds unter
+`de.akribos.app.performancetest` (Launcher „Akribos Test“), ohne App-Link-Registrierung
+und mit eigenen Provider-Authorities. Die vorhandene lokale Signieridentität blieb
+unverändert. Keine privaten Konten oder Notizen wurden geöffnet.
+
+Verglichen wurden `aea162d` (vor den Reader-Änderungen) und `de0ac7c` (danach), mit
+demselben SDK, Lockfile, ARM64-Ziel, Versionscode und temporären Messcode. Beide
+lasen als Gast Johannes 1 aus AKRIBOS.ELB und GERKINGCOMMENTS von `https://akribos.de`
+im Fließtext. Nach dem Aufwärmen beider Werke folgten pro Build drei identische
+Runden, insgesamt 24 vertikale Scrollgesten und 36 horizontale Werkwechsel.
+Geräte-Wallclock-Fenster grenzen die Phasen ab und schließen den Start aus.
+Beide Starts meldeten 120 Hz; Display-, Animations- und Dichte-Einstellungen wurden
+nicht verändert. Der Akkustand blieb bei 92 %, die Temperatur am jeweiligen Laufende
+lag bei 29,0 bzw. 31,6 °C.
+
+Die temporäre `FrameTiming`-Probe erfasst Flutter-Build, Raster und Gesamtspanne.
+Ein erster Lauf wurde wegen Android-seitig abgeschnittener Logzeilen vollständig
+verworfen. Die wiederholten Läufe mit vier Frames je Zeile sind vollständig:
+1.738 bzw. 2.005 eindeutige Frames einschließlich Aufwärmphase, keine fehlenden
+Batches oder ungültigen Zeilen. Zwei voneinander unabhängige Auswertungen prüfen
+Zeitstempel, Phasengrenzen und Quantile. Die Tabelle fasst jeweils die einzelnen
+Frames aller drei Messfenster zusammen, ohne Quantile zu mitteln:
+
+| Messung | Vorher | Nachher |
+| --- | ---: | ---: |
+| Scrollen: ausgewertete Frames | 656 | 821 |
+| Scrollen: UI-Build p99 | 24,99 ms | 1,14 ms |
+| Scrollen: Build oder Raster über 16,67 ms | 20 (3,05 %) | 1 (0,12 %) |
+| Werkwechsel: ausgewertete Frames | 967 | 1.025 |
+| Werkwechsel: UI-Build p99 | 25,67 ms | 4,86 ms |
+| Werkwechsel: Build oder Raster über 16,67 ms | 40 (4,14 %) | 1 (0,10 %) |
+| Werkwechsel: Gesamtspanne p95 | 19,27 ms | 11,38 ms |
+| Werkwechsel: Gesamtspanne p99 | 163,50 ms | 178,27 ms |
+
+Lange Build-/Raster-Arbeit ist in diesem Vergleich deutlich seltener. Vollständige
+Ruckelfreiheit ist damit nicht belegt: Beim Werkwechsel bleiben 17 hohe
+`vsyncOverhead`-Werte vor dem eigentlichen Build, mit Pausen von etwa 164–180 ms
+seit dem vorherigen Rasterabschluss. Sie treten teilweise in Ketten auf; die
+Aufzeichnung belegt keine Ursache. Display-FPS, tatsächliche Eingabelatenz und
+Android-Jank wurden nicht gemessen. Ein Gerät, die feste Reihenfolge vorher/nachher,
+unterschiedliche Framezahlen und Temperaturen sowie Gastzustand und automatisierte
+Gesten begrenzen die Aussage. Die privaten Kontodaten der Store-App, Boox-Hardware
+und iOS sind nicht Teil dieser Abnahme.
+
+Nach dem Vergleich wurde „Akribos Test“ durch denselben neuen Release ohne
+Messinstrumentierung ersetzt. Das Entfernen der Probe aus dem AOT-Code und
+ausbleibende Messausgaben am Gerät wurden geprüft. Diese inzwischen ersetzte Test-App
+wurde vom Nutzer als unbenutzbar zurückgewiesen. SHA-256 der damaligen APK:
+`90179133484926ceb3479b34a6a5f9ad3126b5e5eee02b379b87673a2dba5ef0`.
+
+In dieser Fassung wurden zusätzlich geprüft:
+
+- Wechsel zu „Mehr“ und zurück: Bibeltext und Scrollposition bleiben pixelidentisch.
+- Neustart des Prozesses: dieselbe gespeicherte Bibelstelle (Johannes 1,15) öffnet.
+- Einstellungen zeigen die Notizenspalte; E-Ink zeigt keine Blätterbuttons,
+  vertikales Scrollen und monochrome Darstellung funktionieren weiterhin.
+- E-Ink wurde anschließend wieder ausgeschaltet, die ursprüngliche
+  Systemdarstellung wiederhergestellt; keine erfassten Flutter-/Runtime-Fehler.
+
+Gefilterte Messdaten, Auswertungsskripte, Buildmetadaten, öffentliche Gastaufnahmen
+und Hashmanifest liegen lokal unter `artifacts/device-performance-20261020/`
+(nicht versioniert). Es gab keinen Remote-Push, Store-Upload oder neuen Release.
+
+## Vorheriger Prüfstand: 17. Oktober 2026
 
 ## Folgeänderung ohne neues Release: Version und Store-Updates
 
@@ -705,7 +945,7 @@ wurde anschließend nicht erneut am Gerät beobachtet.
 | `flutter analyze` im endgültigen Repository | Keine Befunde |
 | Vollständige Flutter-Suite mit isoliertem HTTP-Testserver | 52 Tests erfolgreich |
 | Smartphone-/Tablet-Widgets | 320, 840 und 1280 Pixel; zusätzliche Tests mit 170 % Textskalierung |
-| E-Ink | Persistente Einstellung, Kontrast, Dialogkontext und Bildschirmblättern geprüft |
+| E-Ink | Persistente Einstellung, Kontrast, Dialogkontext und damaliges Bildschirmblättern geprüft (Blätterfunktion am 20. Oktober 2026 entfernt) |
 | App-Protokoll im Akribos-Backend | 38 Unit-Tests erfolgreich |
 | Produktionsbuild-API-E2E im Backend | 3 Tests erfolgreich |
 | Akribos `pnpm check` | Keine Fehler; 14 bereits vorhandene Warnungen |

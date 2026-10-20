@@ -21,6 +21,7 @@ import 'reader_state.dart';
 import 'verse_text.dart';
 import 'reader_local_store.dart';
 import 'reader_companion.dart';
+import 'reader_notes_companion.dart';
 import 'reader_tab_grid.dart';
 
 class ReaderScreen extends StatefulWidget {
@@ -214,7 +215,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
   String? _mobileTile;
   bool _versePerLine = false;
   ReaderCompanion _companion = const ReaderCompanion();
-  final _companionPane = GlobalKey<_ChapterPaneState>();
+  final _companionPane = GlobalKey<ReaderNotesCompanionState>();
   void _adopt([Json? incoming]) {
     _data = asMap(jsonDecode(jsonEncode(incoming ?? widget.data)));
     if (_data.containsKey('versePerLine')) {
@@ -339,6 +340,9 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
 
   Future<bool> _flush() async {
     if (_discardPending) return true;
+    // Navigation can interrupt a drag before its ScrollEndNotification arrives.
+    // Commit the currently visible page before the guard allows leaving.
+    _activateVisiblePage(onlyWhileScrolling: true);
     if (_switching != null && !await _switching!) return false;
     if (_failedActivation != null) return false;
     final saved = await _flushPositions();
@@ -373,7 +377,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
         );
         if (revision == _revision) _dirty = false;
       }
-      if (mounted) setState(() => _saveError = null);
+      if (mounted && _saveError != null) setState(() => _saveError = null);
       return true;
     } catch (error) {
       if (mounted) {
@@ -406,11 +410,11 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       reference,
     );
     widget.controller?.updateReference(reference);
-    _companionPane.currentState?.align(reference);
+    _companionPane.currentState?.follow(reference);
     _dirty = true;
     _revision++;
     _timer?.cancel();
-    _timer = Timer(const Duration(milliseconds: 700), _flush);
+    _timer = Timer(const Duration(milliseconds: 700), _saveWhenPagesIdle);
     if (tab['linkSet'] != null) {
       for (final otherTile in asMaps(_workspace['tiles'])) {
         final other = activeTab(otherTile);
@@ -419,6 +423,21 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
         }
       }
     }
+  }
+
+  void _saveWhenPagesIdle() {
+    if (!mounted) return;
+    if (_pageControllers.values.any(
+      (controller) =>
+          controller.hasClients &&
+          controller.position.isScrollingNotifier.value,
+    )) {
+      // A vertical position timer may expire during the next horizontal drag.
+      // Only explicit navigation may interrupt that gesture to flush state.
+      _timer = Timer(const Duration(milliseconds: 200), _saveWhenPagesIdle);
+      return;
+    }
+    unawaited(_flush());
   }
 
   Future<void> _mutate(String action, Json fields) async {
@@ -498,7 +517,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       _switching = task;
       task.whenComplete(() {
         _switching = null;
-        if (mounted) setState(() {});
       });
     }
   }
@@ -1244,36 +1262,55 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       deckKey,
       () => PageController(initialPage: selected < 0 ? 0 : selected),
     );
-    return PageView.builder(
-      key: ValueKey('reader-pages:$deckKey'),
-      controller: controller,
-      itemCount: choices.length,
-      physics: _busy
-          ? const NeverScrollableScrollPhysics()
-          : const PageScrollPhysics(),
-      onPageChanged: (index) {
-        final item = choices[index];
-        _activateTab(
-          asString(asMap(item['tile'])['id']),
-          asString(asMap(item['tab'])['id']),
-        );
+    return NotificationListener<ScrollEndNotification>(
+      onNotification: (notification) {
+        if (notification.depth == 0 &&
+            notification.metrics.axis == Axis.horizontal) {
+          _activateVisiblePage();
+        }
+        return false;
       },
-      findChildIndexCallback: (key) {
-        if (key is! ValueKey<String>) return null;
-        final index = choices.indexWhere(
-          (item) => asMap(item['tab'])['id'] == key.value,
-        );
-        return index < 0 ? null : index;
-      },
-      itemBuilder: (_, index) {
-        final item = choices[index],
-            tile = asMap(item['tile']),
-            tab = asMap(item['tab']);
-        return _KeepReaderTab(
-          key: ValueKey(asString(tab['id'])),
-          child: _tile(tile, selectedTab: tab),
-        );
-      },
+      child: PageView.builder(
+        key: ValueKey('reader-pages:$deckKey'),
+        controller: controller,
+        itemCount: choices.length,
+        physics: _busy
+            ? const NeverScrollableScrollPhysics()
+            : const PageScrollPhysics(),
+        findChildIndexCallback: (key) {
+          if (key is! ValueKey<String>) return null;
+          final index = choices.indexWhere(
+            (item) => asMap(item['tab'])['id'] == key.value,
+          );
+          return index < 0 ? null : index;
+        },
+        itemBuilder: (_, index) {
+          final item = choices[index],
+              tile = asMap(item['tile']),
+              tab = asMap(item['tab']);
+          return _KeepReaderTab(
+            key: ValueKey(asString(tab['id'])),
+            child: _tile(tile, selectedTab: tab),
+          );
+        },
+      ),
+    );
+  }
+
+  void _activateVisiblePage({bool onlyWhileScrolling = false}) {
+    final controller = _pageControllers['mobile'];
+    if (controller == null || !controller.hasClients) return;
+    if (onlyWhileScrolling && !controller.position.isScrollingNotifier.value) {
+      return;
+    }
+    final choices = _flatTabs(asMaps(_workspace['tiles']));
+    if (choices.isEmpty) return;
+    final page = (controller.page ?? 0).round().clamp(0, choices.length - 1);
+    if (onlyWhileScrolling) controller.jumpToPage(page);
+    final item = choices[page];
+    _activateTab(
+      asString(asMap(item['tile'])['id']),
+      asString(asMap(item['tab'])['id']),
     );
   }
 
@@ -1292,16 +1329,9 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
           )) {
         return reader;
       }
-      final commentaries = asMaps(_data['readerResources'])
-          .where((resource) => resource['kind'] == 'commentary');
-      final resource = _companion.resourceId.isEmpty
-          ? commentaries.firstOrNull
-          : commentaries
-                .where((resource) => resource['id'] == _companion.resourceId)
-                .firstOrNull;
       final companion = Expanded(
         key: const ValueKey('reader-companion'),
-        child: ColoredBox(
+        child: Material(
           color: Theme.of(context).scaffoldBackgroundColor,
           child: Column(
             children: [
@@ -1311,9 +1341,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
-                        resource == null
-                            ? 'Kommentarspalte'
-                            : asString(resource['name']),
+                        'Notizen',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -1324,7 +1352,7 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Kommentarspalte schließen',
+                    tooltip: 'Notizenspalte schließen',
                     icon: const Icon(Icons.close),
                     onPressed: () =>
                         _setCompanion(_companion.copyWith(enabled: false)),
@@ -1338,47 +1366,12 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                   child: ColoredBox(color: Colors.black),
                 ),
               Expanded(
-                child: resource == null
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Text(
-                            'Der ausgewählte Kommentar ist nicht verfügbar. '
-                            'Bitte wähle in den Einstellungen einen verfügbaren Kommentar.',
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      )
-                    : _ChapterPane(
-                        key: _companionPane,
-                        initial: const {},
-                        cache: _chapterCaches.putIfAbsent(
-                          'companion:${resource['id']}',
-                          _ChapterCache.new,
-                        ),
-                        resource: resource,
-                        reference: Map.of(asMap(selectedTab['reference'])),
-                        active: widget.active,
-                        follower: true,
-                        fontScale: asInt(_data['readerFontScale'], 100) / 100,
-                        versePerLine: _versePerLine,
-                        // Scrolling comments must never move the Bible or its
-                        // linked tabs; only Bible scrolling drives the follower.
-                        onPosition: (_) {},
-                        onWord: (_, _, _) {},
-                        onVerse: (_, _, _) {},
-                        onReference: (reference) => _mutate('setTabReference', {
-                          'tileId': _mobileTile,
-                          'tabId': selectedTab['id'],
-                          'reference': referenceLabel(reference),
-                        }),
-                        onReferenceText: (reference) =>
-                            _mutate('setTabReference', {
-                              'tileId': _mobileTile,
-                              'tabId': selectedTab['id'],
-                              'reference': reference,
-                            }),
-                      ),
+                child: ReaderNotesCompanion(
+                  key: _companionPane,
+                  reference: Map.of(asMap(selectedTab['reference'])),
+                  active: widget.active,
+                  flush: _flush,
+                ),
               ),
             ],
           ),
@@ -1608,15 +1601,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
     widget.controller?.update(
       tabCount: _flatTabs(tiles).length,
       companion: _companion,
-      commentaries: [
-        for (final resource in asMaps(_data['readerResources']))
-          if (resource['kind'] == 'commentary')
-            ReaderSearchResource(
-              id: asString(resource['id']),
-              title: asString(resource['name'], asString(resource['id'])),
-              kind: 'commentary',
-            ),
-      ],
       versePerLine: _versePerLine,
       activeTitle: _resourceTitle(selectedTab),
       reference: asMap(selectedTab['reference']),
@@ -1793,12 +1777,11 @@ class _ChapterPane extends StatefulWidget {
     required this.active,
     this.fontScale = 1,
     this.versePerLine = false,
-    this.follower = false,
   });
   final Json initial, resource, reference;
   final _ChapterCache cache;
   final double fontScale;
-  final bool active, versePerLine, follower;
+  final bool active, versePerLine;
   final void Function(Json) onPosition, onReference;
   final void Function(String) onReferenceText;
   final void Function(Json, Json, int) onWord;
@@ -1833,6 +1816,8 @@ class _ChapterPaneState extends State<_ChapterPane> {
   Json? _nextAlignment;
   Json? _requestedReference;
   int _generation = 0;
+  Object? _contentInputs;
+  Widget? _content;
 
   String _key(Json reference) =>
       '${reference['book']}:${reference['chapter']}:${reference['verse'] ?? 0}';
@@ -2034,7 +2019,6 @@ class _ChapterPaneState extends State<_ChapterPane> {
       if (mounted && generation == _generation) {
         setState(() {
           _error = '$error';
-          if (widget.follower) _chapters.clear();
           _refreshEntries();
         });
       }
@@ -2448,34 +2432,6 @@ class _ChapterPaneState extends State<_ChapterPane> {
     return true;
   }
 
-  Future<void> _pageBy(int direction) async {
-    if (!_scroll.hasClients || _loading) return;
-    if (direction > 0 &&
-        _scroll.position.extentAfter <
-            _scroll.position.viewportDimension * .9) {
-      await _load(false);
-    }
-    if (direction < 0 &&
-        _scroll.position.extentBefore <
-            _scroll.position.viewportDimension * .9) {
-      await _load(true);
-    }
-    if (!mounted || !_scroll.hasClients) return;
-    _userScroll = true;
-    _scroll.jumpTo(
-      (_scroll.offset + direction * _scroll.position.viewportDimension * .88)
-          .clamp(
-            _scroll.position.minScrollExtent,
-            _scroll.position.maxScrollExtent,
-          ),
-    );
-    await WidgetsBinding.instance.endOfFrame;
-    if (mounted) {
-      _needsCapture = true;
-      capturePosition();
-    }
-  }
-
   Widget _item(int index) {
     final entry = _entries[index];
     return _ReaderViewportItem(
@@ -2512,6 +2468,30 @@ class _ChapterPaneState extends State<_ChapterPane> {
   );
 
   Widget _buildContent(BuildContext context) {
+    // Tab activation and local saves do not change the chapter's presentation.
+    // Keep the lazy sliver tree (and its shaped paragraphs) across those updates.
+    // Data replacements, reading preferences and inherited presentation changes
+    // still invalidate it; callbacks read the current widget when invoked.
+    final inputs = (
+      _entries,
+      _anchorKey,
+      _loading,
+      _error,
+      widget.fontScale,
+      widget.versePerLine,
+      widget.resource['direction'],
+      Theme.of(context),
+      MediaQuery.textScalerOf(context),
+      Directionality.of(context),
+      Localizations.maybeLocaleOf(context),
+      AppScope.of(context).eInk,
+    );
+    if (_content != null && _contentInputs == inputs) return _content!;
+    _contentInputs = inputs;
+    return _content = _createContent(context);
+  }
+
+  Widget _createContent(BuildContext context) {
     if (_chapters.isEmpty) {
       return Center(
         child: _error == null
@@ -2567,25 +2547,6 @@ class _ChapterPaneState extends State<_ChapterPane> {
             ),
           ),
         ),
-        if (AppScope.of(context).eInk)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              IconButton(
-                tooltip: 'Vorherige Bildschirmseite',
-                onPressed: _loading ? null : () => _pageBy(-1),
-                icon: const Icon(Icons.arrow_back),
-              ),
-              const Flexible(
-                child: Text('Blättern', textAlign: TextAlign.center),
-              ),
-              IconButton(
-                tooltip: 'Nächste Bildschirmseite',
-                onPressed: _loading ? null : () => _pageBy(1),
-                icon: const Icon(Icons.arrow_forward),
-              ),
-            ],
-          ),
       ],
     );
   }

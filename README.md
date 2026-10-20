@@ -70,8 +70,8 @@ und Tablets wechseln Wischgesten zwischen allen geöffneten Werken in einer einz
 Tabs, Lesestellen und Suchen werden auf diesem Gerät gespeichert, getrennt nach Konto und
 Server. Sie sind unabhängig vom Browser und von anderen App-Geräten; eine Verwaltung
 benannter Arbeitsbereiche sowie Split- oder Layoutbedienung gibt es in der App nicht.
-E-Ink bietet Schwarz-Weiß-Kontrast,
-reduzierte Animationen und seitenweises Blättern. Die vollständige Zuordnung und
+E-Ink bietet Schwarz-Weiß-Kontrast und reduzierte Animationen; der Lesetext lässt sich
+wie auf anderen Geräten fortlaufend scrollen. Die vollständige Zuordnung und
 bewusste Unterschiede zur Weboberfläche stehen in [docs/FEATURES.md](docs/FEATURES.md).
 
 Wortklicks öffnen die Wortstudie über dem Bibeltext als herunterwischbaren Dialog;

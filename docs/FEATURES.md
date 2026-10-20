@@ -11,8 +11,8 @@ und auf deren aktuelle serverseitige Leserechte. Der tatsächliche Prüfstand st
 | Tabs | Eine flache Folge aller Ressourcen auf jeder Fensterbreite, visuelle Tabkarten per langem Drücken verschiebbar, zusätzliche Plus-Karte, Hinzufügen/Schließen, A–E-Kopplung mit Web-Farben und Buchstaben, unabhängige Tabs |
 | Lokaler Readerstand | Tabs, Lesestellen, Tabgruppen, Suchen und Notizfilter pro Gerät, Server und Konto im sicheren Speicher; eigener Gaststand, Wiederherstellung bei Neustart |
 | Unabhängigkeit | Keine Übernahme oder Änderung von Browser-Arbeitsbereichen, keine Synchronisierung der Tabs zwischen App-Geräten, keine Workspace-Verwaltung |
-| Telefon/Tablet | Floating-Hauptnavigation, Wischwechsel zwischen allen Werken, optionale mitlesende Kommentarspalte mit Seitenwechsel in Einstellungen, automatischer Einspaltenrückfall bei wenig Platz, Fensterwechsel ohne Umordnung der lokalen Tabs |
-| E-Ink | Kontrastreiche helle Darstellung, reduzierte Animationen, direktes Blättern in Bildschirmabschnitten, erkennbare Markierungen ohne Farberkennung |
+| Telefon/Tablet | Floating-Hauptnavigation, Wischwechsel zwischen allen Werken, optionale Notizenspalte zum aktuellen Kapitel mit Seitenwechsel in Einstellungen, automatischer Einspaltenrückfall bei wenig Platz, Fensterwechsel ohne Umordnung der lokalen Tabs |
+| E-Ink | Kontrastreiche helle Darstellung, reduzierte Animationen, fortlaufendes Scrollen, erkennbare Markierungen ohne Farberkennung |
 | Suche | Wort-/Phrasensuche, Vorschläge, Buchfilter und Seiten; beim Öffnen übernimmt die Hauptnavigation das aktuelle Reader-Werk samt Titel und sucht bei geändertem Werk den bisherigen Begriff erneut; lokale Werksuche im Tabmenü |
 | Wortstudium | Herunterwischbarer Lexikon-Dialog bei Wortklick, Strong-Artikel, Quellwort/Position, Morphologie, Übersetzungsformen, Häufigkeiten und Fundstellen |
 | Markierungen | Neue Ganzversmarkierungen mit durchgehenden, leicht unregelmäßigen Markerstrichen pro Zeile; vorhandene Versbereichs-/Wortmarkierungen bleiben sichtbar und gezielt löschbar; vier einzeilige Versaktionen; Kopieren über den System-Teilen-Dialog, Übersichten, eigene Stilnamen und Farben mit sichtbarer Farbkachel und Textvorschau in den Einstellungen |
@@ -54,7 +54,7 @@ dauerhafte Offline-Warteschlange.
 
 E-Ink-Unterstützung verwendet normale Android-/Flutter-Schnittstellen. Es wird kein
 Boox-SDK eingebunden, und kein gerätespezifischer Refresh-Modus erzwungen. Ob Kontrast,
-Blättern und Touch auf einem bestimmten Boox-Modell angenehm sind, muss am Gerät geprüft werden.
+Scrollen und Touch auf einem bestimmten Boox-Modell angenehm sind, muss am Gerät geprüft werden.
 
 Die nativen Einstellungen unter „Mehr“ bündeln Darstellung, Textdarstellung und nach Anmeldung
 Leseschrift, Standardbibel sowie Markierungsfarben. Konto/Profil/Passwort sind über das Personen-Icon

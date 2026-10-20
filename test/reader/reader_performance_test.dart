@@ -76,6 +76,141 @@ Json longChapter() {
 
 void main() {
   testWidgets(
+    'a horizontal drag does not save or activate a tab until the page settles',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final api = DelayedReaderApi(readerFixture(tiles: 2));
+      final store = ControlledLocalStore(api);
+      final controller = ReaderController();
+      await tester.pumpWidget(
+        app(
+          api,
+          ReaderScreen(
+            path: '/Joh1',
+            controller: controller,
+            localStore: store,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      store.writes.clear();
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PageView)),
+      );
+      await gesture.moveBy(const Offset(-30, 0));
+      await tester.pump();
+      await gesture.moveBy(const Offset(-250, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+      // PageView has crossed its midpoint, but the finger is still down.
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).controller!.page,
+        greaterThan(.5),
+      );
+      expect(store.writes, isEmpty);
+      expect(controller.activeTitle, 'Bibel 0');
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(controller.activeTitle, 'Bibel 1');
+      expect(store.writes, isNotEmpty);
+      expect(await controller.flush(), isTrue);
+      expect(api.actions, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'pending vertical saves wait for a swipe but explicit navigation settles it',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final api = DelayedReaderApi(longChapter());
+      final store = ControlledLocalStore(api);
+      final controller = ReaderController();
+      await tester.pumpWidget(
+        app(
+          api,
+          ReaderScreen(
+            path: '/Joh1',
+            controller: controller,
+            localStore: store,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -420));
+      await tester.pump(const Duration(milliseconds: 200));
+      store.writes.clear();
+      final pageController = tester
+          .widget<PageView>(find.byType(PageView))
+          .controller!;
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PageView)),
+      );
+      await gesture.moveBy(const Offset(-30, 0));
+      await tester.pump();
+      await gesture.moveBy(const Offset(-250, 0));
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(pageController.page, greaterThan(.5));
+      expect(store.writes, isEmpty);
+      expect(controller.activeTitle, 'Bibel 0');
+
+      expect(await controller.flush(), isTrue);
+      expect(pageController.page, 1);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(controller.activeTitle, 'Bibel 1');
+      final saved = Uri.parse(asString((await store.read())?['path']));
+      expect(saved.queryParameters['focus'], '2');
+      expect(api.actions, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'returning to a loaded flow tab preserves shaped text and its scroll offset',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final data = longChapter()..['versePerLine'] = false;
+      final api = DelayedReaderApi(data);
+      final controller = ReaderController();
+      await tester.pumpWidget(
+        app(api, ReaderScreen(path: '/Joh1', controller: controller)),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -420));
+      await tester.pumpAndSettle();
+      final text = tester.state<VerseTextState>(find.byType(VerseText).first);
+      final paragraph = text.paragraph!;
+      final spans = paragraph.text;
+      final scroll = tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView))
+          .controller!;
+      final offset = scroll.offset;
+
+      await tester.drag(find.byType(PageView), const Offset(-350, 0));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(PageView), const Offset(350, 0));
+      await tester.pumpAndSettle();
+      expect(text.paragraph, same(paragraph));
+      expect(text.paragraph!.text, same(spans));
+      expect(scroll.offset, closeTo(offset, 1));
+      expect(await controller.flush(), isTrue);
+      expect(api.pages, hasLength(1));
+      expect(api.actions, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'local flat tabs retain original coordinates across scrolling and phone-to-tablet resize',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);

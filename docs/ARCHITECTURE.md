@@ -147,6 +147,48 @@ Suchkontext und Lesestelle; A–E koppelt aktive und inaktive Tabs derselben Gru
 lokalen Stands. Die Tabübersicht endet immer mit einer leeren Plus-Karte zum Öffnen der
 Werkauswahl. Erst die Auswahl eines Werkes legt einen Tab an.
 
+Beim horizontalen Wischen übernimmt der Reader die Tabauswahl nach Ende der
+`PageView`-Bewegung. Damit laufen Gruppenabgleich und lokale Speicherung nicht am
+halben Seitenübergang. Unterbricht eine Navigation die Geste, sichert ihr Guard auch
+die gerade sichtbare Auswahl. Erfolgreiches Speichern ohne Fehleränderung erzeugt
+keinen zusätzlichen Reader-Neuaufbau.
+
+Kapitel behalten bei reinen Auswahl-/Speicheränderungen ihren Sliver-Baum; `VerseText`
+behält unveränderte Textspans, Gestenerkennung und das geformte Fußnoten-Overlay.
+Kapitelersatz, Schriftgröße, Darstellungsmodus und relevante geerbte Stile invalidieren
+die Präsentation. Ein Kapitelreload ersetzt seine Segmentlisten; der lokale Cache
+vergleicht ihre Identität und Darstellungsmetadaten, ohne Texte erneut zu serialisieren
+oder zu zerlegen. Gespeicherte Aktionen rufen weiterhin die aktuellen Handler auf.
+Positionsmessung betrachtet nur die am Viewport aufgebauten Einträge und verwendet
+für Fließtext die tatsächliche Glyphenposition. Regressionen prüfen diese Darstellung
+ausdrücklich neben versweisen Listen; Gerätebildraten erfordern einen Release-Build
+auf dem betreffenden Gerät.
+
+`ReaderRichText` verwendet weiterhin Flutters `RenderParagraph` für Layout, Zeichnung
+und sämtliche semantischen Wortknoten. Deren Hierarchie wird rekursiv in Gruppen
+mit höchstens 32 Kindern aufgeteilt. Lange Fließtextabsätze können sonst tausende
+Geschwister erzeugen, deren räumliche Sortierung bei aktivierten Bedienungshilfen
+quadratische Arbeit auslöst. Ordinale Sortierschlüssel allein verhindern diese vorher
+ausgeführte Sortierung nicht. Unbenannte Strukturknoten behalten die nativen Labels,
+Aktionen, IDs, Sichtbarkeitsmerkmale und Rechtecke der Wortknoten bei. Alle Rechtecke
+bleiben im Koordinatensystem des Absatzes; die vorhandenen Aktionen zum Sichtbarmachen
+eines Wortes dürfen keine zusätzliche Verschiebung erhalten.
+
+Ein nativer Semantikaufbau erzeugt neue Sortierschlüssel und markiert dadurch auch
+unveränderte Wortknoten als geändert. Nach dem initialen Aufbau werden daher für reine
+Viewport-Verschiebungen die nativen Knoten, ihre Gruppenzuordnung und ihre Konfiguration
+wiederverwendet. Nur Wörter mit geändertem Sichtbarkeitsstatus werden aktualisiert.
+Ein Sammelknoten übernimmt die nativen Kinder, ohne sie zunächst aus ihren Gruppen
+zu entfernen; solche Zwischenzustände würden alle Wörter erneut an Android übertragen.
+Layout, semantische Metadaten oder geänderte Recognizer-Callbacks invalidieren diesen
+Cache. Nicht unterstützte Inline-Inhalte verwenden weiterhin den nativen Aufbau.
+Beim Abschalten der
+Semantik werden nur eigene Referenzen verworfen, weil deren Owner bereits zerstört
+sein kann. Regressionen vergleichen die native Darstellung mit aktivierter Semantik,
+einschließlich Schrift-/Breitenwechsel, RTL, schnellen Gesten und erneuter Aktivierung.
+Die Semantik läuft nach dem Compositing: niedrige `FrameTiming`-Build-/Rasterwerte allein
+schließen deshalb lange Blockaden der Eingabeverarbeitung nicht aus.
+
 Langes Drücken und Ziehen verschiebt die Tabkarten, einschließlich automatischem Scrollen am
 oberen/unteren Rand; die Plus-Karte ist auch ein Ablageziel für das Ende der Folge. Screenreader
 erhalten entsprechende Verschiebeaktionen. Beim Verschieben wird eine importierte Mehrkachel-
@@ -154,20 +196,29 @@ Adresse zu einer einzelnen lokalen Kachel normalisiert. Alle Tabinhalte, IDs, Gr
 Wortstudien und die aktive Auswahl bleiben erhalten. Die neue Reihenfolge steht im gespeicherten
 Reader-URL-Snapshot und damit auch in bewusst geteilten Ansichten.
 
-„Einstellungen → Kommentarspalte“ ergänzt auf Wunsch eine zweite Spalte neben der aktuell
-sichtbaren Bibel. Das konkrete Kommentarwerk und „Kommentar links anzeigen“ werden lokal pro
-Server/Konto gespeichert; standardmäßig steht die Bibel links. Die Spalte erscheint nur ab
-760 logischen Pixeln und genügend Platz für die Systemschrift. Schmale Fenster, OS-Split-Screen
-und große Schrift behalten die Präferenz, zeigen aber nur den normalen Reader. Die Zusatzspalte
-ist kein Tab und verändert die Tabgruppen nicht. Bibelstellen und Bibelscrolls richten den
-Kommentar aus, Kommentar-Scrolls ändern keine Bibelstelle. Kapitel werden über den unveränderten
-Reader-Endpunkt unter den aktuellen Leserechten geladen. Nicht mehr verfügbare ausgewählte Werke
-werden erklärt, nicht still ersetzt oder aus einem alten Cache angezeigt.
-Scheitert das Nachführen, verschwindet der alte Kommentartext aus dieser Spalte und eine sichtbare
-Wiederholen-Aktion lädt genau die angefragte neue Stelle. Verzögerte Antworten eines zuvor gewählten
-Werks dürfen den neuen Kommentar nicht ersetzen. Nach einer Breitenänderung wird die gespeicherte
-Bibelstelle anhand des neu umbrochenen Textes ausgerichtet; alte Pixelpositionen gelten nur bei
-gleicher Spaltenbreite. Die Messung wartet den Layout-Frame eines vorherigen Sofort-Scrolls ab.
+„Einstellungen → Notizenspalte“ ergänzt auf Wunsch eine zweite Spalte neben der aktuell
+sichtbaren Bibel. Sichtbarkeit und „Notizen links anzeigen“ werden lokal pro Server/Konto
+gespeichert; standardmäßig steht die Bibel links. Die Spalte erscheint nur ab 760 logischen
+Pixeln und genügend Platz für die Systemschrift. Schmale Fenster, OS-Split-Screen und große
+Schrift behalten die Präferenz, zeigen aber nur den normalen Reader. Die Zusatzspalte ist
+kein Tab und verändert die Tabgruppen nicht. Alte Kommentar-Ressourcenpräferenzen werden
+ignoriert; ausdrücklich geöffnete Kommentar-Tabs bleiben vollständig erhalten.
+
+Die native Notizliste lädt ausschließlich eigene Notiz-Zusammenfassungen über
+`/api/documents?kind=note&passage=Joh3` und zeigt standardmäßig das sichtbare Kapitel über
+alle Übersetzungen hinweg. Der Kapitelbezug lässt sich ausschalten; Suche und Tagfilter
+bleiben verfügbar. Erst ein Kapitelwechsel löst eine neue Anfrage aus, nie jeder gescrollte
+Vers. Während einer neuen Anfrage und bei Fehlern bleibt die alte Kapitel-Liste verborgen;
+verspätete Antworten dürfen die aktuelle Auswahl nicht ersetzen. Eine sichtbare
+Wiederholen-Aktion lädt die angefragte Stelle erneut. Gäste erhalten einen Anmeldehinweis.
+
+Öffnen und Anlegen einer Notiz sichern zuerst die Reader-Position und verwenden anschließend
+den vorhandenen WebView-Editor mit seinen Speicher- und Navigationsguards. Neue Notizen
+werden an den sichtbaren Vers gebunden. Beim Zurückkehren wird die Liste neu geladen.
+Scrollen in der Notizliste verändert keine Bibelstelle. Nach einer Breitenänderung wird
+die gespeicherte Bibelstelle anhand des neu umbrochenen Textes ausgerichtet; alte
+Pixelpositionen gelten nur bei gleicher Spaltenbreite. Die Messung wartet den Layout-Frame
+eines vorherigen Sofort-Scrolls ab.
 
 „Mehr → Einstellungen“ bündelt Darstellung/E-Ink und die Textdarstellung auch für Gäste.
 Angemeldete Nutzer laden darunter Leseschrift, Standardbibel und Markierungsfarben über den

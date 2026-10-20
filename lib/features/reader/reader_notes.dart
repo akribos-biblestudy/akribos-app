@@ -14,16 +14,18 @@ class ReaderNotes extends StatefulWidget {
     required this.onFilters,
     required this.onOpen,
     required this.onCreate,
+    this.notesOnly = false,
   });
   final String reference, resourceId, initialState;
+  final bool notesOnly;
   final void Function(String query, String tag, bool current) onFilters;
   final void Function(String id) onOpen;
   final VoidCallback onCreate;
   @override
-  State<ReaderNotes> createState() => _ReaderNotesState();
+  State<ReaderNotes> createState() => ReaderNotesState();
 }
 
-class _ReaderNotesState extends State<ReaderNotes> {
+class ReaderNotesState extends State<ReaderNotes> {
   late String _query =
       Uri.splitQueryString(widget.initialState)['notesQuery'] ?? '';
   late String _tag =
@@ -36,15 +38,29 @@ class _ReaderNotesState extends State<ReaderNotes> {
       Uri(
         path: '/api/documents',
         queryParameters: {
+          if (widget.notesOnly) 'kind': 'note',
           if (_query.isNotEmpty) 'q': _query,
           if (_tag.isNotEmpty) 'tag': _tag,
           if (_current) ...{
             'passage': widget.reference,
-            'resource': widget.resourceId,
+            if (widget.resourceId.isNotEmpty) 'resource': widget.resourceId,
           },
         },
       ).toString(),
     );
+  }
+
+  void reload() => setState(_load);
+
+  @override
+  void didUpdateWidget(ReaderNotes oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.notesOnly != oldWidget.notesOnly ||
+        (_current &&
+            (widget.reference != oldWidget.reference ||
+                widget.resourceId != oldWidget.resourceId))) {
+      _load();
+    }
   }
 
   void _change() {
@@ -74,7 +90,9 @@ class _ReaderNotesState extends State<ReaderNotes> {
         padding: const EdgeInsets.all(16),
         child: SearchBox(
           initialValue: _query,
-          label: 'Eigene Notizen und Dokumente durchsuchen',
+          label: widget.notesOnly
+              ? 'Eigene Notizen durchsuchen'
+              : 'Eigene Notizen und Dokumente durchsuchen',
           onSearch: (value) {
             _query = value;
             _change();
@@ -129,6 +147,11 @@ class _ReaderNotesState extends State<ReaderNotes> {
         child: FutureBuilder<dynamic>(
           future: _request,
           builder: (context, snapshot) {
+            // FutureBuilder retains the old snapshot while a new request waits.
+            // Do not show notes from the previous chapter or a revoked session.
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
             if (snapshot.hasError) {
               return Center(
                 child: TextButton(
@@ -145,10 +168,12 @@ class _ReaderNotesState extends State<ReaderNotes> {
               padding: const EdgeInsets.all(16),
               children: [
                 if (asMaps(data['documents']).isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
                     child: Text(
-                      'Keine Notizen oder Dokumente für diese Auswahl.',
+                      widget.notesOnly
+                          ? 'Keine Notizen für diese Auswahl.'
+                          : 'Keine Notizen oder Dokumente für diese Auswahl.',
                     ),
                   ),
                 for (final document in asMaps(data['documents']))
