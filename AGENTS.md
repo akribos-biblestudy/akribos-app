@@ -58,8 +58,13 @@ exercise long Fließtext paragraphs as well as versewise rows, without equating 
 test timing to release-device frame rates.
 
 ReaderRichText inherits native RenderParagraph layout, painting and semantic leaves.
-Only its semantics hierarchy is grouped recursively into at most 32 siblings, avoiding
-quadratic spatial sorting of long linked paragraphs. Preserve native labels, actions,
+Its semantics hierarchy is grouped recursively into at most 32 siblings, avoiding
+quadratic spatial sorting of long linked paragraphs. Pure viewport clipping updates
+must reuse native leaves, their parentage and sort keys, updating only changed hidden
+flags. Reassembling native leaves recreates sort keys and dirties every word; detaching
+and regrouping also forces full retransmission to Android. Invalidate the cached leaf
+configuration for layout, semantic metadata and recognizer callback changes; unsupported
+inline content must fall back to native assembly. Preserve native labels, actions,
 node IDs, clipping and paragraph-local rectangles; do not disable accessibility or
 replace word actions with a single paragraph label. Regression tests must enable
 semantics and cover fast flings, reflow and disabling/re-enabling semantics. FrameTiming

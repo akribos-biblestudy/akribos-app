@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
@@ -45,8 +46,9 @@ class ReaderRichText extends RichText {
       );
 }
 
-/// Only the hierarchy changes. RenderParagraph still creates every original
-/// label, link action, glyph rectangle, visibility flag and show-on-screen action.
+/// Native RenderParagraph creates the accessible text leaves and their actions.
+/// Bounded groups and incremental clip updates keep unchanged leaves attached
+/// without retransmitting them during scrolling.
 class RenderReaderParagraph extends RenderParagraph {
   RenderReaderParagraph(
     super.text, {
@@ -70,16 +72,10 @@ class RenderReaderParagraph extends RenderParagraph {
   // Stable structural nodes, indexed by level and position. Higher levels are
   // needed when even the first layer of groups exceeds the sibling limit.
   final _groups = <List<SemanticsNode>>[];
-
-  void _emptyGroups() {
-    for (final level in _groups) {
-      for (final group in level) {
-        // Release the previous parents before RenderParagraph reuses its native
-        // leaf nodes. No semantics update is submitted during this assembly.
-        group.updateWith(config: null);
-      }
-    }
-  }
+  _SemanticsChildrenCollector? _collector;
+  SemanticsNode? _semanticsRoot;
+  List<SemanticsNode> _rootChildren = const [];
+  List<_NativeSemanticsLeaf>? _nativeLeaves;
 
   @override
   void assembleSemanticsNode(
@@ -87,15 +83,54 @@ class RenderReaderParagraph extends RenderParagraph {
     SemanticsConfiguration config,
     Iterable<SemanticsNode> children,
   ) {
-    _emptyGroups();
-    super.assembleSemanticsNode(node, config, children);
-    var current = <SemanticsNode>[];
-    node.visitChildren((child) {
-      current.add(child);
-      return true;
-    });
+    final leaves = _nativeLeaves;
+    if (identical(node, _semanticsRoot) &&
+        leaves != null &&
+        children.isEmpty &&
+        leaves.every((leaf) => leaf.callbackUnchanged)) {
+      // Scrolling changes the inherited clip, not text geometry or actions.
+      // Native assembly also replaces every OrdinalSortKey, which dirties and
+      // retransmits even unchanged words. Keep its nodes and configurations,
+      // updating only words that have actually entered or left the paint clip.
+      final clip = node.parentPaintClipRect;
+      for (final leaf in leaves) {
+        final hidden =
+            clip != null &&
+            clip.intersect(leaf.node.rect).isEmpty &&
+            !leaf.node.rect.isEmpty;
+        if (leaf.config.isHidden != hidden) {
+          leaf.config.isHidden = hidden;
+          leaf.node.updateWith(config: leaf.config);
+        }
+      }
+      for (final level in _groups) {
+        for (final group in level) {
+          group
+            ..parentPaintClipRect = node.parentPaintClipRect
+            ..parentSemanticsClipRect = node.parentSemanticsClipRect;
+        }
+      }
+      node.updateWith(
+        config: config,
+        childrenInInversePaintOrder: _rootChildren,
+      );
+      return;
+    }
+
+    final collector = _collector ??= _SemanticsChildrenCollector();
+    collector
+      ..rect = node.rect
+      ..transform = node.transform
+      ..parentPaintClipRect = node.parentPaintClipRect
+      ..parentSemanticsClipRect = node.parentSemanticsClipRect;
+    super.assembleSemanticsNode(collector, config, children);
+    var current = collector.takeChildren();
+    _nativeLeaves = children.isEmpty ? _cacheNativeLeaves(current) : null;
+    _semanticsRoot = node;
     if (current.length <= maxSemanticsChildren) {
       _groups.clear();
+      _rootChildren = current;
+      node.updateWith(config: config, childrenInInversePaintOrder: current);
       return;
     }
 
@@ -141,7 +176,8 @@ class RenderReaderParagraph extends RenderParagraph {
               ..isSemanticBoundary = true
               ..explicitChildNodes = true
               ..textDirection = textDirection
-              ..sortKey = OrdinalSortKey(groupIndex.toDouble()),
+              ..sortKey =
+                  group.sortKey ?? OrdinalSortKey(groupIndex.toDouble()),
             childrenInInversePaintOrder: members,
           );
         next.add(group);
@@ -155,7 +191,80 @@ class RenderReaderParagraph extends RenderParagraph {
     if (_groups.length > levelIndex) {
       _groups.removeRange(levelIndex, _groups.length);
     }
+    _rootChildren = current;
     node.updateWith(config: config, childrenInInversePaintOrder: current);
+  }
+
+  List<_NativeSemanticsLeaf>? _cacheNativeLeaves(List<SemanticsNode> nodes) {
+    final infos = combineSemanticsInfo(text.getSemanticsInformation());
+    if (infos.any((info) => info.isPlaceholder)) return null;
+    final leaves = <_NativeSemanticsLeaf>[];
+    var offset = 0;
+    for (final info in infos) {
+      final selection = TextSelection(
+        baseOffset: offset,
+        extentOffset: offset + info.text.length,
+      );
+      offset = selection.extentOffset;
+      // Native RenderParagraph skips ranges without glyph boxes. Match that
+      // mapping once after layout/content changes, never on ordinary scrolling.
+      if (getBoxesForSelection(selection).isEmpty) continue;
+      if (leaves.length == nodes.length) return null;
+      final node = nodes[leaves.length];
+      if (node.attributedLabel.string != (info.semanticsLabel ?? info.text) ||
+          node.identifier != (info.semanticsIdentifier ?? '') ||
+          node.hasChildren) {
+        return null;
+      }
+      // These are precisely the fields native RenderParagraph assigns to a
+      // text leaf. Keep its actual attributed label, direction and sort key;
+      // geometry, identity and its private showOnScreen callback stay native.
+      // Compatibility tests compare these fields/actions with native assembly;
+      // placeholders or an unexpected node mapping use native assembly instead.
+      final config = SemanticsConfiguration()
+        ..attributedLabel = node.attributedLabel
+        ..identifier = node.identifier
+        ..textDirection = node.textDirection
+        ..sortKey = node.sortKey
+        ..isLink = node.flagsCollection.isLink
+        ..isHidden = node.flagsCollection.isHidden;
+      VoidCallback? action;
+      switch (info.recognizer) {
+        case TapGestureRecognizer(onTap: final handler):
+        case DoubleTapGestureRecognizer(onDoubleTap: final handler):
+          action = handler;
+          if (handler != null) config.onTap = handler;
+        case LongPressGestureRecognizer(onLongPress: final handler):
+          action = handler;
+          if (handler != null) config.onLongPress = handler;
+        case null:
+          break;
+        default:
+          return null;
+      }
+      leaves.add(_NativeSemanticsLeaf(node, config, info.recognizer, action));
+    }
+    return leaves.length == nodes.length ? leaves : null;
+  }
+
+  @override
+  void markNeedsSemanticsUpdate() {
+    _nativeLeaves = null;
+    super.markNeedsSemanticsUpdate();
+  }
+
+  @override
+  void performLayout() {
+    _nativeLeaves = null;
+    super.performLayout();
+  }
+
+  void _clearSemanticsCache() {
+    _groups.clear();
+    _collector = null;
+    _semanticsRoot = null;
+    _rootChildren = const [];
+    _nativeLeaves = null;
   }
 
   @override
@@ -163,13 +272,57 @@ class RenderReaderParagraph extends RenderParagraph {
     // The owner may already have disposed its node registry. Like
     // RenderParagraph's native node cache, only release our references here;
     // changing parent/child links would try to detach from that disposed owner.
-    _groups.clear();
+    _clearSemanticsCache();
     super.clearSemantics();
   }
 
   @override
   void dispose() {
-    _groups.clear();
+    _clearSemanticsCache();
     super.dispose();
   }
+}
+
+/// Lets native RenderParagraph update its own cached leaves without temporarily
+/// reparenting them to a flat root. Detaching them would mark every word dirty.
+/// This collector never joins the semantics tree or submits a platform update.
+class _SemanticsChildrenCollector extends SemanticsNode {
+  List<SemanticsNode> _children = const [];
+
+  @override
+  void updateWith({
+    required SemanticsConfiguration? config,
+    List<SemanticsNode>? childrenInInversePaintOrder,
+  }) {
+    _children = childrenInInversePaintOrder ?? const [];
+  }
+
+  List<SemanticsNode> takeChildren() {
+    final children = _children;
+    _children = const [];
+    return children;
+  }
+}
+
+class _NativeSemanticsLeaf {
+  const _NativeSemanticsLeaf(
+    this.node,
+    this.config,
+    this.recognizer,
+    this.action,
+  );
+
+  final SemanticsNode node;
+  final SemanticsConfiguration config;
+  final GestureRecognizer? recognizer;
+  final VoidCallback? action;
+
+  // Recognizers are mutable even when their containing TextSpan is unchanged.
+  // Rebuild from native semantics when a callback changes or becomes null.
+  bool get callbackUnchanged => identical(action, switch (recognizer) {
+    TapGestureRecognizer(onTap: final handler) => handler,
+    DoubleTapGestureRecognizer(onDoubleTap: final handler) => handler,
+    LongPressGestureRecognizer(onLongPress: final handler) => handler,
+    _ => null,
+  });
 }

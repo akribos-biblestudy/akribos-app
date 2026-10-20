@@ -165,14 +165,24 @@ ausdrücklich neben versweisen Listen; Gerätebildraten erfordern einen Release-
 auf dem betreffenden Gerät.
 
 `ReaderRichText` verwendet weiterhin Flutters `RenderParagraph` für Layout, Zeichnung
-und sämtliche semantischen Wortknoten. Nur deren Hierarchie wird rekursiv in Gruppen
+und sämtliche semantischen Wortknoten. Deren Hierarchie wird rekursiv in Gruppen
 mit höchstens 32 Kindern aufgeteilt. Lange Fließtextabsätze können sonst tausende
 Geschwister erzeugen, deren räumliche Sortierung bei aktivierten Bedienungshilfen
 quadratische Arbeit auslöst. Ordinale Sortierschlüssel allein verhindern diese vorher
 ausgeführte Sortierung nicht. Unbenannte Strukturknoten behalten die nativen Labels,
 Aktionen, IDs, Sichtbarkeitsmerkmale und Rechtecke der Wortknoten bei. Alle Rechtecke
 bleiben im Koordinatensystem des Absatzes; die vorhandenen Aktionen zum Sichtbarmachen
-eines Wortes dürfen keine zusätzliche Verschiebung erhalten. Beim Abschalten der
+eines Wortes dürfen keine zusätzliche Verschiebung erhalten.
+
+Ein nativer Semantikaufbau erzeugt neue Sortierschlüssel und markiert dadurch auch
+unveränderte Wortknoten als geändert. Nach dem initialen Aufbau werden daher für reine
+Viewport-Verschiebungen die nativen Knoten, ihre Gruppenzuordnung und ihre Konfiguration
+wiederverwendet. Nur Wörter mit geändertem Sichtbarkeitsstatus werden aktualisiert.
+Ein Sammelknoten übernimmt die nativen Kinder, ohne sie zunächst aus ihren Gruppen
+zu entfernen; solche Zwischenzustände würden alle Wörter erneut an Android übertragen.
+Layout, semantische Metadaten oder geänderte Recognizer-Callbacks invalidieren diesen
+Cache. Nicht unterstützte Inline-Inhalte verwenden weiterhin den nativen Aufbau.
+Beim Abschalten der
 Semantik werden nur eigene Referenzen verworfen, weil deren Owner bereits zerstört
 sein kann. Regressionen vergleichen die native Darstellung mit aktivierter Semantik,
 einschließlich Schrift-/Breitenwechsel, RTL, schnellen Gesten und erneuter Aktivierung.

@@ -19,6 +19,11 @@ List<SemanticsNode> labelledNodes(SemanticsNode node) => [
   for (final child in traversalChildren(node)) ...labelledNodes(child),
 ];
 
+List<SemanticsNode> allNodes(SemanticsNode node) => [
+  node,
+  for (final child in traversalChildren(node)) ...allNodes(child),
+];
+
 int maximumSiblings(SemanticsNode node) {
   final children = traversalChildren(node);
   var maximum = children.length;
@@ -78,6 +83,265 @@ Widget textFrame({
 );
 
 void main() {
+  testWidgets(
+    'unchanged semantic assembly keeps native leaves and groups clean',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      final recognizer = TapGestureRecognizer()..onTap = () {};
+      try {
+        const key = ValueKey('unchanged-semantics');
+        final text = TextSpan(
+          style: const TextStyle(fontSize: 19, height: 1.7),
+          children: [
+            for (var word = 0; word < 300; word++)
+              TextSpan(text: 'Wort$word ', recognizer: recognizer),
+          ],
+        );
+        for (final grouped in [false, true]) {
+          await tester.pumpWidget(
+            textFrame(text: text, grouped: grouped, paragraphKey: key),
+          );
+          final paragraph = tester.renderObject<RenderParagraph>(
+            find.byKey(key),
+          );
+          final root = paragraph.debugSemantics!;
+          final before = allNodes(root);
+          final parents = {for (final node in before) node.id: node.parent?.id};
+          expect(before.where((node) => node.debugIsDirty == true), isEmpty);
+          final config = SemanticsConfiguration();
+          paragraph.describeSemanticsConfiguration(config);
+          paragraph.assembleSemanticsNode(root, config, const []);
+          final after = allNodes(root);
+          expect({for (final node in after) node.id: node.parent?.id}, parents);
+          final dirty = after
+              .where((node) => node.debugIsDirty == true)
+              .map((node) => node.id)
+              .toSet();
+          debugPrint(
+            'SEMANTICS unchanged grouped=$grouped '
+            'nodes=${after.length} dirty=${dirty.length}',
+          );
+          // RenderParagraph creates new OrdinalSortKey instances on every
+          // assembly. Record that native baseline; the reader must avoid this
+          // retransmission when content, layout and clipping are unchanged.
+          if (!grouped) continue;
+          expect(
+            dirty,
+            isEmpty,
+            reason:
+                'An unchanged paragraph must not resend its entire semantic '
+                'tree (grouped=$grouped, nodes=${after.length}).',
+          );
+        }
+      } finally {
+        handle.dispose();
+        recognizer.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'clip-only assembly dirties only leaves whose hidden state changes',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      final recognizer = TapGestureRecognizer()..onTap = () {};
+      try {
+        const key = ValueKey('clip-only-semantics');
+        final text = TextSpan(
+          style: const TextStyle(fontSize: 19, height: 1.7),
+          children: [
+            for (var word = 0; word < 120; word++)
+              TextSpan(text: 'Wort$word ', recognizer: recognizer),
+          ],
+        );
+        for (final grouped in [false, true]) {
+          await tester.pumpWidget(
+            textFrame(text: text, grouped: grouped, paragraphKey: key),
+          );
+          final paragraph = tester.renderObject<RenderParagraph>(
+            find.byKey(key),
+          );
+          final root = paragraph.debugSemantics!;
+          final before = labelledNodes(root);
+          final hidden = {
+            for (final node in before) node.id: node.flagsCollection.isHidden,
+          };
+          final parents = {
+            for (final node in allNodes(root)) node.id: node.parent?.id,
+          };
+          final rects = {for (final node in before) node.id: node.rect};
+          expect(root.parentPaintClipRect, isNotNull);
+          root.parentPaintClipRect = root.parentPaintClipRect!.shift(
+            const Offset(0, 80),
+          );
+          final config = SemanticsConfiguration();
+          paragraph.describeSemanticsConfiguration(config);
+          paragraph.assembleSemanticsNode(root, config, const []);
+          final after = labelledNodes(root);
+          final changed = {
+            for (final node in after)
+              if (hidden[node.id] != node.flagsCollection.isHidden) node.id,
+          };
+          expect(changed, isNotEmpty);
+          expect(changed.length, lessThan(after.length));
+          expect({for (final node in after) node.id: node.rect}, rects);
+          expect({
+            for (final node in allNodes(root)) node.id: node.parent?.id,
+          }, parents);
+          final dirty = {
+            for (final node in after)
+              if (node.debugIsDirty == true) node.id,
+          };
+          debugPrint(
+            'SEMANTICS clip grouped=$grouped leaves=${after.length} '
+            'dirty=${dirty.length} hiddenChanges=${changed.length}',
+          );
+          if (!grouped) continue;
+          expect(
+            dirty,
+            changed,
+            reason:
+                'Scrolling must retain unchanged native semantics '
+                '(grouped=$grouped, leaves=${after.length}, '
+                'hidden changes=${changed.length}).',
+          );
+        }
+      } finally {
+        handle.dispose();
+        recognizer.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'semantic invalidation refreshes changed and removed recognizer actions',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      final calls = <String>[];
+      final recognizer = TapGestureRecognizer()
+        ..onTap = () => calls.add('original');
+      try {
+        const key = ValueKey('changing-actions');
+        final text = TextSpan(
+          style: const TextStyle(fontSize: 19, height: 1.7),
+          children: [
+            for (var word = 0; word < 120; word++)
+              TextSpan(text: 'Wort$word ', recognizer: recognizer),
+          ],
+        );
+        await tester.pumpWidget(
+          textFrame(text: text, grouped: true, paragraphKey: key),
+        );
+        final paragraph = tester.renderObject<RenderParagraph>(find.byKey(key));
+        SemanticsNode target() =>
+            labelledNodes(paragraph.debugSemantics!)
+                .singleWhere((node) => node.label == 'Wort0 ');
+        final id = target().id;
+        target().owner!.performAction(id, ui.SemanticsAction.tap);
+        expect(calls, ['original']);
+
+        for (final callback in ['replacement', null, 'restored']) {
+          recognizer.onTap = callback == null
+              ? null
+              : () => calls.add(callback);
+          if (callback == 'restored') {
+            // An explicit semantic invalidation must refresh metadata even when
+            // the recognizer, InlineSpan and paragraph geometry are unchanged.
+            paragraph.markNeedsSemanticsUpdate();
+            await tester.pump();
+          } else {
+            // A mutable recognizer also invalidates cached actions when only
+            // ancestor clipping caused another assembly.
+            final root = paragraph.debugSemantics!;
+            root.parentPaintClipRect = root.parentPaintClipRect!.shift(
+              const Offset(0, 1),
+            );
+            final config = SemanticsConfiguration();
+            paragraph.describeSemanticsConfiguration(config);
+            paragraph.assembleSemanticsNode(root, config, const []);
+          }
+          final node = target();
+          expect(node.id, id);
+          expect(
+            node.getSemanticsData().hasAction(ui.SemanticsAction.tap),
+            callback != null,
+          );
+          expect(node.flagsCollection.isLink, callback != null);
+          if (callback != null) {
+            node.owner!.performAction(id, ui.SemanticsAction.tap);
+          }
+          expect(
+            maximumSiblings(paragraph.debugSemantics!),
+            lessThanOrEqualTo(32),
+          );
+        }
+        expect(calls, ['original', 'replacement', 'restored']);
+        expect(tester.takeException(), isNull);
+      } finally {
+        handle.dispose();
+        recognizer.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'native showOnScreen actions reveal the same word after scrolling and reflow',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      final recognizer = TapGestureRecognizer()..onTap = () {};
+      final scroll = ScrollController();
+      try {
+        const key = ValueKey('show-word-on-screen');
+        final text = TextSpan(
+          style: const TextStyle(fontSize: 19, height: 1.7),
+          children: [
+            for (var word = 0; word < 120; word++)
+              TextSpan(text: 'Wort$word ', recognizer: recognizer),
+          ],
+        );
+        int? id;
+        for (final width in [350.0, 280.0]) {
+          if (scroll.hasClients) scroll.jumpTo(0);
+          await tester.pumpWidget(
+            textFrame(
+              text: text,
+              grouped: true,
+              paragraphKey: key,
+              scrollController: scroll,
+              width: width,
+            ),
+          );
+          final paragraph = tester.renderObject<RenderParagraph>(
+            find.byKey(key),
+          );
+          SemanticsNode target() =>
+              labelledNodes(paragraph.debugSemantics!)
+                  .singleWhere((node) => node.label == 'Wort119 ');
+          final node = target();
+          if (id != null) expect(node.id, id);
+          id = node.id;
+          expect(node.flagsCollection.isHidden, isTrue);
+          // RenderParagraph installs this private callback on SemanticsNode;
+          // it is dispatched by the owner rather than listed in SemanticsData.
+          node.owner!.performAction(id, ui.SemanticsAction.showOnScreen);
+          await tester.pumpAndSettle();
+          expect(scroll.offset, greaterThan(0));
+          expect(target().id, id);
+          expect(target().flagsCollection.isHidden, isFalse);
+          expect(
+            maximumSiblings(paragraph.debugSemantics!),
+            lessThanOrEqualTo(32),
+          );
+        }
+        expect(tester.takeException(), isNull);
+      } finally {
+        handle.dispose();
+        recognizer.dispose();
+        scroll.dispose();
+      }
+    },
+  );
+
   testWidgets(
     'recursive groups handle more than 1024 words and disappear after shrinking',
     (tester) async {
