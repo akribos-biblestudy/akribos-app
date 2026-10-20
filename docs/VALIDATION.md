@@ -62,10 +62,15 @@ interpretiert.
 Die gesamten Zeitfenster sind mit 11,416 bzw. 11,420 Sekunden praktisch gleich lang.
 Die CPU-Arbeit sinkt um 8,28 %, während die Verarbeitung regelmäßiger erfolgt;
 die zuvor CPU-lastigen 33–68-ms-Lücken verschwinden in diesen Messfenstern. Die
-Callback-Anzahl ist keine Messung der dargestellten FPS. Der Nutzer wurde zum
-erneuten praktischen Vergleich aufgefordert; dessen Rückmeldung steht noch aus.
+Callback-Anzahl ist keine Messung der dargestellten FPS. Der Nutzer hat die auf
+dem Smartphone installierte weitere Korrektur anschließend als „echte Verbesserung“
+bestätigt und ausdrücklich Commit und neues Release beauftragt. Damit liegt eine
+positive praktische Rückmeldung zu diesem Scroll-Fix vor; eine vergleichende Messung
+mit Logos oder der Bibel-App und eine vollständige iOS-/Tablet-Abnahme werden nicht behauptet.
 Nachweise und Hashmanifest liegen lokal unter
-`artifacts/scroll-regression-round2-20261020/`. Kein Remote-Push oder Store-Release.
+`artifacts/scroll-regression-round2-20261020/`. Während der Geräteprüfung erfolgte
+kein Remote-Push oder Store-Release. Die anschließende Veröffentlichung läuft über
+den vorhandenen GitHub-/Google-Play-Internal-Testing-Prozess.
 
 ## Nachprüfung: starkes Ruckeln bei schnellen Wischgesten
 

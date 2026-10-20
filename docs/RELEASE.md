@@ -80,13 +80,15 @@ Referenzen: [Flutter Android-Release](https://docs.flutter.dev/deployment/androi
 Die vollständige Schrittfolge und die neuen Android-GitHub-Workflows stehen in
 [PLAY-STORE.md](PLAY-STORE.md). Veröffentlichte `vX.Y.Z`-Releases starten den geschützten
 Workflow auf `main`; nach dem einmaligen manuellen Erstupload veröffentlicht dieser
-ausschließlich nach Google Play Internal Testing. Secrets und Play-Zugang sind noch
-einzurichten.
+ausschließlich nach Google Play Internal Testing. Die vorhandene Store-Einrichtung,
+das geschützte GitHub-Environment und die Prüfung des tatsächlichen Upload-Ergebnisses
+sind dort dokumentiert.
 
 Die direkte APK verwendet produktiven Server und optimierten Release-Code, ist jedoch
-weiter mit dem bisherigen lokalen Debugschlüssel signiert. Für Google Play sind eine eigene
-Upload-Signatur, sichere CI-Secrets und die tatsächliche Play-Console-Anwendung separat
-einzurichten. Eine andere Signatur erlaubt kein gewöhnliches Update der bereits lokal
+weiter mit dem bisherigen lokalen Debugschlüssel signiert. Google Play verwendet die
+separat eingerichtete Upload-Signatur und die Secrets im Environment `android-play-internal`.
+Der reguläre Release-Ablauf erzeugt keine neue Signieridentität. Eine andere Signatur
+erlaubt kein gewöhnliches Update der bereits lokal
 installierten App. Schlüssel und `key.properties` gehören nicht ins Repository.
 Versions-/Buildnummern können für spätere Veröffentlichungen über `--build-name` und
 `--build-number` gesetzt werden; dieses Skript hält den Pixel-Build `0.2.9+12` fest.
@@ -106,8 +108,9 @@ flutter build ios --debug --no-codesign
 
 Für echte Geräte und TestFlight in Xcode das tatsächliche Apple-Team und ein passendes
 Provisioning-Profil für `de.akribos.app` hinterlegen. Keychain-Entitlements sind bereits für
-Debug/Profile/Release gesetzt. Die aktuelle CI prüft ausschließlich Android; es gibt
-keinen iOS-Storeworkflow. Linux kann die Apple-Schritte nicht verifizieren.
+Debug/Profile/Release gesetzt. Die aktuelle CI prüft Android sowie einen unsignierten
+iOS-Simulatorbuild mit nativen Policytests; es gibt keinen iOS-Storeworkflow. Linux
+kann die Apple-Geräte- und Veröffentlichungsschritte nicht verifizieren.
 
 ## Passwortmanager
 
