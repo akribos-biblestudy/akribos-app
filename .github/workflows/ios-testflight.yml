@@ -20,7 +20,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 46
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      source_commit: ${{ steps.source.outputs.source_commit }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate release identity and await source and workflow CI
+        id: source
+        run: python3 scripts/ios_release.py wait-for-ci
   release:
+    needs: preflight
     if: github.ref == 'refs/heads/main'
     runs-on: macos-15
     timeout-minutes: 150
@@ -43,14 +64,10 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Validate release identity and await source and workflow CI
-        id: source
-        timeout-minutes: 46
-        run: python3 scripts/ios_release.py wait-for-ci
       # Only the app comes from the tag. All release tooling stays on trusted main.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ steps.source.outputs.source_commit }}
+          ref: ${{ needs.preflight.outputs.source_commit }}
           path: release-source
           persist-credentials: false
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
