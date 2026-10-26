@@ -255,6 +255,16 @@ def validate_profile(profile, certificate=None):
         require(certificate in profile["DeveloperCertificates"], "Signing certificate is absent from profile.")
 
 
+def distribution_project(project, fingerprint):
+    # Project-level conditional settings override Release.xcconfig. Flutter's
+    # template explicitly selects iPhone Developer here, even for Release.
+    require(re.fullmatch(r"[A-F0-9]{40}", fingerprint), "Invalid signing fingerprint.")
+    pattern = r'"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = [^;]+;'
+    replaced, count = re.subn(pattern, '"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "' + fingerprint + '";', project)
+    require(count == 3, "Unexpected Xcode signing layout; review the released project.")
+    return replaced
+
+
 def prepare_signing():
     data = checked_plan()
     directory = private_dir()
@@ -298,6 +308,8 @@ def prepare_signing():
         stream.write(f"\nDEVELOPMENT_TEAM = {TEAM}\nCODE_SIGN_STYLE = Manual\n"
                      f"CODE_SIGN_IDENTITY = {fingerprint}\n"
                      f"PROVISIONING_PROFILE_SPECIFIER = {profile['UUID']}\n")
+    project = SOURCE / "ios/Runner.xcodeproj/project.pbxproj"
+    project.write_text(distribution_project(project.read_text(), fingerprint))
     if data["encryptionExemptDeclaration"]:
         # Explicit per-dispatch operator declaration; no blanket claim for future releases.
         info_path = SOURCE / "ios/Runner/Info.plist"

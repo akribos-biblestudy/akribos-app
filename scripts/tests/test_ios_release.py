@@ -137,6 +137,14 @@ class SigningTests(unittest.TestCase):
             ios.protected_write(path, b'fixture')
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
+    def test_distribution_overrides_project_level_development_identity(self):
+        project = (Path(__file__).resolve().parents[2] / 'ios/Runner.xcodeproj/project.pbxproj').read_text()
+        fixed = ios.distribution_project(project, 'A' * 40)
+        self.assertNotIn('"iPhone Developer"', fixed)
+        self.assertEqual(fixed.count('"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "' + 'A' * 40 + '";'), 3)
+        with self.assertRaisesRegex(ios.ReleaseError, 'layout'):
+            ios.distribution_project('unexpected project', 'A' * 40)
+
 
 class UploadTests(unittest.TestCase):
     def exercise(self, validation, upload=None, change_identity=False):
