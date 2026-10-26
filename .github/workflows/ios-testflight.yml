@@ -1,0 +1,98 @@
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing published vX.Y.Z release to build and upload'
+        type: string
+        required: true
+      encryption_exempt:
+        description: 'Operator confirms this release uses only exempt encryption'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-15
+    timeout-minutes: 150
+    environment: ios-testflight
+    permissions:
+      contents: write # Permanent, atomic iOS build-number reservation tags.
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      ENCRYPTION_EXEMPT: ${{ inputs.encryption_exempt }}
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      CI: 'true'
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate release identity and await source and workflow CI
+        id: source
+        timeout-minutes: 46
+        run: python3 scripts/ios_release.py wait-for-ci
+      # Only the app comes from the tag. All release tooling stays on trusted main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.source.outputs.source_commit }}
+          path: release-source
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: '3.47.0'
+          cache: true
+      - name: Check pinned Xcode and restore locked app dependencies
+        working-directory: release-source
+        run: |
+          xcodebuild -version
+          flutter pub get --enforce-lockfile
+      - name: Read Apple builds and permanently reserve a new iOS build number
+        id: identity
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: python3 scripts/ios_release.py plan
+      - name: Install and validate signing identity in a temporary keychain
+        env:
+          IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: python3 scripts/ios_release.py prepare-signing
+      - name: Build and verify the signed production IPA
+        timeout-minutes: 45
+        run: python3 scripts/ios_release.py build
+      - name: Validate, upload once, and verify Apple processing
+        timeout-minutes: 50
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: python3 scripts/ios_release.py publish
+      - name: Preserve IPA, checksum, symbols and actual upload result
+        if: ${{ always() && steps.identity.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: akribos-testflight-${{ steps.identity.outputs.version }}-${{ steps.identity.outputs.build }}
+          path: build/testflight/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove temporary signing and API credentials
+        if: always()
+        run: python3 scripts/ios_release.py cleanup

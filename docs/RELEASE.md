@@ -1,8 +1,11 @@
 # Bauen und auf Geräten prüfen
 
 Der aktuell tatsächlich ausgeführte Prüfstand steht in [VALIDATION.md](VALIDATION.md).
-Vorerst wird ausschließlich Android veröffentlicht. Die Apple-Organisationsanmeldung läuft
-noch; ein bestätigtes Developer-Konto steht derzeit nicht zur Verfügung.
+Die automatisierte Store-Verteilung ist derzeit nur für Android eingerichtet.
+Das Apple-Team slim-it GmbH (`8Y4NL9VW33`) und der Akribos-Eintrag sind seit
+26. Oktober 2026 bestätigt; API-Schlüssel, Distribution-Zertifikat und Akribos-Profil
+sind vorbereitet. Der manuelle TestFlight-Workflow ist implementiert; seinen tatsächlichen
+Build-/Upload-Stand belegen die GitHub-Läufe. Einrichtung und offene Schritte: [TESTFLIGHT.md](TESTFLIGHT.md).
 
 ## Android für akribos.de
 
@@ -93,11 +96,11 @@ installierten App. Schlüssel und `key.properties` gehören nicht ins Repository
 Versions-/Buildnummern können für spätere Veröffentlichungen über `--build-name` und
 `--build-number` gesetzt werden; dieses Skript hält den Pixel-Build `0.2.9+12` fest.
 
-## iOS – spätere Freigabe
+## iOS – Signierung und TestFlight vorbereiten
 
-Die folgenden Schritte sind erst nach Bestätigung des Apple-Developer-Kontos und der
-Team-ID für eine Veröffentlichung vorgesehen. Signierung, Associated Domains, Geräteabnahme
-und Verteilung stehen noch aus; siehe [TODO.md](TODO.md).
+Das Apple-Team ist bestätigt, Signierdateien und die App-ID-Fähigkeit Associated
+Domains sind vorbereitet. Signierter Build, serverseitige Domainzuordnung, Geräteabnahme
+und Verteilung stehen noch aus; siehe [TESTFLIGHT.md](TESTFLIGHT.md) und [TODO.md](TODO.md).
 
 Ein unsignierter Entwicklungsbuild ist auf macOS möglich:
 
@@ -109,7 +112,7 @@ flutter build ios --debug --no-codesign
 Für echte Geräte und TestFlight in Xcode das tatsächliche Apple-Team und ein passendes
 Provisioning-Profil für `de.akribos.app` hinterlegen. Keychain-Entitlements sind bereits für
 Debug/Profile/Release gesetzt. Die aktuelle CI prüft Android sowie einen unsignierten
-iOS-Simulatorbuild mit nativen Policytests; es gibt keinen iOS-Storeworkflow. Linux
+iOS-Simulatorbuild mit nativen Policytests; der manuelle iOS-Workflow steht in [TESTFLIGHT.md](TESTFLIGHT.md). Linux
 kann die Apple-Geräte- und Veröffentlichungsschritte nicht verifizieren.
 
 ## Passwortmanager
@@ -143,9 +146,9 @@ Konfiguration allein ist keine bestätigte Live-Funktion: Die Domain-Datei muss 
 und vom Betriebssystem auf dem Gerät erfolgreich verifiziert werden. Der bestätigte Stand
 gehört nach [VALIDATION.md](VALIDATION.md).
 
-Für iOS fehlen noch das bestätigte Developer-Konto und die Apple-Team-ID. Das Entitlement
-`applinks:akribos.de` ist vorbereitet; eine passende `apple-app-site-association` wird erst mit
-der echten Team-ID eingerichtet und zusammen mit der Signierung auf einem Gerät geprüft.
+Für iOS ist die Team-ID `8Y4NL9VW33` bestätigt. Das Entitlement
+`applinks:akribos.de` ist vorbereitet; eine passende `apple-app-site-association` muss
+mit dieser echten Team-ID eingerichtet und zusammen mit der Signierung auf einem Gerät geprüft werden.
 Diese Zuordnung und iOS-Veröffentlichung sind noch offen. E-Mail-Code-Anmeldung
 funktioniert unabhängig von der automatischen HTTPS-Linkzuordnung.
 
