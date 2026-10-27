@@ -41,8 +41,17 @@ def run(args, **kwargs):
         # Report provider error numbers, never raw output that could contain credentials.
         codes = sorted(set(re.findall(r'ITMS-\d+|"code"\s*:\s*-?\d+',
                                       (result.stdout + result.stderr).decode(errors="replace"))))
-        raise ReleaseError(f"{Path(args[0]).name} failed (exit {result.returncode}; "
-                           f"codes: {', '.join(codes) or 'none'}); inspect signing/build configuration.")
+        known = [message for message in (
+            "MAC verification failed", "Mac verify error", "User interaction is not allowed",
+            "The specified item could not be found", "The specified keychain could not be found",
+            "A keychain with the same name already exists", "CSSMERR_TP_NOT_TRUSTED",
+            "CSSMERR_TP_CERT_EXPIRED", "SecKeychainItemImport", "SecKeychainUnlock",
+        ) if message.lower() in (result.stdout + result.stderr).decode(errors="replace").lower()]
+        command = Path(args[0]).name
+        if command == "security" and len(args) > 1:
+            command += " " + args[1]  # Never print paths, passwords or full arguments.
+        raise ReleaseError(f"{command} failed (exit {result.returncode}; "
+                           f"codes: {', '.join(codes + known) or 'none'}); inspect signing/build configuration.")
     return result.stdout
 
 
@@ -265,6 +274,23 @@ def distribution_project(project, fingerprint):
     return replaced
 
 
+def importable_pkcs12(source, destination):
+    # Apple Security's PKCS#12 importer is not compatible with every OpenSSL 3
+    # PBES2/MAC combination. Convert only the temporary CI copy to its supported
+    # 3DES/SHA-1 container. The private RSA key/certificate and canonical AES p12
+    # are unchanged. Plain PEM travels in process memory, never through logs/files.
+    env = dict(os.environ, AKRIBOS_IMPORT_PASSWORD=secret("IOS_CERTIFICATE_PASSWORD"))
+    pem = run(["openssl", "pkcs12", "-in", str(source), "-nodes",
+               "-passin", "env:AKRIBOS_IMPORT_PASSWORD"], env=env)
+    try:
+        run(["openssl", "pkcs12", "-export", "-in", "/dev/stdin", "-out", str(destination),
+             "-keypbe", "PBE-SHA1-3DES", "-certpbe", "PBE-SHA1-3DES", "-macalg", "SHA1",
+             "-passout", "env:AKRIBOS_IMPORT_PASSWORD"], input=pem, env=env)
+    finally:
+        del pem
+    destination.chmod(0o600)
+
+
 def prepare_signing():
     data = checked_plan()
     directory = private_dir()
@@ -273,6 +299,8 @@ def prepare_signing():
     protected_write(profile_file, base64.b64decode(secret("IOS_PROVISIONING_PROFILE_BASE64"), validate=True))
     profile = plistlib.loads(run(["security", "cms", "-D", "-i", str(profile_file)]))
     validate_profile(profile)
+    compatible = directory / "import.p12"
+    importable_pkcs12(p12, compatible)
     keychain = directory / "signing.keychain-db"
     originals = shlex.split(run(["security", "list-keychains", "-d", "user"]).decode())
     installed = Path.home() / "Library/MobileDevice/Provisioning Profiles" / (profile["UUID"] + ".mobileprovision")
@@ -284,7 +312,7 @@ def prepare_signing():
     run(["security", "create-keychain", "-p", password, str(keychain)])
     run(["security", "set-keychain-settings", "-lut", "7200", str(keychain)])
     run(["security", "unlock-keychain", "-p", password, str(keychain)])
-    run(["security", "import", str(p12), "-P", secret("IOS_CERTIFICATE_PASSWORD"),
+    run(["security", "import", str(compatible), "-P", secret("IOS_CERTIFICATE_PASSWORD"),
          "-k", str(keychain), "-T", "/usr/bin/codesign", "-T", "/usr/bin/security"])
     run(["security", "set-key-partition-list", "-S", "apple-tool:,apple:,codesign:",
          "-s", "-k", password, str(keychain)])
@@ -319,6 +347,7 @@ def prepare_signing():
     data.update(profileUuid=profile["UUID"], signingCertificateSha1=fingerprint)
     write_manifest(data)
     p12.unlink()
+    compatible.unlink()
     print("Distribution identity and App Store profile validated in temporary keychain.")
 
 

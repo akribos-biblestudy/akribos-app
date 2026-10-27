@@ -112,6 +112,16 @@ class AppleTests(unittest.TestCase):
 
 
 class SigningTests(unittest.TestCase):
+    def test_security_failure_reports_subcommand_but_never_arguments_or_raw_output(self):
+        result = Mock(returncode=1, stdout=b'',
+                      stderr=b'SecKeychainItemImport: MAC verification failed. secret-fixture')
+        with patch.object(ios.subprocess, 'run', return_value=result):
+            with self.assertRaises(ios.ReleaseError) as caught:
+                ios.run(['security', 'import', 'secret-path', '-P', 'secret-fixture'])
+        self.assertIn('security import failed', str(caught.exception))
+        self.assertIn('MAC verification failed', str(caught.exception))
+        self.assertNotIn('secret', str(caught.exception))
+
     def profile(self):
         return {'TeamIdentifier': [ios.TEAM], 'UUID': 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
                 'ExpirationDate': datetime.now() + timedelta(days=10), 'DeveloperCertificates': [b'cert'],
