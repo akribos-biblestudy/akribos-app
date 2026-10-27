@@ -18,7 +18,9 @@ jobs:
           flutter-version: '3.47.0'
           cache: true
       - run: flutter pub get --enforce-lockfile
-      - run: flutter build ios --simulator --debug --no-codesign --no-pub
+      - run: flutter build ios --simulator --debug --no-pub
+      - name: Verify simulator Keychain signing
+        run: codesign -d --entitlements :- build/ios/iphonesimulator/Runner.app
       - name: Capture live public reader on iPhone and iPad
         shell: bash
         run: |
