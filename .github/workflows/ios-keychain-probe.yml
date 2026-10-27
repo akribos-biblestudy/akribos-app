@@ -1,0 +1,67 @@
+name: iOS Keychain Probe
+on:
+  push:
+    branches: [codex/ios-store-screenshots-20261027]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: macos-15
+    timeout-minutes: 18
+    steps:
+      - name: Compile minimal app and select iPhone
+        run: |
+          mkdir -p Probe.app
+          cat > probe.swift <<'SWIFT'
+          import UIKit
+          import Security
+          @main class AppDelegate: UIResponder, UIApplicationDelegate {
+            var window: UIWindow?
+            func application(_ application: UIApplication, didFinishLaunchingWithOptions opts: [UIApplication.LaunchOptionsKey:Any]?) -> Bool {
+              let query: [String:Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:UUID().uuidString,kSecAttrAccount as String:"fixture",kSecValueData as String:Data("fixture".utf8)]
+              let status = SecItemAdd(query as CFDictionary,nil)
+              print("KEYCHAIN_PROBE_STATUS=\(status)")
+              fflush(stdout)
+              let win=UIWindow(frame:UIScreen.main.bounds)
+              win.rootViewController=UIViewController()
+              win.makeKeyAndVisible()
+              window=win
+              DispatchQueue.main.asyncAfter(deadline:.now()+1){exit(0)}
+              return true
+            }
+          }
+          SWIFT
+          arch=$(uname -m)
+          xcrun --sdk iphonesimulator swiftc -parse-as-library -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" -target "$arch-apple-ios15.0-simulator" probe.swift -o Probe.app/Probe
+          python3 - <<'PY'
+          import plistlib,json,subprocess,os
+          from pathlib import Path
+          Path('Probe.app/Info.plist').write_bytes(plistlib.dumps({'CFBundleExecutable':'Probe','CFBundleIdentifier':'de.akribos.keychainprobe','CFBundleName':'Probe','CFBundleVersion':'1','CFBundlePackageType':'APPL','UILaunchScreen':{}}))
+          ds=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))
+          d=next(d for r,ls in ds['devices'].items() if 'iOS' in r for d in ls if d['name']=='iPhone 16 Pro')
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('DEVICE='+d['udid']+'\n')
+          PY
+      - name: Boot simulator
+        run: |
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+      - name: Probe one entitlement at a time
+        run: |
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
+          variants={
+            'none':{},
+            'keychain_only':{'keychain-access-groups':['de.akribos.keychainprobe']},
+            'appid_only':{'application-identifier':'8Y4NL9VW33.de.akribos.keychainprobe'},
+            'appid_and_group':{'application-identifier':'8Y4NL9VW33.de.akribos.keychainprobe','keychain-access-groups':['8Y4NL9VW33.de.akribos.keychainprobe']},
+          }
+          for n,d in variants.items():Path(n+'.plist').write_bytes(plistlib.dumps(d))
+          PY
+          for variant in none keychain_only appid_only appid_and_group; do
+            echo "PROBE_VARIANT=$variant"
+            codesign --force --sign - --entitlements "$variant.plist" --generate-entitlement-der Probe.app
+            xcrun simctl install "$DEVICE" Probe.app
+            xcrun simctl launch --console --terminate-running-process "$DEVICE" de.akribos.keychainprobe || true
+            xcrun simctl uninstall "$DEVICE" de.akribos.keychainprobe
+          done
