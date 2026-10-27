@@ -19,8 +19,21 @@ jobs:
           cache: true
       - run: flutter pub get --enforce-lockfile
       - run: flutter build ios --simulator --debug --no-pub
-      - name: Verify simulator Keychain signing
-        run: codesign -d --entitlements :- build/ios/iphonesimulator/Runner.app
+      - name: Sign simulator app with its own Keychain entitlement
+        run: |
+          python3 - <<'PYTHON'
+          import plistlib,os
+          from pathlib import Path
+          ent=plistlib.loads(Path('ios/Runner/Runner.entitlements').read_bytes())
+          ent['application-identifier']='8Y4NL9VW33.de.akribos.app'
+          ent['com.apple.developer.team-identifier']='8Y4NL9VW33'
+          ent['keychain-access-groups']=['8Y4NL9VW33.de.akribos.app']
+          ent['get-task-allow']=True
+          Path(os.environ['RUNNER_TEMP']+'/simulator.entitlements').write_bytes(plistlib.dumps(ent))
+          PYTHON
+          codesign --force --sign - --entitlements "$RUNNER_TEMP/simulator.entitlements" --generate-entitlement-der build/ios/iphonesimulator/Runner.app
+          codesign --verify --deep --strict build/ios/iphonesimulator/Runner.app
+          codesign -d --entitlements :- build/ios/iphonesimulator/Runner.app
       - name: Capture live public reader on iPhone and iPad
         shell: bash
         run: |
