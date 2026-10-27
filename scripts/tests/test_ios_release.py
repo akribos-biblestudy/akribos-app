@@ -112,6 +112,28 @@ class AppleTests(unittest.TestCase):
 
 
 class SigningTests(unittest.TestCase):
+    def test_pkcs12_conversion_preserves_identity_and_removes_encrypted_intermediate(self):
+        password = 'generated-test-fixture-only'
+        env = dict(os.environ, AKRIBOS_FIXTURE_PASSWORD=password)
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'IOS_CERTIFICATE_PASSWORD': password}):
+            root = Path(temp)
+            key, cert, source, converted = [root / name for name in ('key.pem', 'cert.pem', 'source.p12', 'apple.p12')]
+            ios.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-keyout', str(key),
+                     '-out', str(cert), '-days', '1', '-subj', '/CN=Local test fixture',
+                     '-passout', 'env:AKRIBOS_FIXTURE_PASSWORD'], env=env)
+            ios.run(['openssl', 'pkcs12', '-export', '-inkey', str(key), '-in', str(cert),
+                     '-out', str(source), '-passin', 'env:AKRIBOS_FIXTURE_PASSWORD',
+                     '-passout', 'env:AKRIBOS_FIXTURE_PASSWORD'], env=env)
+            ios.importable_pkcs12(source, converted)
+            certificates = []
+            for container in (source, converted):
+                pem = ios.run(['openssl', 'pkcs12', '-in', str(container), '-clcerts', '-nokeys',
+                               '-passin', 'env:AKRIBOS_FIXTURE_PASSWORD'], env=env)
+                certificates.append(ios.run(['openssl', 'x509', '-outform', 'DER'], input=pem))
+            self.assertEqual(certificates[0], certificates[1])
+            self.assertEqual(converted.stat().st_mode & 0o777, 0o600)
+            self.assertFalse(converted.with_suffix('.encrypted.pem').exists())
+
     def test_security_failure_reports_subcommand_but_never_arguments_or_raw_output(self):
         result = Mock(returncode=1, stdout=b'',
                       stderr=b'SecKeychainItemImport: MAC verification failed. secret-fixture')

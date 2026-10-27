@@ -278,16 +278,18 @@ def importable_pkcs12(source, destination):
     # Apple Security's PKCS#12 importer is not compatible with every OpenSSL 3
     # PBES2/MAC combination. Convert only the temporary CI copy to its supported
     # 3DES/SHA-1 container. The private RSA key/certificate and canonical AES p12
-    # are unchanged. Plain PEM travels in process memory, never through logs/files.
+    # are unchanged. The seekable intermediate PEM is encrypted with AES-256.
     env = dict(os.environ, AKRIBOS_IMPORT_PASSWORD=secret("IOS_CERTIFICATE_PASSWORD"))
-    pem = run(["openssl", "pkcs12", "-in", str(source), "-nodes",
-               "-passin", "env:AKRIBOS_IMPORT_PASSWORD"], env=env)
+    pem = destination.with_suffix(".encrypted.pem")
+    protected_write(pem, b"")
     try:
-        run(["openssl", "pkcs12", "-export", "-in", "/dev/stdin", "-out", str(destination),
+        run(["openssl", "pkcs12", "-in", str(source), "-out", str(pem), "-aes256",
+             "-passin", "env:AKRIBOS_IMPORT_PASSWORD", "-passout", "env:AKRIBOS_IMPORT_PASSWORD"], env=env)
+        run(["openssl", "pkcs12", "-export", "-in", str(pem), "-out", str(destination),
              "-keypbe", "PBE-SHA1-3DES", "-certpbe", "PBE-SHA1-3DES", "-macalg", "SHA1",
-             "-passout", "env:AKRIBOS_IMPORT_PASSWORD"], input=pem, env=env)
+             "-passin", "env:AKRIBOS_IMPORT_PASSWORD", "-passout", "env:AKRIBOS_IMPORT_PASSWORD"], env=env)
     finally:
-        del pem
+        pem.unlink(missing_ok=True)
     destination.chmod(0o600)
 
 
