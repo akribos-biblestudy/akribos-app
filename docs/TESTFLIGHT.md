@@ -134,7 +134,12 @@ nicht als bestätigter TestFlight-Build ausgegeben. Nur `VALID` setzt
 separat erfasst; gültige Verarbeitung allein ist keine Geräteabnahme.
 
 Unter `build/testflight/` werden IPA, SHA-256, dSYM-Symbole und `release.json`
-als GitHub-Artefakt für 30 Tage aufbewahrt. Schlüssel, Passwörter, temporäres Profil
+als GitHub-Artefakt für 30 Tage aufbewahrt. Bei vollem GitHub-Kontingent ist
+die zusätzliche Artefaktablage optional und erzeugt eine ausdrückliche Warnung;
+IPA-Hash und tatsächlich bestätigtes Apple-Ergebnis stehen auch im Job-Bericht
+und den Logs. Ein fehlendes IPA-Download-Artefakt wird dort ausdrücklich genannt.
+Auch das Debug-APK-Artefakt der regulären CI ist optional; Tests und Builds
+bleiben verpflichtend. Schlüssel, Passwörter, temporäres Profil
 und Keychain werden beim Abschluss entfernt. Der Build wird keiner externen
 Prüfung zugeführt. Testgruppen und interne Tester werden in App Store Connect
 verwaltet; der Workflow verschickt keine Einladungen.

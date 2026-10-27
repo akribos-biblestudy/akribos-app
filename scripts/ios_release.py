@@ -395,6 +395,11 @@ def build():
     data.update(ipa=ipa.name, sha256=hashlib.sha256(ipa.read_bytes()).hexdigest())
     write_manifest(data)
     (ARTIFACTS / (ipa.name + ".sha256")).write_text(data["sha256"] + "  " + ipa.name + "\n")
+    print("Verified IPA SHA-256: " + data["sha256"])
+    if os.environ.get("GITHUB_STEP_SUMMARY"):
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as stream:
+            stream.write(f"Signed IPA **{data['version']} ({data['build']})**, source `{data['sourceCommit']}`.\n\n"
+                         f"SHA-256: `{data['sha256']}`\n\n")
     print("Signed IPA version, entitlements and checksum verified.")
 
 
@@ -457,6 +462,7 @@ def publish():
     groups = api.all("/v1/builds/" + item["id"] + "/betaGroups?limit=200")
     data["internalGroups"] = [g["attributes"]["name"] for g in groups if g["attributes"].get("isInternalGroup")]
     write_manifest(data)
+    print("Verified Apple result: " + json.dumps(data, sort_keys=True))
     print(f"Apple processing VALID. Internal state: {data['internalBuildState']}. "
           "No public release or external beta review was requested.")
     if os.environ.get("GITHUB_STEP_SUMMARY"):

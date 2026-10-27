@@ -103,13 +103,20 @@ jobs:
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: python3 scripts/ios_release.py publish
       - name: Preserve IPA, checksum, symbols and actual upload result
+        id: artifact
         if: ${{ always() && steps.identity.outcome == 'success' }}
+        continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: akribos-testflight-${{ steps.identity.outputs.version }}-${{ steps.identity.outputs.build }}
           path: build/testflight/
           if-no-files-found: error
           retention-days: 30
+      - name: Report artifact availability separately from Apple upload acceptance
+        if: ${{ always() && steps.artifact.outcome == 'failure' }}
+        run: |
+          echo '::warning::GitHub could not retain the optional IPA artifact. See the verified checksum and Apple result in this run summary.'
+          echo 'GitHub artifact retention failed. The signed IPA checksum and actual Apple upload/processing result are recorded above. No IPA download artifact is available from this run.' >> "$GITHUB_STEP_SUMMARY"
       - name: Remove temporary signing and API credentials
         if: always()
         run: python3 scripts/ios_release.py cleanup
