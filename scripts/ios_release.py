@@ -224,12 +224,23 @@ def plan():
     maximum = max([0, *(build_number(item["attributes"]["version"]) for item in builds)])
     exempt = os.environ.get("ENCRYPTION_EXEMPT", "false")
     require(exempt in {"true", "false"}, "Invalid encryption declaration input.")
-    data.update(build=reserve(maximum, data["sourceCommit"]), uploaded=False,
+    existing = os.environ.get("VERIFY_BUILD", "").strip()
+    if existing:
+        number = build_number(existing)
+        require(common.commit_for_tag(PREFIX + str(number)) == data["sourceCommit"],
+                "Existing build reservation does not match the release source.")
+        matches = api.all("/v1/builds?" + urlencode({"filter[app]": APP, "filter[version]": number,
+                                                   "filter[preReleaseVersion.version]": data["version"],
+                                                   "filter[preReleaseVersion.platform]": "IOS", "limit": 200}))
+        require(len(matches) == 1, "Existing Apple build not found unambiguously; no upload will be attempted.")
+    else:
+        number = reserve(maximum, data["sourceCommit"])
+    data.update(build=number, uploaded=False, verificationOnly=bool(existing),
                 encryptionExemptDeclaration=exempt == "true",
                 processingVerified=False, uploadAttempted=False)
     write_manifest(data)
     output({"version": data["version"], "build": data["build"]})
-    print(f"Reserved iOS {data['version']} ({data['build']}).")
+    print(f"{'Verifying existing' if existing else 'Reserved'} iOS {data['version']} ({data['build']}).")
 
 
 def private_dir():
@@ -429,6 +440,7 @@ def find_processed_build(api, data, timeout=35 * 60):
 
 def publish():
     data = checked_plan()
+    require(not data.get("verificationOnly"), "Verification-only runs must never upload.")
     ipa = ARTIFACTS / data["ipa"]
     require(hashlib.sha256(ipa.read_bytes()).hexdigest() == data["sha256"], "IPA changed after verification.")
     require(not data["uploadAttempted"], "Upload already attempted; inspect Apple before retrying.")
@@ -454,12 +466,24 @@ def publish():
     data["uploaded"] = True
     write_manifest(data)
     item = find_processed_build(api, data)
+    record_processed(api, data, item)
+
+
+def record_processed(api, data, item):
     data.update(processingVerified=True,
                 usesNonExemptEncryption=item["attributes"].get("usesNonExemptEncryption"))
-    detail = api.request("GET", "/v1/builds/" + item["id"] + "/buildBetaDetail")["data"]["attributes"]
+    write_manifest(data)  # Preserve VALID even if supplementary metadata fails.
+    response = api.request("GET", "/v1/builds/" + item["id"]
+                           + "?include=betaGroups,buildBetaDetail,preReleaseVersion")
+    included = response.get("included", [])
+    details = [entry["attributes"] for entry in included if entry["type"] == "buildBetaDetails"]
+    versions = [entry["attributes"] for entry in included if entry["type"] == "preReleaseVersions"]
+    require(len(details) == len(versions) == 1 and versions[0]["version"] == data["version"]
+            and versions[0]["platform"] == "IOS", "Unexpected Apple build metadata/version.")
+    detail = details[0]
     data.update(internalBuildState=detail.get("internalBuildState"),
                 externalBuildState=detail.get("externalBuildState"))
-    groups = api.all("/v1/builds/" + item["id"] + "/betaGroups?limit=200")
+    groups = [entry for entry in included if entry["type"] == "betaGroups"]
     data["internalGroups"] = [g["attributes"]["name"] for g in groups if g["attributes"].get("isInternalGroup")]
     write_manifest(data)
     print("Verified Apple result: " + json.dumps(data, sort_keys=True))
@@ -467,9 +491,19 @@ def publish():
           "No public release or external beta review was requested.")
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as stream:
-            stream.write(f"Akribos **{data['version']} ({data['build']})** uploaded; processing **VALID**.\n\n"
+            stream.write(f"Akribos **{data['version']} ({data['build']})** confirmed at Apple; processing **VALID**.\n\n"
+                         f"Verification only (no upload in this run): **{data.get('verificationOnly', False)}**.\n\n"
                          f"Internal TestFlight state: **{data['internalBuildState']}**.\n\n"
                          f"[Open TestFlight](https://appstoreconnect.apple.com/apps/{APP}/testflight)\n")
+
+
+def verify_existing():
+    data = checked_plan()
+    require(data.get("verificationOnly"), "Explicit existing build number is required.")
+    api = Apple()
+    item = find_processed_build(api, data)
+    data["uploaded"] = True  # Observed at Apple, not uploaded by this run.
+    record_processed(api, data, item)
 
 
 def cleanup():
@@ -489,7 +523,7 @@ def cleanup():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["wait-for-ci", "plan", "prepare-signing", "build", "publish", "cleanup"])
+    parser.add_argument("action", choices=["wait-for-ci", "plan", "prepare-signing", "build", "publish", "verify-existing", "cleanup"])
     args = parser.parse_args()
     try:
         if args.action == "wait-for-ci":
@@ -497,7 +531,7 @@ def main():
             output({"source_commit": data["sourceCommit"]})
         else:
             {"plan": plan, "prepare-signing": prepare_signing, "build": build,
-             "publish": publish, "cleanup": cleanup}[args.action]()
+             "publish": publish, "verify-existing": verify_existing, "cleanup": cleanup}[args.action]()
     except ReleaseError as error:
         print(f"TestFlight stopped: {error}", file=sys.stderr)
         return 1

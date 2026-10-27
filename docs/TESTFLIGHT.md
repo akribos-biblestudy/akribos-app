@@ -1,6 +1,6 @@
 # TestFlight über GitHub Actions vorbereiten
 
-Stand: 26. Oktober 2026. Apple-Zugang und Signierdateien sind vorbereitet;
+Stand: 27. Oktober 2026. Apple-Zugang und Signierdateien sind vorbereitet;
 der Workflow ist implementiert. Den tatsächlich ausgeführten Upload-Stand
 belegt das `release.json`-Artefakt des jeweiligen GitHub-Laufs.
 
@@ -37,7 +37,26 @@ Wiederholungen; API-Schlüssel und Signieridentität jetzt nicht erneut erzeugen
 - Letztes veröffentlichtes GitHub-Release: `v0.5.1`; die Apple-Version ist `0.5.1`.
 - `ci.yml` baut nur einen unsignierten iOS-Simulatorbuild und führt XCTest aus.
 - `release.yml` startet ausschließlich Android; iOS wird separat manuell gestartet.
-- Ein signierter IPA-Build, TestFlight-Upload und iOS-Geräteabnahme fehlen noch.
+- **0.5.1 (2)** wurde am 27. Oktober signiert, hochgeladen und von Apple mit
+  **VALID / READY_FOR_BETA_TESTING** bestätigt. Interne Tester ordnet der Nutzer
+  selbst zu; die Geräteabnahme bleibt offen.
+
+## Bestätigter erster Upload
+
+Release-Quelle: `c5fec790b70afcedc6d75617f746874d43b29d44` (`v0.5.1`).
+Apple-Build-ID: `5f12d27b-6b95-40ba-b998-ef559a913deb`. Der Lauf
+[40469653975](https://github.com/akribos-biblestudy/akribos-app/actions/runs/40469653975)
+hat die IPA erfolgreich erstellt und hochgeladen. Ein Fehler in der zusätzlichen
+Testgruppen-Abfrage nach Apples Verarbeitung wurde anschließend korrigiert:
+Die Statusabfrage verwendet `include=betaGroups,buildBetaDetail,preReleaseVersion`
+am Build, da Apple keinen GET auf dem früher verwendeten Gruppenpfad unterstützt.
+Der bestehende Build wird mit dem unten beschriebenen Verifikationsmodus erneut
+bestätigt, ohne einen weiteren Build zu reservieren oder hochzuladen.
+
+Buildnummer 1 bleibt nach dem fehlgeschlagenen ersten Signierimport verbraucht.
+Der temporäre PKCS#12-Import verwendet einen Apple-kompatiblen Container;
+die ursprüngliche verschlüsselte Signierdatei bleibt unverändert. Ein voller
+GitHub-Artefaktspeicher ist gesondert ausgewiesen und kein Test-/Uploadfehler.
 
 ## Einmalige Apple-Einrichtung
 
@@ -89,6 +108,17 @@ neuen GitHub-Releases und veröffentlicht keine öffentliche App-Store-Version.
 ```sh
 gh workflow run ios-testflight.yml --ref main -f release_tag=v0.5.1
 ```
+
+Ein vorhandener Upload kann rein lesend nachgeprüft werden:
+
+```sh
+gh workflow run ios-testflight.yml --ref main -f release_tag=v0.5.1 -f verify_build=2
+```
+
+Dieser Modus läuft auf Linux, prüft die permanente Buildnummernreservierung
+gegen den Release-Commit und Apples exakte App-/Versionsdaten. Er importiert
+keine Signieridentität, baut keine IPA und lädt nichts hoch. Auch hier wird auf
+grüne CI des aktuellen Workflow-Commits und der Release-Quelle gewartet.
 
 Nach geprüfter und vom Betreiber bestätigter Export-Einstufung kann für genau
 diesen Lauf `-f encryption_exempt=true` ergänzt werden. Dann erhält nur die

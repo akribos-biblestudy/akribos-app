@@ -57,6 +57,47 @@ class IdentityTests(unittest.TestCase):
 
 
 class AppleTests(unittest.TestCase):
+    def test_processing_metadata_uses_supported_include_instead_of_group_read_routes(self):
+        api = Mock()
+        api.request.return_value = {'included': [
+            {'type': 'preReleaseVersions', 'attributes': {'version': '0.5.1', 'platform': 'IOS'}},
+            {'type': 'buildBetaDetails', 'attributes': {'internalBuildState': 'READY_FOR_BETA_TESTING'}},
+        ]}
+        data = {'version': '0.5.1', 'build': 2}
+        with patch.object(ios, 'write_manifest'), patch.dict(os.environ, {'GITHUB_STEP_SUMMARY': ''}):
+            ios.record_processed(api, data, {'id': 'build', 'attributes': {'usesNonExemptEncryption': False}})
+        api.request.assert_called_once_with('GET', '/v1/builds/build?include=betaGroups,buildBetaDetail,preReleaseVersion')
+        api.all.assert_not_called()
+        self.assertTrue(data['processingVerified'])
+        self.assertEqual(data['internalBuildState'], 'READY_FOR_BETA_TESTING')
+        self.assertEqual(data['internalGroups'], [])
+
+    def test_existing_build_plan_cannot_reserve_or_upload_a_new_number(self):
+        api = Mock()
+        api.request.return_value = {'data': {'id': ios.APP, 'attributes': {'bundleId': ios.BUNDLE}}}
+        api.all.side_effect = [[], [{'id': 'existing'}]]
+        with patch.dict(os.environ, {'VERIFY_BUILD': '2', 'ENCRYPTION_EXEMPT': 'false'}), \
+                patch.object(ios, 'gate', return_value={'version': '0.5.1', 'sourceCommit': 'source'}), \
+                patch.object(ios, 'Apple', return_value=api), \
+                patch.object(ios.common, 'commit_for_tag', return_value='source') as tag, \
+                patch.object(ios, 'reserve') as reserve, patch.object(ios, 'output'), \
+                patch.object(ios, 'write_manifest') as saved:
+            ios.plan()
+        reserve.assert_not_called()
+        tag.assert_called_once_with('testflight-build-ios-2')
+        self.assertTrue(saved.call_args.args[0]['verificationOnly'])
+        self.assertEqual(saved.call_args.args[0]['build'], 2)
+
+    def test_valid_processing_is_saved_before_supplementary_metadata_failure(self):
+        api = Mock()
+        api.request.side_effect = ios.ReleaseError('API metadata failure')
+        data = {'version': '0.5.1', 'build': 2}
+        with patch.object(ios, 'write_manifest') as saved:
+            with self.assertRaises(ios.ReleaseError):
+                ios.record_processed(api, data, {'id': 'id', 'attributes': {}})
+        saved.assert_called_once()
+        self.assertTrue(saved.call_args.args[0]['processingVerified'])
+
     def test_pagination_rejects_foreign_hosts_before_credentials_are_created(self):
         for url in ['https://evil.example/v1/builds', 'http://api.appstoreconnect.apple.com/v1/builds',
                     'https://api.appstoreconnect.apple.com@evil.example/v1/builds', '/v2/builds']:
@@ -179,6 +220,13 @@ class SigningTests(unittest.TestCase):
 
 
 class UploadTests(unittest.TestCase):
+    def test_verification_only_plan_never_reaches_upload_tooling(self):
+        with patch.object(ios, 'checked_plan', return_value={'verificationOnly': True}), \
+                patch.object(ios, 'run') as command:
+            with self.assertRaisesRegex(ios.ReleaseError, 'never upload'):
+                ios.publish()
+        command.assert_not_called()
+
     def exercise(self, validation, upload=None, change_identity=False):
         with tempfile.TemporaryDirectory() as temp:
             directory = Path(temp)

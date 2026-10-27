@@ -11,6 +11,10 @@ on:
         description: 'Operator confirms this release uses only exempt encryption'
         type: boolean
         default: false
+      verify_build:
+        description: 'Existing build number: verify only, without building, reserving or uploading'
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -43,7 +47,7 @@ jobs:
   release:
     needs: preflight
     if: github.ref == 'refs/heads/main'
-    runs-on: macos-15
+    runs-on: ${{ inputs.verify_build != '' && 'ubuntu-24.04' || 'macos-15' }}
     timeout-minutes: 150
     environment: ios-testflight
     permissions:
@@ -53,6 +57,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ inputs.release_tag }}
       ENCRYPTION_EXEMPT: ${{ inputs.encryption_exempt }}
+      VERIFY_BUILD: ${{ inputs.verify_build }}
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
       CI: 'true'
       FLUTTER_SUPPRESS_ANALYTICS: 'true'
@@ -71,10 +76,12 @@ jobs:
           path: release-source
           persist-credentials: false
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        if: inputs.verify_build == ''
         with:
           flutter-version: '3.47.0'
           cache: true
       - name: Check pinned Xcode and restore locked app dependencies
+        if: inputs.verify_build == ''
         working-directory: release-source
         run: |
           xcodebuild -version
@@ -87,21 +94,32 @@ jobs:
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: python3 scripts/ios_release.py plan
       - name: Install and validate signing identity in a temporary keychain
+        if: inputs.verify_build == ''
         env:
           IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
           IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
         run: python3 scripts/ios_release.py prepare-signing
       - name: Build and verify the signed production IPA
+        if: inputs.verify_build == ''
         timeout-minutes: 45
         run: python3 scripts/ios_release.py build
       - name: Validate, upload once, and verify Apple processing
+        if: inputs.verify_build == ''
         timeout-minutes: 50
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: python3 scripts/ios_release.py publish
+      - name: Verify the existing Apple build without uploading
+        if: inputs.verify_build != ''
+        timeout-minutes: 40
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: python3 scripts/ios_release.py verify-existing
       - name: Preserve IPA, checksum, symbols and actual upload result
         id: artifact
         if: ${{ always() && steps.identity.outcome == 'success' }}
