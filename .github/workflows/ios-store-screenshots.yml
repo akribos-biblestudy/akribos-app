@@ -2,11 +2,78 @@ name: iOS Store Screenshots
 on:
   push:
     branches: [codex/ios-store-screenshots-20261027]
+    paths: [.github/workflows/ios-store-screenshots.yml]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
+  probe:
+    runs-on: macos-15
+    timeout-minutes: 18
+    steps:
+      - name: Compile minimal app and select iPhone
+        run: |
+          mkdir -p Probe.app
+          cat > probe.swift <<'SWIFT'
+          import UIKit
+          import Security
+          @main class AppDelegate: UIResponder, UIApplicationDelegate {
+            var window: UIWindow?
+            func application(_ application: UIApplication, didFinishLaunchingWithOptions opts: [UIApplication.LaunchOptionsKey:Any]?) -> Bool {
+              let query: [String:Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:UUID().uuidString,kSecAttrAccount as String:"fixture",kSecValueData as String:Data("fixture".utf8)]
+              let status = SecItemAdd(query as CFDictionary,nil)
+              print("KEYCHAIN_PROBE_STATUS=\(status)")
+              fflush(stdout)
+              let win=UIWindow(frame:UIScreen.main.bounds)
+              win.rootViewController=UIViewController()
+              win.makeKeyAndVisible()
+              window=win
+              DispatchQueue.main.asyncAfter(deadline:.now()+1){exit(0)}
+              return true
+            }
+          }
+          SWIFT
+          arch=$(uname -m)
+          xcrun --sdk iphonesimulator swiftc -parse-as-library -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" -target "$arch-apple-ios15.0-simulator" probe.swift -o Probe.app/Probe
+          python3 - <<'PY'
+          import plistlib,json,subprocess,os
+          from pathlib import Path
+          Path('Probe.app/Info.plist').write_bytes(plistlib.dumps({'CFBundleExecutable':'Probe','CFBundleIdentifier':'de.akribos.keychainprobe','CFBundleName':'Probe','CFBundleVersion':'1','CFBundlePackageType':'APPL','UILaunchScreen':{}}))
+          ds=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))
+          d=next(d for r,ls in ds['devices'].items() if 'iOS' in r for d in ls if d['name']=='iPhone 16 Pro')
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('DEVICE='+d['udid']+'\n')
+          PY
+      - name: Boot simulator
+        run: |
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+      - name: Reproduce missing entitlement and verify simulator embedding
+        run: |
+          python3 - <<'PYTHON'
+          import plistlib
+          from pathlib import Path
+          Path('simulated.plist').write_bytes(plistlib.dumps({'application-identifier':'8Y4NL9VW33.de.akribos.keychainprobe','keychain-access-groups':['8Y4NL9VW33.de.akribos.keychainprobe']}))
+          PYTHON
+          for variant in baseline embedded; do
+            echo "PROBE_VARIANT=$variant"
+            if [ "$variant" = embedded ]; then
+              derq query -f xml -i simulated.plist -o simulated.der --raw
+              arch=$(uname -m)
+              xcrun --sdk iphonesimulator swiftc -parse-as-library -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" -target "$arch-apple-ios15.0-simulator" probe.swift -o Probe.app/Probe -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __entitlements -Xlinker simulated.plist -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __ents_der -Xlinker simulated.der
+            fi
+            codesign --force --sign - Probe.app
+            xcrun simctl install "$DEVICE" Probe.app
+            output=$(xcrun simctl launch --console --terminate-running-process "$DEVICE" de.akribos.keychainprobe 2>&1)
+            printf '%s\n' "$output"
+            if [ "$variant" = baseline ]; then
+              echo "$output" | grep -q 'KEYCHAIN_PROBE_STATUS=-34018'
+            else
+              echo "$output" | grep -q 'KEYCHAIN_PROBE_STATUS=0'
+            fi
+            xcrun simctl uninstall "$DEVICE" de.akribos.keychainprobe
+          done
   screenshots:
+    needs: probe
     runs-on: macos-15
     timeout-minutes: 35
     steps:
@@ -18,22 +85,26 @@ jobs:
           flutter-version: '3.47.0'
           cache: true
       - run: flutter pub get --enforce-lockfile
-      - run: flutter build ios --simulator --debug --no-pub
-      - name: Sign simulator app with its own Keychain entitlement
+      - name: Configure app-scoped simulator Keychain access
         run: |
           python3 - <<'PYTHON'
-          import plistlib,os
+          import plistlib
           from pathlib import Path
-          ent=plistlib.loads(Path('ios/Runner/Runner.entitlements').read_bytes())
+          p=Path('ios/Runner/Runner.entitlements')
+          ent=plistlib.loads(p.read_bytes())
           ent['application-identifier']='8Y4NL9VW33.de.akribos.app'
-          ent['com.apple.developer.team-identifier']='8Y4NL9VW33'
           ent['keychain-access-groups']=['8Y4NL9VW33.de.akribos.app']
-          ent['get-task-allow']=True
-          Path(os.environ['RUNNER_TEMP']+'/simulator.entitlements').write_bytes(plistlib.dumps(ent))
+          p.write_bytes(plistlib.dumps(ent))
           PYTHON
-          codesign --force --sign - --entitlements "$RUNNER_TEMP/simulator.entitlements" --generate-entitlement-der build/ios/iphonesimulator/Runner.app
-          codesign --verify --deep --strict build/ios/iphonesimulator/Runner.app
-          codesign -d --entitlements :- build/ios/iphonesimulator/Runner.app
+      - run: flutter build ios --simulator --debug --no-pub
+      - name: Verify embedded simulator entitlements
+        run: |
+          otool -l build/ios/iphonesimulator/Runner.app/Runner | grep -A 3 'sectname __ent'
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          app=Path('build/ios/iphonesimulator/Runner.app')
+          assert b'8Y4NL9VW33.de.akribos.app' in (app/'Runner').read_bytes(), 'Missing embedded application entitlement'
+          PYTHON
       - name: Capture live public reader on iPhone and iPad
         shell: bash
         run: |
