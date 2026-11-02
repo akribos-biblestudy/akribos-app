@@ -25,6 +25,11 @@ import 'reader_companion.dart';
 import 'reader_notes_companion.dart';
 import 'reader_tab_grid.dart';
 
+class _SelectedVerse {
+  const _SelectedVerse(this.reference, this.chapter, this.cell);
+  final Json reference, chapter, cell;
+}
+
 class ReaderScreen extends StatefulWidget {
   const ReaderScreen({
     super.key,
@@ -206,6 +211,8 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
   final _deferredPositions = <String, Json>{};
   final _activations = <Json>[];
   final _pageControllers = <String, PageController>{};
+  final _selectedVerses = <String, _SelectedVerse>{};
+  String? _selectionTab;
   Future<bool>? _switching;
   bool _activationInFlight = false;
   bool _discardPending = false;
@@ -505,6 +512,8 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       pane.currentState?.capturePosition();
     }
     setState(() {
+      _selectedVerses.clear();
+      _selectionTab = null;
       _displayedTabs[tileId] = tabId;
       _mobileTile = tileId;
       _failedActivation = null;
@@ -519,6 +528,401 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       task.whenComplete(() {
         _switching = null;
       });
+    }
+  }
+
+  String _verseKey(Json reference) =>
+      '${reference['book']}:${reference['chapter']}:${reference['verse']}:${reference['verseEnd'] ?? ''}';
+
+  void _toggleVerse(Json tab, Json chapter, Json cell, Json reference) {
+    if (_busy) return;
+    final tabKey = '${tab['id']}:${tab['resourceId']}';
+    final key = _verseKey(reference);
+    setState(() {
+      if (_selectionTab != tabKey) _selectedVerses.clear();
+      _selectionTab = tabKey;
+      if (_selectedVerses.containsKey(key)) {
+        _selectedVerses.remove(key);
+      } else {
+        _selectedVerses[key] = _SelectedVerse(reference, chapter, cell);
+      }
+      if (_selectedVerses.isEmpty) _selectionTab = null;
+    });
+  }
+
+  List<_SelectedVerse> get _orderedSelection {
+    final verses = _selectedVerses.values.toList();
+    verses.sort((a, b) {
+      for (final key in ['book', 'chapter', 'verse']) {
+        final difference = asInt(a.reference[key])
+            .compareTo(asInt(b.reference[key]));
+        if (difference != 0) return difference;
+      }
+      return 0;
+    });
+    return verses;
+  }
+
+  Widget _selectionToolbar(Json tab) {
+    final signedIn = _data['user'] != null;
+    return Material(
+      elevation: 4,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: _scope!.eInk
+            ? const BorderSide(color: Colors.black, width: 2)
+            : BorderSide.none,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Auswahl aufheben',
+            onPressed: _busy
+                ? null
+                : () => setState(() {
+                    _selectedVerses.clear();
+                    _selectionTab = null;
+                  }),
+            icon: const Icon(Icons.close),
+          ),
+          if (signedIn) ...[
+            IconButton(
+              tooltip: 'Auswahl markieren',
+              onPressed: _busy
+                  ? null
+                  : () => _selectionChoices(tab, ReaderMenuPage.marks),
+              icon: const Icon(Icons.highlight_outlined),
+            ),
+            IconButton(
+              tooltip: 'Auswahl zu Sammlungen',
+              onPressed: _busy
+                  ? null
+                  : () => _selectionChoices(tab, ReaderMenuPage.lists),
+              icon: const Icon(Icons.playlist_add),
+            ),
+          ],
+          IconButton(
+            tooltip: 'Notiz zur Auswahl',
+            onPressed: _busy ? null : () => _selectionNote(tab),
+            icon: const Icon(Icons.note_add_outlined),
+          ),
+          IconButton(
+            tooltip: 'Auswahl teilen',
+            onPressed: _busy ? null : _shareSelection,
+            icon: const Icon(Icons.share_outlined),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _selectionNote(Json tab) async {
+    if (_data['user'] == null) {
+      await _scope!.open('/login');
+      return;
+    }
+    final verses = _orderedSelection;
+    final title = await _ask('Neue Notiz zur Auswahl', hint: 'Titel der Notiz');
+    if (title == null ||
+        title.trim().isEmpty ||
+        !mounted ||
+        !await _flush() ||
+        !mounted) {
+      return;
+    }
+    setState(() => _busy = true);
+    final completed = <String>[];
+    String? documentId;
+    Object? failure;
+    try {
+      final resource = asString(tab['resourceId']);
+      final created = await _scope!.api.action('/notes', 'create', {
+        'kind': 'note',
+        'title': title.trim(),
+        'readerSidecar': '1',
+        'passage': referenceLabel(verses.first.reference),
+        'resourceId': resource,
+      });
+      if (!created.isSuccess) {
+        throw ApiException(
+          created.isRedirect
+              ? 'Die Anmeldung ist erforderlich.'
+              : created.message,
+        );
+      }
+      final id = asString(created.data['documentId']);
+      if (!RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(id)) {
+        throw const ApiException(
+          'Die Notiz wurde angelegt, ihre Kennung fehlt aber. Bitte prüfe die Notizbibliothek.',
+        );
+      }
+      documentId = id;
+      completed.add(_verseKey(verses.first.reference));
+      final path = '/notes/$id';
+      if (verses.length > 1) {
+        final document = asMap((await _scope!.api.page(path))['document']);
+        var revision = document['revision'];
+        if (revision is! int || revision < 0) {
+          throw const ApiException(
+            'Die aktuelle Notizrevision konnte nicht gelesen werden.',
+          );
+        }
+        for (final verse in verses.skip(1)) {
+          final response = await _scope!.api.action(path, 'addPassage', {
+            'passage': referenceLabel(verse.reference),
+            'resourceId': resource,
+            'revision': revision,
+          });
+          if (!response.isSuccess) {
+            throw ApiException(
+              response.isRedirect
+                  ? 'Die Anmeldung ist erforderlich.'
+                  : response.message,
+            );
+          }
+          completed.add(_verseKey(verse.reference));
+          final nextRevision = response.data['revision'];
+          if (nextRevision is! int || nextRevision <= revision) {
+            throw const ApiException(
+              'Die neue Notizrevision fehlt in der Antwort.',
+            );
+          }
+          revision = nextRevision;
+        }
+      }
+    } catch (error) {
+      failure = error;
+    }
+    if (!mounted) return;
+    setState(() {
+      for (final key in completed) {
+        _selectedVerses.remove(key);
+      }
+      if (_selectedVerses.isEmpty) _selectionTab = null;
+      _busy = false;
+    });
+    final destination = documentId == null
+        ? null
+        : '/notes/$documentId?returnTo=%2F';
+    if (failure != null) {
+      final open = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Notiz nicht vollständig verknüpft'),
+          content: Text(
+            '${completed.length} von ${verses.length} Stellen bestätigt. Die übrigen bleiben ausgewählt. '
+            '${destination == null ? 'Prüfe die Notizbibliothek auf eine eventuell bereits angelegte Notiz.' : 'Öffne die angelegte Notiz und ergänze die übrigen Stellen dort.'} '
+            'Prüfe das Ergebnis der letzten Anfrage, bevor du sie erneut ausführst. $failure',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Schließen'),
+            ),
+            if (destination != null)
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Notiz öffnen'),
+              ),
+          ],
+        ),
+      );
+      if (open != true || !mounted) return;
+    }
+    if (destination != null && mounted) await _scope!.open(destination);
+  }
+
+  Future<void> _shareSelection() async {
+    final items = _orderedSelection;
+    final text = items
+        .map((item) {
+          final ref = referenceLabel(item.reference);
+          return '${versePlainText(item.cell['segments'] as List? ?? [])} ($ref)\n${_scope!.api.origin.resolve('/$ref')}';
+        })
+        .join('\n\n');
+    await SharePlus.instance.share(
+      ShareParams(text: text, sharePositionOrigin: _shareOrigin),
+    );
+  }
+
+  List<int> _verseNumbers(_SelectedVerse verse) {
+    final start = asInt(verse.reference['verse']);
+    final end = asInt(verse.reference['verseEnd'], start);
+    if (start < 1 || end < start || end - start > 200) {
+      throw const ApiException('Der gewählte Versbereich ist ungültig.');
+    }
+    return [for (var number = start; number <= end; number++) number];
+  }
+
+  bool _verseInList(_SelectedVerse verse, String id, int number) =>
+      asMaps(verse.chapter['markedVerses'])
+          .any((item) => item['listId'] == id && item['verse'] == number);
+
+  Future<void> _selectionChoices(Json tab, ReaderMenuPage page) async {
+    final verses = _orderedSelection;
+    if (verses.isEmpty) return;
+    try {
+      for (final verse in verses) {
+        _verseNumbers(verse);
+      }
+    } catch (error) {
+      showError(context, error);
+      return;
+    }
+    final lists = asMaps(_data['lists']);
+    final selectedLists = <String>{
+      for (final list in lists)
+        if (verses.every(
+          (verse) => _verseNumbers(verse).every(
+            (number) => _verseInList(verse, asString(list['id']), number),
+          ),
+        ))
+          asString(list['id']),
+    };
+    final result = await showReaderVerseMenu(
+      context,
+      reference: '${verses.length} Verse',
+      text: '',
+      signedIn: true,
+      styles: asMaps(_data['highlightStyles']),
+      highlights: const [],
+      lists: lists,
+      selectedLists: selectedLists,
+      initialPage: page,
+      multiple: true,
+    );
+    if (!mounted || result == null) return;
+    String? title;
+    if (result == 'newList') {
+      title = await _ask('Neue Sammlung', hint: 'Name der Sammlung');
+      if (title == null || title.trim().isEmpty || !mounted) return;
+    }
+    if (result.startsWith('highlight:') ||
+        result == 'removeHighlight' ||
+        result == 'newList' ||
+        result.startsWith('list:')) {
+      await _applySelection(verses, result, title, selectedLists);
+    }
+  }
+
+  Future<void> _applySelection(
+    List<_SelectedVerse> verses,
+    String result,
+    String? title,
+    Set<String> selectedLists,
+  ) async {
+    if (_busy || !await _flush() || !mounted) return;
+    setState(() => _busy = true);
+    final completed = <String>[];
+    var confirmed = 0;
+    var total = 0;
+    String? createdList;
+    Object? failure;
+    try {
+      final path = readerPath(_workspace, _state);
+      final collection = result == 'newList' || result.startsWith('list:');
+      total = verses.fold(
+        0,
+        (sum, verse) => sum + (collection ? _verseNumbers(verse).length : 1),
+      );
+      for (final verse in verses) {
+        final numbers = collection
+            ? _verseNumbers(verse)
+            : [asInt(verse.reference['verse'])];
+        for (final number in numbers) {
+          final reference = referenceLabel(
+            collection
+                ? {...verse.reference, 'verse': number, 'verseEnd': null}
+                : verse.reference,
+          );
+          String action;
+          Json fields;
+          if (result.startsWith('highlight:')) {
+            action = 'setHighlight';
+            fields = {'reference': reference, 'styleId': result.substring(10)};
+          } else if (result == 'removeHighlight') {
+            action = 'removeHighlight';
+            fields = {'reference': reference};
+          } else {
+            final id = result == 'newList'
+                ? (createdList ?? '')
+                : result.substring(5);
+            final remove = selectedLists.contains(id) && result != 'newList';
+            if (!remove && id.isNotEmpty && _verseInList(verse, id, number)) {
+              confirmed++;
+              continue;
+            }
+            action = remove ? 'removeFromList' : 'addToList';
+            fields = {
+              'reference': reference,
+              'listId': id,
+              if (id.isEmpty) 'title': title,
+            };
+          }
+          final response = await _scope!.api.action(
+            readerActionPath(path, _data, readerState: _state),
+            action,
+            fields,
+          );
+          if (response.isRedirect) {
+            throw const ApiException('Die Anmeldung ist erforderlich.');
+          }
+          if (!response.isSuccess) throw ApiException(response.message);
+          confirmed++;
+          if (result == 'newList' && createdList == null) {
+            createdList = asString(response.data['listId']);
+            if (createdList.isEmpty) {
+              throw const ApiException(
+                'Die neue Sammlung wurde angelegt, ihre Kennung fehlt aber in der Antwort.',
+              );
+            }
+          }
+        }
+        completed.add(_verseKey(verse.reference));
+      }
+    } catch (error) {
+      failure = error;
+    }
+    if (!mounted) return;
+    setState(() {
+      for (final key in completed) {
+        _selectedVerses.remove(key);
+      }
+      if (_selectedVerses.isEmpty) _selectionTab = null;
+    });
+    Object? reloadFailure;
+    try {
+      await _reloadView(readerPath(_workspace, _state));
+    } catch (error) {
+      reloadFailure = error;
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    if (mounted && failure != null) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Aktion nicht vollständig ausgeführt'),
+          content: Text(
+            '$confirmed von $total Versen bestätigt. Unvollständig bearbeitete Versblöcke bleiben ausgewählt. '
+            '${result == 'newList' ? 'Prüfe die Sammlungsübersicht auf die eventuell bereits angelegte Sammlung „$title“ und wähle sie für die übrigen Verse. ' : ''}'
+            'Prüfe das Ergebnis der letzten Anfrage, bevor du sie erneut ausführst. $failure',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Schließen'),
+            ),
+          ],
+        ),
+      );
+    } else if (mounted && reloadFailure != null) {
+      showError(
+        context,
+        'Alle $confirmed Vorgänge wurden bestätigt, aber die Ansicht konnte nicht aktualisiert werden: $reloadFailure',
+      );
     }
   }
 
@@ -830,9 +1234,12 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
         for (final entry in asMaps(chapter['markedVerses']))
           if (entry['verse'] == reference['verse']) asString(entry['listId']),
       },
+      canSelectVerse: true,
     );
     if (result == null || !mounted) return;
-    if (result == 'share') {
+    if (result == 'select') {
+      _toggleVerse(tab, chapter, cell, reference);
+    } else if (result == 'share') {
       await SharePlus.instance.share(
         ShareParams(
           text: '$plain ($ref)\n${_scope!.api.origin.resolve('/$ref')}',
@@ -1555,35 +1962,60 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
                       if (tab['linkSet'] != null) 'linkSet': tab['linkSet'],
                     }),
                   )
-                : _ChapterPane(
-                    key: paneKey,
-                    cache: _chapterCaches.putIfAbsent(
-                      '$tabKey:${resource['id']}',
-                      _ChapterCache.new,
-                    ),
-                    initial: asMap(column['initialChapter']),
-                    active:
-                        widget.active &&
-                        _shownTab(tile)['id'] == tab['id'] &&
-                        _mobileTile == tile['id'],
-                    resource: resource,
-                    reference: asMap(tab['reference']),
-                    fontScale: asInt(_data['readerFontScale'], 100) / 100,
-                    versePerLine: _versePerLine,
-                    onPosition: (reference) => _position(tile, tab, reference),
-                    onWord: (reference, word, position) =>
-                        _word(tile, tab, reference, word, position),
-                    onVerse: (chapter, cell, reference) =>
-                        _verseMenu(tab, chapter, cell, reference),
-                    onReference: (reference) => _mutate('openBibleReference', {
-                      'reference': referenceLabel(reference),
-                      if (tab['linkSet'] != null) 'linkSet': tab['linkSet'],
-                    }),
-                    onReferenceText: (reference) =>
-                        _mutate('openBibleReference', {
-                          'reference': reference,
-                          if (tab['linkSet'] != null) 'linkSet': tab['linkSet'],
-                        }),
+                : Stack(
+                    children: [
+                      _ChapterPane(
+                        key: paneKey,
+                        cache: _chapterCaches.putIfAbsent(
+                          '$tabKey:${resource['id']}',
+                          _ChapterCache.new,
+                        ),
+                        initial: asMap(column['initialChapter']),
+                        active:
+                            widget.active &&
+                            _shownTab(tile)['id'] == tab['id'] &&
+                            _mobileTile == tile['id'],
+                        resource: resource,
+                        reference: asMap(tab['reference']),
+                        fontScale: asInt(_data['readerFontScale'], 100) / 100,
+                        versePerLine: _versePerLine,
+                        selectionMode:
+                            _selectionTab == '$tabKey:${resource['id']}',
+                        selectedKeys:
+                            _selectionTab == '$tabKey:${resource['id']}'
+                            ? _selectedVerses.keys.join('|')
+                            : '',
+                        onPosition: (reference) =>
+                            _position(tile, tab, reference),
+                        onWord: (reference, word, position) =>
+                            _word(tile, tab, reference, word, position),
+                        onVerse: (chapter, cell, reference) =>
+                            _verseMenu(tab, chapter, cell, reference),
+                        onSelect: (chapter, cell, reference) =>
+                            _toggleVerse(tab, chapter, cell, reference),
+                        onReference: (reference) =>
+                            _mutate('openBibleReference', {
+                              'reference': referenceLabel(reference),
+                              if (tab['linkSet'] != null)
+                                'linkSet': tab['linkSet'],
+                            }),
+                        onReferenceText: (reference) =>
+                            _mutate('openBibleReference', {
+                              'reference': reference,
+                              if (tab['linkSet'] != null)
+                                'linkSet': tab['linkSet'],
+                            }),
+                      ),
+                      if (_selectionTab == '$tabKey:${resource['id']}')
+                        Positioned(
+                          right: 8,
+                          top: 12,
+                          bottom: 12,
+                          child: SingleChildScrollView(
+                            child: _selectionToolbar(tab),
+                          ),
+                        ),
+                    ],
                   ),
           ),
         ],
@@ -1724,20 +2156,26 @@ class _ChapterPane extends StatefulWidget {
     required this.onPosition,
     required this.onWord,
     required this.onVerse,
+    required this.onSelect,
     required this.onReference,
     required this.onReferenceText,
     required this.active,
     this.fontScale = 1,
     this.versePerLine = false,
+    this.selectionMode = false,
+    this.selectedKeys = '',
   });
   final Json initial, resource, reference;
   final _ChapterCache cache;
   final double fontScale;
   final bool active, versePerLine;
+  final bool selectionMode;
+  final String selectedKeys;
   final void Function(Json) onPosition, onReference;
   final void Function(String) onReferenceText;
   final void Function(Json, Json, int) onWord;
   final void Function(Json, Json, Json) onVerse;
+  final void Function(Json, Json, Json) onSelect;
   @override
   State<_ChapterPane> createState() => _ChapterPaneState();
 }
@@ -2124,6 +2562,10 @@ class _ChapterPaneState extends State<_ChapterPane> {
       highlights: _highlights(chapter, cell),
       onOpen: () => widget.onVerse(chapter, cell, reference),
       onWord: (word, position) => widget.onWord(reference, word, position),
+      onSelect: () => widget.onSelect(chapter, cell, reference),
+      selected: widget.selectedKeys
+          .split('|')
+          .contains('${_key(reference)}:${reference['verseEnd'] ?? ''}'),
     );
   }
 
@@ -2170,6 +2612,9 @@ class _ChapterPaneState extends State<_ChapterPane> {
             passages: widget.versePerLine ? null : passages,
             verseNumber: first.number,
             onVerseNumber: first.onOpen,
+            onSelectVerse: first.onSelect,
+            selected: first.selected,
+            selectionMode: widget.selectionMode,
             onWord: first.onWord,
             fontSize: 19 * widget.fontScale,
             highlights: first.highlights,
@@ -2434,6 +2879,8 @@ class _ChapterPaneState extends State<_ChapterPane> {
       _error,
       widget.fontScale,
       widget.versePerLine,
+      widget.selectionMode,
+      widget.selectedKeys,
       widget.resource['direction'],
       Theme.of(context),
       MediaQuery.textScalerOf(context),

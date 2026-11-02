@@ -15,6 +15,9 @@ Future<String?> showReaderVerseMenu(
   required List<Json> highlights,
   required List<Json> lists,
   required Set<String> selectedLists,
+  ReaderMenuPage initialPage = ReaderMenuPage.actions,
+  bool multiple = false,
+  bool canSelectVerse = false,
 }) => showModalBottomSheet<String>(
   context: context,
   isScrollControlled: true,
@@ -28,10 +31,13 @@ Future<String?> showReaderVerseMenu(
     highlights: highlights,
     lists: lists,
     selectedLists: selectedLists,
+    initialPage: initialPage,
+    multiple: multiple,
+    canSelectVerse: canSelectVerse,
   ),
 );
 
-enum _MenuPage { actions, marks, lists }
+enum ReaderMenuPage { actions, marks, lists }
 
 class ReaderVerseMenu extends StatefulWidget {
   const ReaderVerseMenu({
@@ -43,38 +49,50 @@ class ReaderVerseMenu extends StatefulWidget {
     required this.highlights,
     required this.lists,
     required this.selectedLists,
+    this.initialPage = ReaderMenuPage.actions,
+    this.multiple = false,
+    this.canSelectVerse = false,
   });
 
   final String reference, text;
   final bool signedIn;
   final List<Json> styles, highlights, lists;
   final Set<String> selectedLists;
+  final ReaderMenuPage initialPage;
+  final bool multiple;
+  final bool canSelectVerse;
 
   @override
   State<ReaderVerseMenu> createState() => _ReaderVerseMenuState();
 }
 
 class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
-  _MenuPage _page = _MenuPage.actions;
+  late ReaderMenuPage _page = widget.initialPage;
 
   void _select(String action) => Navigator.pop(context, action);
-  void _open(_MenuPage page) => setState(() => _page = page);
+  void _open(ReaderMenuPage page) => setState(() => _page = page);
 
   Widget _header() => Row(
     children: [
-      if (_page != _MenuPage.actions)
+      if (_page != ReaderMenuPage.actions && !widget.multiple)
         IconButton(
           tooltip: 'Zurück zu den Versaktionen',
-          onPressed: () => _open(_MenuPage.actions),
+          onPressed: () => _open(ReaderMenuPage.actions),
           icon: const Icon(Icons.arrow_back),
         ),
       Expanded(
         child: Text(switch (_page) {
-          _MenuPage.actions => widget.reference,
-          _MenuPage.marks => 'Markieren · ${widget.reference}',
-          _MenuPage.lists => 'Sammlungen · ${widget.reference}',
+          ReaderMenuPage.actions => widget.reference,
+          ReaderMenuPage.marks => 'Markieren · ${widget.reference}',
+          ReaderMenuPage.lists => 'Sammlungen · ${widget.reference}',
         }, style: Theme.of(context).textTheme.titleMedium),
       ),
+      if (widget.canSelectVerse && _page == ReaderMenuPage.actions)
+        IconButton(
+          tooltip: 'Vers auswählen',
+          onPressed: () => _select('select'),
+          icon: const Icon(Icons.check_box_outlined),
+        ),
       IconButton(
         tooltip: 'Versmenü schließen',
         onPressed: () => Navigator.pop(context),
@@ -90,13 +108,13 @@ class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
           'marks',
           'Markieren',
           Icons.highlight_outlined,
-          () => _open(_MenuPage.marks),
+          () => _open(ReaderMenuPage.marks),
         ),
         (
           'lists',
           'Sammlungen',
           Icons.playlist_add,
-          () => _open(_MenuPage.lists),
+          () => _open(ReaderMenuPage.lists),
         ),
       ],
       ('note', 'Notiz', Icons.note_add_outlined, () => _select('note')),
@@ -243,7 +261,11 @@ class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
           child: Text('Noch keine Markierungsstile vorhanden.'),
         ),
       const Divider(),
-      for (var index = 0; index < widget.highlights.length; index++)
+      for (
+        var index = 0;
+        !widget.multiple && index < widget.highlights.length;
+        index++
+      )
         ListTile(
           leading: const Icon(Icons.format_color_reset),
           title: Text(
@@ -253,7 +275,11 @@ class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
         ),
       ListTile(
         leading: const Icon(Icons.format_color_reset),
-        title: const Text('Versmarkierung entfernen'),
+        title: Text(
+          widget.multiple
+              ? 'Versmarkierungen entfernen'
+              : 'Versmarkierung entfernen',
+        ),
         onTap: () => _select('removeHighlight'),
       ),
     ],
@@ -265,7 +291,11 @@ class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
     children: [
       ListTile(
         leading: const Icon(Icons.add),
-        title: const Text('Neue Sammlung mit diesem Vers'),
+        title: Text(
+          widget.multiple
+              ? 'Neue Sammlung mit diesen Versen'
+              : 'Neue Sammlung mit diesem Vers',
+        ),
         onTap: () => _select('newList'),
       ),
       if (widget.lists.isNotEmpty) const Divider(),
@@ -279,7 +309,11 @@ class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
           title: Text(asString(list['title'])),
           subtitle: Text(
             widget.selectedLists.contains(asString(list['id']))
-                ? 'Vers enthalten · Tippen zum Entfernen'
+                ? widget.multiple
+                      ? 'Alle Verse enthalten · Tippen zum Entfernen'
+                      : 'Vers enthalten · Tippen zum Entfernen'
+                : widget.multiple
+                ? 'Fehlende Verse hinzufügen'
                 : 'Vers hinzufügen',
           ),
           onTap: () => _select('list:${list['id']}'),
@@ -289,14 +323,14 @@ class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
 
   @override
   Widget build(BuildContext context) => PopScope(
-    canPop: _page == _MenuPage.actions,
+    canPop: _page == ReaderMenuPage.actions || widget.multiple,
     onPopInvokedWithResult: (didPop, _) {
-      if (!didPop) _open(_MenuPage.actions);
+      if (!didPop) _open(ReaderMenuPage.actions);
     },
     child: SafeArea(
       top: false,
       child: LayoutBuilder(
-        builder: (context, constraints) => _page == _MenuPage.actions
+        builder: (context, constraints) => _page == ReaderMenuPage.actions
             ? _actions(constraints)
             : SizedBox(
                 height: math.min(560, constraints.maxHeight),
@@ -308,7 +342,7 @@ class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
                     ),
                     const Divider(height: 1),
                     Expanded(
-                      child: _page == _MenuPage.marks
+                      child: _page == ReaderMenuPage.marks
                           ? _markChoices()
                           : _listChoices(),
                     ),

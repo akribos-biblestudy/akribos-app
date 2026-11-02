@@ -230,12 +230,16 @@ class VersePassage {
     this.highlights = const [],
     this.onWord,
     this.onOpen,
+    this.onSelect,
+    this.selected = false,
   });
   final List<dynamic> segments;
   final String? number;
   final List<Json> highlights;
   final void Function(Json word, int position)? onWord;
   final VoidCallback? onOpen;
+  final VoidCallback? onSelect;
+  final bool selected;
 }
 
 class VerseText extends StatefulWidget {
@@ -253,6 +257,9 @@ class VerseText extends StatefulWidget {
     this.selectable = true,
     this.passages,
     this.showHighlightLabels = false,
+    this.selectionMode = false,
+    this.onSelectVerse,
+    this.selected = false,
   });
   final List<dynamic> segments;
   final List<VersePassage>? passages;
@@ -266,6 +273,9 @@ class VerseText extends StatefulWidget {
   final VoidCallback? onVerseNumber;
   final bool selectable;
   final bool showHighlightLabels;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback? onSelectVerse;
   @override
   State<VerseText> createState() => VerseTextState();
 }
@@ -352,6 +362,8 @@ class VerseTextState extends State<VerseText> {
             highlights: widget.highlights,
             onWord: widget.onWord,
             onOpen: widget.onVerseNumber,
+            onSelect: widget.onSelectVerse,
+            selected: widget.selected,
           ),
         ];
     // Chapter reloads replace their segment lists. Selecting another tab or
@@ -373,6 +385,7 @@ class VerseTextState extends State<VerseText> {
       widget.selectable,
       widget.passages != null,
       widget.showHighlightLabels,
+      widget.selectionMode,
       widget.needles.length,
       ...widget.needles,
       _passages.length,
@@ -381,6 +394,8 @@ class VerseTextState extends State<VerseText> {
         passage.number,
         passage.onOpen != null,
         passage.onWord != null,
+        passage.onSelect != null,
+        passage.selected,
         passage.highlights.length,
         for (final range in passage.highlights) ...[
           range['start'],
@@ -427,7 +442,14 @@ class VerseTextState extends State<VerseText> {
         spans.add(
           TextSpan(
             text: number,
-            recognizer: passage.onOpen == null
+            semanticsLabel: widget.selectionMode
+                ? 'Vers ${passage.number}, ${passage.selected ? 'ausgewählt' : 'nicht ausgewählt'}'
+                : null,
+            recognizer: widget.selectionMode
+                ? passage.onSelect == null
+                      ? null
+                      : _tap(() => _passages[passageIndex].onSelect?.call())
+                : passage.onOpen == null
                 ? null
                 : _tap(() => _passages[passageIndex].onOpen?.call()),
             style: TextStyle(
@@ -435,6 +457,7 @@ class VerseTextState extends State<VerseText> {
               fontWeight: FontWeight.w700,
               color: colors.primary,
               fontFamily: theme.textTheme.labelSmall?.fontFamily,
+              decoration: passage.selected ? TextDecoration.underline : null,
             ),
           ),
         );
@@ -480,7 +503,7 @@ class VerseTextState extends State<VerseText> {
               text: '\u2060$marker',
               semanticsLabel: 'Hinweis ${run.text} öffnen',
               style: noteStyle.copyWith(color: Colors.transparent),
-              recognizer: _tap(openNote),
+              recognizer: widget.selectionMode ? null : _tap(openNote),
             ),
           );
           notes.add(VerseNoteRange(offset + 1, marker, openNote));
@@ -489,7 +512,9 @@ class VerseTextState extends State<VerseText> {
         }
         offset += text.length;
         TapGestureRecognizer? recognizer;
-        if (run.word != null && passage.onWord != null) {
+        if (!widget.selectionMode &&
+            run.word != null &&
+            passage.onWord != null) {
           recognizer = _tap(
             () =>
                 _passages[passageIndex].onWord?.call(run.word!, run.position!),
@@ -514,9 +539,11 @@ class VerseTextState extends State<VerseText> {
                   : null,
               backgroundColor: searchHit ? colors.tertiaryContainer : null,
               decoration:
-                  run.word != null &&
-                      widget.studiedStrong != null &&
-                      strongNumbers(run.word!).contains(widget.studiedStrong)
+                  passage.selected ||
+                      (run.word != null &&
+                          widget.studiedStrong != null &&
+                          strongNumbers(run.word!)
+                              .contains(widget.studiedStrong))
                   ? TextDecoration.underline
                   : null,
             ),
@@ -625,6 +652,10 @@ class VerseTextState extends State<VerseText> {
         final render = paragraph;
         if (render == null) return;
         final local = render.globalToLocal(details.globalPosition);
+        if (widget.selectionMode) {
+          _passages[passageAt(local)].onSelect?.call();
+          return;
+        }
         final painter = VerseNotePainter(
           paragraph: () => render,
           notes: notes,
@@ -643,9 +674,11 @@ class VerseTextState extends State<VerseText> {
           : (details) {
               final render = paragraph;
               if (render == null) return;
-              _passages[passageAt(render.globalToLocal(details.globalPosition))]
-                  .onOpen
-                  ?.call();
+              final passage =
+                  _passages[passageAt(
+                    render.globalToLocal(details.globalPosition),
+                  )];
+              (passage.onSelect ?? passage.onOpen)?.call();
             },
       child: text,
     );
