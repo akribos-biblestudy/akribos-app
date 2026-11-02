@@ -64,6 +64,12 @@ A–E nutzen die Web-Gruppenfarben aus `ReaderTabToolbar.svelte`: A `#b9683f`, B
 C `#60836d`, D `#776b91`, E `#9a6572`. Buchstaben ergänzen die Farben. Die Notizliste zeigt
 keine globale Tagwolke; Filter und Tagbearbeitung bleiben gezielt erreichbar.
 
+Langes Drücken wählt einen Vers; weitere Berührungen fügen Verse hinzu oder entfernen sie aus
+der Auswahl. Die unterstrichene Auswahl erhält eine vertikale Symbolleiste für Markierung,
+Sammlung, Notiz und Teilen. Die Versnummer bietet im Versmenü zusätzlich einen zugänglichen
+Einstieg in die Auswahl. Notizen verknüpfen die tatsächlich gewählten Stellen einzeln;
+ein Fehler zeigt den bestätigten Teil und lässt die übrigen Stellen ausgewählt.
+
 ## Aktualitätsgrenzen und Bildherkunft
 
 [Logos v54 vom 06.10.2026](https://www.logos.com/grow/release-october-2026/) macht Tabs und

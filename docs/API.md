@@ -118,6 +118,14 @@ Dokumentänderungen benötigen unverändert die positive aktuelle `revision`. De
 serialisiert Speichern, erhält Konfliktentwürfe und wartet vor Navigation auf ausstehende
 Änderungen. Ein GET konsumiert keinen Anmelde- oder Einladungstoken.
 
+Die Reader-Mehrfachauswahl sendet Markierungs- und Sammlungsaktionen einzeln pro gewähltem
+Vers; in einer Übersetzung zusammen gedruckte Versblöcke werden für Sammlungen in ihre
+einzelnen Versnummern zerlegt. Eine neue Sammlung liefert beim ersten `addToList` ihre ID, die für die weiteren Verse
+verwendet wird. Eine Notiz entsteht über `/notes` `create` mit `readerSidecar=1` und der ersten
+Stelle; weitere, auch nicht zusammenhängende Stellen folgen einzeln über `/notes/[id]`
+`addPassage` mit der jeweils bestätigten Revision. Bei einem Fehler stoppt die Folge ohne
+automatische Wiederholung; bestätigte Stellen und eine bereits angelegte Notiz bleiben erhalten.
+
 Für die Code-Anmeldung wird nur der native Challenge-Cookie umbenannt: `app-email-login`, HttpOnly,
 Pfad `/api/app`. Die bestehende Anmeldelogik sieht ihn als `email-login`. Webanmeldung und native
 Anmeldung beeinflussen ihre Challenge-Cookies nicht gegenseitig. Der Sitzungscookie bleibt derselbe.
