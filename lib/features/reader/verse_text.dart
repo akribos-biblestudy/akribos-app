@@ -252,6 +252,7 @@ class VerseText extends StatefulWidget {
     this.onVerseNumber,
     this.selectable = true,
     this.passages,
+    this.showHighlightLabels = false,
   });
   final List<dynamic> segments;
   final List<VersePassage>? passages;
@@ -264,6 +265,7 @@ class VerseText extends StatefulWidget {
   final String? verseNumber;
   final VoidCallback? onVerseNumber;
   final bool selectable;
+  final bool showHighlightLabels;
   @override
   State<VerseText> createState() => VerseTextState();
 }
@@ -370,6 +372,7 @@ class VerseTextState extends State<VerseText> {
       widget.studiedStrong,
       widget.selectable,
       widget.passages != null,
+      widget.showHighlightLabels,
       widget.needles.length,
       ...widget.needles,
       _passages.length,
@@ -383,6 +386,7 @@ class VerseTextState extends State<VerseText> {
           range['start'],
           range['end'],
           range['color'],
+          if (widget.showHighlightLabels) range['name'],
         ],
       ],
     ];
@@ -536,6 +540,19 @@ class VerseTextState extends State<VerseText> {
             ? runOffsets[last + 1]
             : offset;
         marks.add(VerseMarkerRange(runOffsets[indices.first], end, color));
+      }
+      if (widget.showHighlightLabels && passage.highlights.isNotEmpty) {
+        final labels = passage.highlights
+            .map((item) => asString(item['name'], 'Markierung'))
+            .toSet();
+        final label = ' (Markiert: ${labels.join(', ')})';
+        spans.add(
+          TextSpan(
+            text: label,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        );
+        offset += label.length;
       }
     }
     final style = inheritedStyle.merge(

@@ -2178,8 +2178,7 @@ class _ChapterPaneState extends State<_ChapterPane> {
   Widget _bibleBlock(Json chapter, List<Json> rows, String id) {
     final passages = rows.map((row) => _passage(chapter, row)).toList();
     final heading = asString(_cell(rows.first)['heading']);
-    final labels = passages
-        .expand((passage) => passage.highlights)
+    final labels = passages.first.highlights
         .map((item) => asString(item['name'], 'Markierung'))
         .toSet();
     final first = passages.first;
@@ -2188,11 +2187,6 @@ class _ChapterPaneState extends State<_ChapterPane> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (AppScope.of(context).eInk && labels.isNotEmpty)
-            Text(
-              'Markiert: ${labels.join(', ')}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
           if (heading.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -2204,6 +2198,13 @@ class _ChapterPaneState extends State<_ChapterPane> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+            ),
+          if (AppScope.of(context).eInk &&
+              widget.versePerLine &&
+              labels.isNotEmpty)
+            Text(
+              'Markiert: ${labels.join(', ')}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           VerseText(
             key: widget.versePerLine
@@ -2220,6 +2221,8 @@ class _ChapterPaneState extends State<_ChapterPane> {
             onWord: first.onWord,
             fontSize: 19 * widget.fontScale,
             highlights: first.highlights,
+            showHighlightLabels:
+                AppScope.of(context).eInk && !widget.versePerLine,
             direction: widget.resource['direction'] == 'rtl'
                 ? TextDirection.rtl
                 : TextDirection.ltr,
