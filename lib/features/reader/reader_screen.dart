@@ -712,7 +712,9 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
         builder: (context) => AlertDialog(
           title: const Text('Notiz nicht vollständig verknüpft'),
           content: Text(
-            '${completed.length} von ${verses.length} Stellen bestätigt. Die übrigen bleiben ausgewählt. Ergebnis der letzten Anfrage prüfen, bevor du sie erneut ausführst. $failure',
+            '${completed.length} von ${verses.length} Stellen bestätigt. Die übrigen bleiben ausgewählt. '
+            '${destination == null ? 'Prüfe die Notizbibliothek auf eine eventuell bereits angelegte Notiz.' : 'Öffne die angelegte Notiz und ergänze die übrigen Stellen dort.'} '
+            'Prüfe das Ergebnis der letzten Anfrage, bevor du sie erneut ausführst. $failure',
           ),
           actions: [
             TextButton(
@@ -890,10 +892,11 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       }
       if (_selectedVerses.isEmpty) _selectionTab = null;
     });
+    Object? reloadFailure;
     try {
       await _reloadView(readerPath(_workspace, _state));
     } catch (error) {
-      failure ??= error;
+      reloadFailure = error;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -903,7 +906,9 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
         builder: (context) => AlertDialog(
           title: const Text('Aktion nicht vollständig ausgeführt'),
           content: Text(
-            '$confirmed von $total Versen bestätigt. Unvollständig bearbeitete Versblöcke bleiben ausgewählt. Ergebnis der letzten Anfrage prüfen, bevor du sie erneut ausführst. $failure',
+            '$confirmed von $total Versen bestätigt. Unvollständig bearbeitete Versblöcke bleiben ausgewählt. '
+            '${result == 'newList' ? 'Prüfe die Sammlungsübersicht auf die eventuell bereits angelegte Sammlung „$title“ und wähle sie für die übrigen Verse. ' : ''}'
+            'Prüfe das Ergebnis der letzten Anfrage, bevor du sie erneut ausführst. $failure',
           ),
           actions: [
             TextButton(
@@ -912,6 +917,11 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
             ),
           ],
         ),
+      );
+    } else if (mounted && reloadFailure != null) {
+      showError(
+        context,
+        'Alle $confirmed Vorgänge wurden bestätigt, aber die Ansicht konnte nicht aktualisiert werden: $reloadFailure',
       );
     }
   }

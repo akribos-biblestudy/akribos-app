@@ -318,6 +318,61 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'partial merged block stays selected and names the created collection',
+    (tester) async {
+      tester.view.physicalSize = const Size(500, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final data = readerFixture();
+      final chapter = asMap(asMaps(data['columns']).first['initialChapter']);
+      final rows = asMap(chapter['chapter'])['rows'] as List;
+      asMap((asMap(rows.first)['cells'] as List).first)['verseEnd'] = 2;
+      rows.removeAt(1);
+      final api = SelectionApi(data, failAt: 2);
+      addTearDown(api.dispose);
+      await tester.pumpWidget(app(api, const ReaderScreen(path: '/Joh1')));
+      await tester.pumpAndSettle();
+      await selectVerse(tester, 1, longPress: true);
+      await selectVerse(tester, 3);
+      await tester.tap(find.byTooltip('Auswahl zu Sammlungen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Neue Sammlung mit diesen Versen'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Meine Sammlung');
+      await tester.tap(find.text('Übernehmen'));
+      await tester.pumpAndSettle();
+      expect(api.actions.map((a) => asMap(a['fields'])['reference']), [
+        'Joh1,1',
+        'Joh1,2',
+      ]);
+      expect(find.textContaining('1 von 3 Versen bestätigt'), findsOneWidget);
+      expect(find.textContaining('Sammlungsübersicht'), findsOneWidget);
+      expect(
+        tester
+            .widget<VerseText>(
+              find.byWidgetPredicate(
+                (w) => w is VerseText && w.verseNumber == '1–2',
+              ),
+            )
+            .selected,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<VerseText>(
+              find.byWidgetPredicate(
+                (w) => w is VerseText && w.verseNumber == '3',
+              ),
+            )
+            .selected,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final allPresent in [false, true]) {
     testWidgets(
       'collection selection ${allPresent ? 'removes all present' : 'adds only missing verses'}',
