@@ -226,15 +226,22 @@ void main() {
     await tester.pumpAndSettle();
     await selectVerse(tester, 1, longPress: true);
     await selectVerse(tester, 3);
+    await selectVerse(tester, 4);
     await tester.tap(find.byTooltip('Notiz zur Auswahl'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Meine Notiz');
     await tester.tap(find.text('Übernehmen'));
     await tester.pumpAndSettle();
-    expect(api.actions.map((a) => a['action']), ['create', 'addPassage']);
+    expect(api.actions.map((a) => a['action']), [
+      'create',
+      'addPassage',
+      'addPassage',
+    ]);
     expect(asMap(api.actions[0]['fields']), containsPair('passage', 'Joh1,1'));
     expect(asMap(api.actions[1]['fields']), containsPair('passage', 'Joh1,3'));
     expect(asMap(api.actions[1]['fields']), containsPair('revision', 1));
+    expect(asMap(api.actions[2]['fields']), containsPair('passage', 'Joh1,4'));
+    expect(asMap(api.actions[2]['fields']), containsPair('revision', 2));
     expect(opened, '/notes/${SelectionApi.documentId}?returnTo=%2F');
     expect(tester.takeException(), isNull);
   });
