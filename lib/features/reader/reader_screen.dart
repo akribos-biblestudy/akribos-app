@@ -11,6 +11,7 @@ import '../../core/app_scope.dart';
 import '../../widgets/common.dart';
 import '../search/search_screen.dart';
 import 'books.dart';
+import 'passage_picker.dart';
 import 'reader_dialogs.dart';
 import 'reader_controller.dart';
 import 'reader_lexicon_sheet.dart';
@@ -683,7 +684,16 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       showDragHandle: true,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (context) => _PassagePicker(initial: asMap(tab['reference'])),
+      builder: (context) => PassagePicker(
+        initial: asMap(tab['reference']),
+        resourceId: asString(tab['resourceId']),
+        api: _scope!.api,
+        isLexicon: asMaps(_data['readerResources']).any(
+          (resource) =>
+              resource['id'] == tab['resourceId'] &&
+              resource['kind'] == 'lexicon',
+        ),
+      ),
     );
     if (value != null) {
       await _mutate('setTabReference', {
@@ -1673,64 +1683,6 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
       ],
     );
   }
-}
-
-class _PassagePicker extends StatefulWidget {
-  const _PassagePicker({required this.initial});
-  final Json initial;
-  @override
-  State<_PassagePicker> createState() => _PassagePickerState();
-}
-
-class _PassagePickerState extends State<_PassagePicker> {
-  late int _book = asInt(widget.initial['book'], 43);
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: MediaQuery.sizeOf(context).height * .8,
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          SearchBox(
-            label: 'Direkte Bibelstelle, z. B. Joh 3,16',
-            onSearch: (value) => Navigator.pop(context, value),
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<int>(
-            initialValue: _book,
-            decoration: const InputDecoration(labelText: 'Buch'),
-            items: bibleBooks
-                .map(
-                  (book) =>
-                      DropdownMenuItem(value: book.id, child: Text(book.name)),
-                )
-                .toList(),
-            onChanged: (value) {
-              if (value != null) setState(() => _book = value);
-            },
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 72,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-              ),
-              itemCount: bibleBooks[_book - 1].chapters,
-              itemBuilder: (context, index) => OutlinedButton(
-                onPressed: () => Navigator.pop(
-                  context,
-                  referenceLabel({'book': _book, 'chapter': index + 1}),
-                ),
-                child: Text('${index + 1}'),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 class _KeepReaderTab extends StatefulWidget {

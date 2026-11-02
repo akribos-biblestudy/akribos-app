@@ -67,6 +67,16 @@ class NotesApi extends ReaderApi {
 
   @override
   Future<dynamic> get(String path) async {
+    if (path == '/api/reader/resources/BIBLE0/navigation') {
+      return {
+        'books': [
+          {
+            'book': 43,
+            'chapters': [1, 2],
+          },
+        ],
+      };
+    }
     if (!path.startsWith('/api/documents?')) return super.get(path);
     reads.add(path);
     final uri = Uri.parse(path);
@@ -117,6 +127,8 @@ void main() {
       expect(firstRequest.queryParameters, {'kind': 'note', 'passage': 'Joh1'});
       expect(api.reads.any((path) => path.contains('COMMENTARY')), isFalse);
       await tester.tap(find.widgetWithText(TextButton, 'Bibel 0 · Joh1').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Joh'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(OutlinedButton, '2'));
       await tester.pumpAndSettle();
