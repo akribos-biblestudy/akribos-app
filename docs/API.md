@@ -53,9 +53,25 @@ Die getrennte Schnittstelle `/api/v1` und deren API-Key-/Lizenzregeln bleiben un
 | Endpunkt | Aufgabe |
 | --- | --- |
 | `GET /api/reader/resources/{resource}/navigation` | Für das aktuelle lesbare Werk tatsächlich vorhandene Bücher und Kapitel; prüft die Reader-Leserechte und liefert `books: [{book, chapters}]` |
+| `GET /api/app/offline/resources` und `GET /api/app/offline/resources/{id}` | Lizenzierte und für das aktuelle Konto lesbare Werke abrufen. Version 1 umfasst Bibeln, Kommentare und Parallelstellen. Pakete enthalten keine persönlichen Markierungen oder Notizen. |
+| `GET /api/app/offline/v2/lexicons` und `GET /api/app/offline/v2/lexicons/{id}` | Separater Version-2-Katalog und Artikelpakete für offline freigegebene Lexika. Ein fehlender oder fehlgeschlagener Katalog bestätigt keine Rechte für gespeicherte Lexika. |
 | `GET /api/app/bootstrap` | Layout, sichere Sitzungsidentität, Werke, 66 Bücher, Einstellungen und Nutzernavigation |
 | `GET /api/app/page?path=/notes%3Fkind%3Dnote` | Notizbibliothek als JSON laden; der innere Pfad einschließlich Query wird URL-kodiert |
 | `POST /api/app/action?path=/notes&action=create` | Eine ausdrücklich freigegebene bestehende Formularaktion ausführen |
+
+Die App prüft beim Wiederverbinden beide Offline-Kataloge getrennt. Ein bereits bestätigter
+v1-Entzug entfernt das betreffende Paket auch dann, wenn der anschließende v2-Abruf scheitert.
+Sind gespeicherte Lexika nicht prüfbar, bleibt ihr verschlüsseltes Paket erhalten, aber die
+Offline-Identität wird nicht freigegeben. Ältere Server ohne v2-Endpunkt funktionieren für
+v1-Pakete, solange keine v2-Pakete gespeichert sind. Offline bleiben Aktionen schreibgeschützt;
+Lexika bieten lokale Strong- und Textsuche. Ohne Verbindung lässt sich ein späterer Entzug
+erst nach dem nächsten erfolgreichen Rechteabgleich erkennen.
+
+Die lokale Lexikonsuche normalisiert Strong-Eingaben einschließlich führender Nullen wie der
+Server. Für Textsuche werden häufige lateinische und griechische Akzente sowie kombinierende
+Zeichen entfernt; dies ist eine Näherung und bildet PostgreSQLs konfigurierbares `unaccent`
+nicht vollständig nach. Die lokale Suche durchsucht zusätzlich Artikeltexte und liefert
+Teilworttreffer, während der Online-Lexikonabruf Lemma und Umschrift nach Präfix abgleicht.
 
 Alle Anfragen tragen `x-akribos-app: 1`. Native Clients senden den tatsächlichen Server-Origin,
 insbesondere für Multipart, damit SvelteKits bestehender CSRF-Schutz erhalten bleibt. Cookies werden

@@ -143,8 +143,9 @@ Plattform-Speicher. Readerstände und Entwürfe sind nach Server und Konto getre
 werden über denselben authentifizierten Client geladen; fremde Bilder nicht automatisch.
 Bewusst geöffnete externe Links verwenden den Systembrowser.
 
-Lesen und Synchronisierung benötigen eine Verbindung. Ein vollständiger Offline-
-Bibelbestand oder eine allgemeine Warteschlange für Offline-Änderungen ist nicht enthalten.
+Vom Server ausdrücklich freigegebene Werke lassen sich pro Konto für das Offline-Lesen
+verschlüsselt auf dem Gerät speichern. Downloads, Rechteabgleich, Synchronisierung und
+Änderungen benötigen eine Verbindung; eine allgemeine Offline-Warteschlange gibt es nicht.
 Konflikte überschreiben keine neuere Dokumentrevision stillschweigend.
 
 Details: [API](docs/API.md), [Architektur](docs/ARCHITECTURE.md),

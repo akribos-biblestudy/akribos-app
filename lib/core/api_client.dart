@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:ui' show Rect;
 
 import 'package:cookie_jar/cookie_jar.dart';
+import 'package:cryptography/cryptography.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:flutter/foundation.dart';
@@ -39,10 +40,16 @@ class ApiResult {
 }
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.status = 0, this.data = const {}});
+  const ApiException(
+    this.message, {
+    this.status = 0,
+    this.data = const {},
+    this.connectionFailure = false,
+  });
   final String message;
   final int status;
   final Json data;
+  final bool connectionFailure;
   @override
   String toString() => message;
 }
@@ -226,9 +233,38 @@ class AppApi {
   final EditorWebSession _editorWebSession;
   String? _bootstrapOwner;
   int _sessionGeneration = 0;
+  int _offlineIdentityGeneration = 0;
+
+  /// Invalidates in-flight offline operations even if the next account has
+  /// the same identifier or an authentication response keeps the same cookie.
+  int get offlineIdentityGeneration => _offlineIdentityGeneration;
+  void invalidateOfflineIdentity() => _offlineIdentityGeneration++;
+
+  /// A one-way local session binding for offline account isolation. The cookie
+  /// itself never leaves the cookie jar and is not stored in an offline package.
+  Future<String?> offlineSessionFingerprint() async {
+    final cookies = await _cookies.loadForRequest(origin.resolve('/'));
+    final session = cookies
+        .where(
+          (cookie) =>
+              cookie.name == 'session' &&
+              cookie.path == '/' &&
+              cookie.domain == null &&
+              cookie.httpOnly &&
+              (origin.scheme != 'https' || cookie.secure) &&
+              cookie.value.isNotEmpty,
+        )
+        .firstOrNull;
+    if (session == null) return null;
+    final digest = await Sha256().hash(
+      utf8.encode('${origin.origin}\n${session.value}'),
+    );
+    return base64Url.encode(digest.bytes);
+  }
 
   Future<void> _clearEditorWebSession() {
     _sessionGeneration++;
+    invalidateOfflineIdentity();
     return _editorWebSession.clear(origin);
   }
 
@@ -371,15 +407,23 @@ class AppApi {
       }
       return response;
     } on DioException catch (error) {
-      throw ApiException(switch (error.type) {
-        DioExceptionType.connectionTimeout ||
-        DioExceptionType.receiveTimeout ||
-        DioExceptionType.sendTimeout => 'Die Anfrage dauert zu lange. Bitte Verbindung prüfen und erneut versuchen.',
-        DioExceptionType.badCertificate =>
-          'Die verschlüsselte Verbindung konnte nicht überprüft werden.',
-        _ =>
-          'Keine Verbindung zu Akribos. Dein offener Entwurf bleibt erhalten.',
-      });
+      throw ApiException(
+        switch (error.type) {
+          DioExceptionType.connectionTimeout ||
+          DioExceptionType.receiveTimeout ||
+          DioExceptionType.sendTimeout => 'Die Anfrage dauert zu lange. Bitte Verbindung prüfen und erneut versuchen.',
+          DioExceptionType.badCertificate =>
+            'Die verschlüsselte Verbindung konnte nicht überprüft werden.',
+          _ => 'Keine Verbindung zu Akribos. Dein offener Entwurf bleibt erhalten.',
+        },
+        connectionFailure: switch (error.type) {
+          DioExceptionType.connectionTimeout ||
+          DioExceptionType.receiveTimeout ||
+          DioExceptionType.sendTimeout ||
+          DioExceptionType.connectionError => true,
+          _ => false,
+        },
+      );
     }
   }
 
