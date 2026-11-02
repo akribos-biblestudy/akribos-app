@@ -52,6 +52,7 @@ Die getrennte Schnittstelle `/api/v1` und deren API-Key-/Lizenzregeln bleiben un
 
 | Endpunkt | Aufgabe |
 | --- | --- |
+| `GET /api/reader/resources/{resource}/navigation` | Für das aktuelle lesbare Werk tatsächlich vorhandene Bücher und Kapitel; prüft die Reader-Leserechte und liefert `books: [{book, chapters}]` |
 | `GET /api/app/bootstrap` | Layout, sichere Sitzungsidentität, Werke, 66 Bücher, Einstellungen und Nutzernavigation |
 | `GET /api/app/page?path=/notes%3Fkind%3Dnote` | Notizbibliothek als JSON laden; der innere Pfad einschließlich Query wird URL-kodiert |
 | `POST /api/app/action?path=/notes&action=create` | Eine ausdrücklich freigegebene bestehende Formularaktion ausführen |
