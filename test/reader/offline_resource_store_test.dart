@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -42,6 +43,30 @@ class MemoryKeys extends FlutterSecureStorage {
     WindowsOptions? wOptions,
   }) async {
     values.remove(key);
+  }
+}
+
+class PausedKeys extends MemoryKeys {
+  final started = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<void> write({
+    required String key,
+    required String? value,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    if (key.startsWith('akribos.offline.position.v1.') &&
+        !started.isCompleted) {
+      started.complete();
+      await release.future;
+    }
+    await super.write(key: key, value: value);
   }
 }
 
@@ -138,6 +163,44 @@ void main() {
       expect(keys.values, isEmpty);
     },
   );
+
+  for (final clear in [false, true]) {
+    test(
+      'blocked old position cannot survive ${clear ? 'logout' : 'revocation'}',
+      () async {
+        final paused = PausedKeys();
+        keys = paused;
+        addTearDown(() {
+          if (!paused.release.isCompleted) paused.release.complete();
+        });
+        final resourceStore = store();
+        await resourceStore.write(package('a'));
+        final oldWrite = resourceStore.writePosition('a', {
+          'book': 1,
+          'chapter': 1,
+        });
+        await paused.started.future;
+        if (clear) {
+          await resourceStore.clear().timeout(const Duration(seconds: 2));
+        } else {
+          await resourceStore.remove('a').timeout(const Duration(seconds: 2));
+        }
+        final newWrite = clear
+            ? null
+            : resourceStore.writePosition('b', {'book': 2, 'chapter': 3});
+        paused.release.complete();
+        await oldWrite;
+        if (newWrite != null) await newWrite;
+        final position = await resourceStore.readPosition();
+        if (clear) {
+          expect(position, isNull);
+        } else {
+          expect(position?['resourceId'], 'b');
+          expect(position?['reference'], {'book': 2, 'chapter': 3});
+        }
+      },
+    );
+  }
 
   test(
     'offline identity is isolated by origin and distinguishes guests',

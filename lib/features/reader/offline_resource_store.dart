@@ -30,6 +30,7 @@ class OfflineResourceStore {
   final FlutterSecureStorage _storage;
   final Future<Directory> Function() _directory;
   static final _operations = <String, Future<void>>{};
+  static final _positionGenerations = <String, int>{};
   static const maxPackageBytes = 32 * 1024 * 1024;
   final _cipher = AesGcm.with256bits();
 
@@ -55,7 +56,7 @@ class OfflineResourceStore {
   Future<String> get _positionName async =>
       'akribos.offline.position.v1.${await _scopeHash}';
 
-  Future<Json?> readPosition() => _serial(() async {
+  Future<Json?> readPosition() async {
     final raw = await _storage.read(key: await _positionName);
     if (raw == null) return null;
     final value = asMap(jsonDecode(raw));
@@ -65,7 +66,7 @@ class OfflineResourceStore {
       throw const FormatException('Invalid offline position');
     }
     return value;
-  });
+  }
 
   Future<void> writePosition(String resourceId, Json reference) {
     if (resourceId.isEmpty ||
@@ -78,9 +79,18 @@ class OfflineResourceStore {
       'resourceId': resourceId,
       'reference': reference,
     });
-    return _serial(
-      () async => _storage.write(key: await _positionName, value: value),
-    );
+    final generation = _positionGenerations[_scope] ?? 0;
+    return _serial(() async {
+      if ((_positionGenerations[_scope] ?? 0) != generation) return;
+      final key = await _positionName;
+      if ((_positionGenerations[_scope] ?? 0) != generation) return;
+      await _storage.write(key: key, value: value);
+      // A logout or revocation can happen while platform storage is blocked.
+      // New writes wait on this position lane, so cleanup cannot erase one.
+      if ((_positionGenerations[_scope] ?? 0) != generation) {
+        await _storage.delete(key: key);
+      }
+    }, lane: 'position');
   }
 
   Future<List<String>> _ids() async {
@@ -114,8 +124,11 @@ class OfflineResourceStore {
     return key;
   }
 
-  Future<T> _serial<T>(Future<T> Function() action) async {
-    final id = await _scopeHash;
+  Future<T> _serial<T>(
+    Future<T> Function() action, {
+    String lane = 'packages',
+  }) async {
+    final id = '${await _scopeHash}:$lane';
     final previous = _operations[id];
     final completed = Completer<void>();
     _operations[id] = completed.future;
@@ -244,24 +257,31 @@ class OfflineResourceStore {
     return package;
   });
 
-  Future<void> remove(String id, {void Function()? validate}) =>
-      _serial(() async {
-        validate?.call();
-        final file = await _file(id);
-        validate?.call();
-        if (await file.exists()) await file.delete();
-        final ids = await _ids();
-        ids.remove(id);
-        await _storage.write(key: await _indexName, value: jsonEncode(ids));
-      });
+  Future<void> remove(String id, {void Function()? validate}) => _serial(
+    () async {
+      validate?.call();
+      final file = await _file(id);
+      validate?.call();
+      if (await file.exists()) {
+        _positionGenerations[_scope] = (_positionGenerations[_scope] ?? 0) + 1;
+        await file.delete();
+      }
+      final ids = await _ids();
+      ids.remove(id);
+      await _storage.write(key: await _indexName, value: jsonEncode(ids));
+    },
+  );
 
-  Future<void> clear() => _serial(() async {
-    final root = await _root();
-    if (await root.exists()) await root.delete(recursive: true);
-    await _storage.delete(key: await _keyName);
-    await _storage.delete(key: await _indexName);
-    await _storage.delete(key: await _positionName);
-  });
+  Future<void> clear() {
+    _positionGenerations[_scope] = (_positionGenerations[_scope] ?? 0) + 1;
+    return _serial(() async {
+      final root = await _root();
+      if (await root.exists()) await root.delete(recursive: true);
+      await _storage.delete(key: await _keyName);
+      await _storage.delete(key: await _indexName);
+      await _storage.delete(key: await _positionName);
+    });
+  }
 }
 
 /// Last server-confirmed account for a cold start. The marker is removed at an
