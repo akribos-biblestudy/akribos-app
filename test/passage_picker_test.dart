@@ -140,4 +140,58 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('1Mo'), findsOneWidget);
   });
+
+  testWidgets('system back returns from chapters to books before closing', (
+    tester,
+  ) async {
+    final api = NavigationApi();
+    await openPicker(tester, api, (_) {});
+    await tester.tap(find.text('Joh'));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('NT'), findsOneWidget);
+    expect(find.text('Joh'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('NT'), findsNothing);
+  });
+
+  testWidgets(
+    'landscape with large text and keyboard inset remains scrollable',
+    (tester) async {
+      tester.view.physicalSize = const Size(640, 360);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final api = NavigationApi();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(640, 360),
+              textScaler: TextScaler.linear(2),
+              viewInsets: EdgeInsets.only(bottom: 160),
+            ),
+            child: Scaffold(
+              body: PassagePicker(
+                initial: const {'book': 43},
+                resourceId: 'bible',
+                api: api,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -250),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Joh'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

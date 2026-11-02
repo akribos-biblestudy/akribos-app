@@ -125,145 +125,162 @@ class _PassagePickerState extends State<PassagePicker> {
       52.0,
       MediaQuery.textScalerOf(context).scale(20) + 24,
     );
-    return SizedBox(
-      height: MediaQuery.sizeOf(context).height * .8,
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    return PopScope<String>(
+      canPop: book == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && book != null) setState(() => _selectedBook = null);
+      },
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            SearchBox(
-              label: 'Direkte Bibelstelle, z. B. Joh 3,16',
-              onSearch: (value) => Navigator.pop(context, value),
-            ),
-            const SizedBox(height: 12),
-            if (book == null)
-              Row(
-                children: [
-                  ChoiceChip(
-                    label: const Text('AT'),
-                    tooltip: 'Altes Testament',
-                    selected: _oldTestament,
-                    onSelected: _hasTestament(true)
-                        ? (_) => setState(() => _oldTestament = true)
-                        : null,
-                  ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: const Text('NT'),
-                    tooltip: 'Neues Testament',
-                    selected: !_oldTestament,
-                    onSelected: _hasTestament(false)
-                        ? (_) => setState(() => _oldTestament = false)
-                        : null,
-                  ),
-                ],
-              )
-            else
-              Row(
-                children: [
-                  TextButton.icon(
-                    onPressed: () => setState(() => _selectedBook = null),
-                    icon: const Icon(Icons.chevron_left),
-                    label: Text(book.abbreviation),
-                  ),
-                  const Expanded(child: Text('Kapitel wählen')),
-                ],
-              ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _failed
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            'Die Buchauswahl konnte nicht geladen werden.',
-                          ),
-                          TextButton(
-                            onPressed: _load,
-                            child: const Text('Erneut versuchen'),
-                          ),
-                        ],
+        padding: EdgeInsets.only(bottom: keyboard),
+        child: SizedBox(
+          height: math.max(
+            0,
+            MediaQuery.sizeOf(context).height * .8 - keyboard,
+          ),
+          child: SingleChildScrollView(
+            key: ValueKey(book?.id ?? (_oldTestament ? 'at' : 'nt')),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                SearchBox(
+                  label: 'Direkte Bibelstelle, z. B. Joh 3,16',
+                  onSearch: (value) => Navigator.pop(context, value),
+                ),
+                const SizedBox(height: 12),
+                if (book == null)
+                  Row(
+                    children: [
+                      ChoiceChip(
+                        label: const Text('AT'),
+                        tooltip: 'Altes Testament',
+                        selected: _oldTestament,
+                        onSelected: _hasTestament(true)
+                            ? (_) => setState(() => _oldTestament = true)
+                            : null,
                       ),
-                    )
-                  : _chapters.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'Dieses Werk enthält keine auswählbaren Kapitel.',
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: const Text('NT'),
+                        tooltip: 'Neues Testament',
+                        selected: !_oldTestament,
+                        onSelected: _hasTestament(false)
+                            ? (_) => setState(() => _oldTestament = false)
+                            : null,
                       ),
-                    )
-                  : GridView.builder(
-                      key: ValueKey(book?.id ?? (_oldTestament ? 'at' : 'nt')),
-                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: math.max(
-                          90,
-                          MediaQuery.textScalerOf(context).scale(100),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => setState(() => _selectedBook = null),
+                        icon: const Icon(Icons.chevron_left),
+                        label: Text(book.abbreviation),
+                      ),
+                      const Expanded(child: Text('Kapitel wählen')),
+                    ],
+                  ),
+                if (book != null && chapters.length > _pageSize)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        tooltip: 'Vorherige Kapitel',
+                        onPressed: _page > 0
+                            ? () => setState(() => _page--)
+                            : null,
+                        icon: const Icon(Icons.chevron_left),
+                      ),
+                      Text(
+                        '${visible.first}–${visible.last} / ${chapters.last}',
+                      ),
+                      IconButton(
+                        tooltip: 'Nächste Kapitel',
+                        onPressed: (_page + 1) * _pageSize < chapters.length
+                            ? () => setState(() => _page++)
+                            : null,
+                        icon: const Icon(Icons.chevron_right),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 8),
+                _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _failed
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Die Buchauswahl konnte nicht geladen werden.',
+                            ),
+                            TextButton(
+                              onPressed: _load,
+                              child: const Text('Erneut versuchen'),
+                            ),
+                          ],
                         ),
-                        mainAxisExtent: extent,
-                        mainAxisSpacing: 6,
-                        crossAxisSpacing: 6,
-                      ),
-                      itemCount: book == null ? books.length : visible.length,
-                      itemBuilder: (context, index) {
-                        if (book == null) {
-                          final item = books[index];
-                          return Tooltip(
-                            message: item.name,
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 2,
+                      )
+                    : _chapters.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'Dieses Werk enthält keine auswählbaren Kapitel.',
+                        ),
+                      )
+                    : GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: math.max(
+                            90,
+                            MediaQuery.textScalerOf(context).scale(100),
+                          ),
+                          mainAxisExtent: extent,
+                          mainAxisSpacing: 6,
+                          crossAxisSpacing: 6,
+                        ),
+                        itemCount: book == null ? books.length : visible.length,
+                        itemBuilder: (context, index) {
+                          if (book == null) {
+                            final item = books[index];
+                            return Tooltip(
+                              message: item.name,
+                              child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                  ),
+                                ),
+                                onPressed: () => _chooseBook(item),
+                                child: Semantics(
+                                  label: item.name,
+                                  excludeSemantics: true,
+                                  child: Text(item.abbreviation),
                                 ),
                               ),
-                              onPressed: () => _chooseBook(item),
-                              child: Semantics(
-                                label: item.name,
-                                excludeSemantics: true,
-                                child: Text(item.abbreviation),
-                              ),
+                            );
+                          }
+                          final chapter = visible[index];
+                          return OutlinedButton(
+                            onPressed: () => Navigator.pop(
+                              context,
+                              referenceLabel({
+                                'book': book.id,
+                                'chapter': chapter,
+                              }),
+                            ),
+                            child: Semantics(
+                              label: '${book.name} $chapter',
+                              excludeSemantics: true,
+                              child: Text('$chapter'),
                             ),
                           );
-                        }
-                        final chapter = visible[index];
-                        return OutlinedButton(
-                          onPressed: () => Navigator.pop(
-                            context,
-                            referenceLabel({
-                              'book': book.id,
-                              'chapter': chapter,
-                            }),
-                          ),
-                          child: Semantics(
-                            label: '${book.name} $chapter',
-                            excludeSemantics: true,
-                            child: Text('$chapter'),
-                          ),
-                        );
-                      },
-                    ),
+                        },
+                      ),
+              ],
             ),
-            if (book != null && chapters.length > _pageSize)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    tooltip: 'Vorherige Kapitel',
-                    onPressed: _page > 0 ? () => setState(() => _page--) : null,
-                    icon: const Icon(Icons.chevron_left),
-                  ),
-                  Text('${visible.first}–${visible.last} / ${chapters.last}'),
-                  IconButton(
-                    tooltip: 'Nächste Kapitel',
-                    onPressed: (_page + 1) * _pageSize < chapters.length
-                        ? () => setState(() => _page++)
-                        : null,
-                    icon: const Icon(Icons.chevron_right),
-                  ),
-                ],
-              ),
-          ],
+          ),
         ),
       ),
     );
