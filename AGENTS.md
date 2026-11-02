@@ -107,7 +107,13 @@ with serial writes. A different phone/tablet has its own independent tabs. Never
 activate or publish named browser workspaces. Send x-akribos-reader-mode: local; Reader
 actions are explicitly detached and carry no named-workspace selection/content versions.
 Do not call workspace follow/view APIs or expose workspace-management UI. Respect current
-server resource permissions when restoring local tabs; never cache private Bible text.
+server resource permissions when restoring local tabs. Offline works require an
+explicit server-side per-work license and Reader grant; store packages encrypted
+and isolated by origin and account. On reconnection recheck grants and remove
+revoked packages; an offline device cannot discover revocation until it reconnects.
+Fail closed at authentication boundaries and bind offline startup to the last
+confirmed session. Offline writes stay unavailable; saved reading positions and
+display preferences remain account-scoped. See docs/API.md for the package contract.
 The tab overview ends with an empty plus card; adding it opens the resource chooser without
 creating a persistent empty tab; dropping a tab there moves it to the end. Mehr > Einstellungen offers Textdarstellung with Versweise
 and Fließtext, available to guests too; never put it in the tab overview. Appearance belongs only to Settings;

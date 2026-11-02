@@ -17,6 +17,7 @@ class _SessionApi extends AppApi {
   String? owner;
   int fontScale = 100, bootstrapCalls = 0, cleared = 0;
   bool bootstrapOffline = false;
+  Completer<void>? nextBootstrapStarted;
   final pendingBootstraps = <Completer<Json>>[];
   final readerScales = <int>[];
 
@@ -33,6 +34,8 @@ class _SessionApi extends AppApi {
   @override
   Future<Json> loadBootstrap() async {
     bootstrapCalls++;
+    nextBootstrapStarted?.complete();
+    nextBootstrapStarted = null;
     if (bootstrapOffline) throw const ApiException('Test: offline');
     final data = pendingBootstraps.isEmpty
         ? snapshot()
@@ -158,6 +161,8 @@ void main() {
       api.pendingBootstraps.addAll([oldRequest, freshRequest]);
       final oldRefresh = scope.refreshSession();
       await tester.pump();
+      final freshStarted = Completer<void>();
+      api.nextBootstrapStarted = freshStarted;
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Sechsstelliger Code'),
         '123456',
@@ -168,6 +173,16 @@ void main() {
       oldRequest.complete(oldData);
       await oldRefresh;
       await tester.pump();
+      // Authentication invalidates the prior offline identity before starting
+      // the fresh bootstrap. That storage work is asynchronous, so a single
+      // widget pump is not a reliable signal that the request has started.
+      for (var i = 0; i < 100 && !freshStarted.isCompleted; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(freshStarted.isCompleted, isTrue);
       expect(api.bootstrapCalls, 3);
       expect(
         api.bootstrap['user'],
