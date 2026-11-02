@@ -140,6 +140,38 @@ void main() {
     );
   }
 
+  testWidgets('E-Ink labels preserve selection of later flow verses', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(500, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final data = readerFixture()..['versePerLine'] = false;
+    final api = SelectionApi(data);
+    addTearDown(api.dispose);
+    await tester.pumpWidget(
+      app(api, const ReaderScreen(path: '/Joh1'), eInk: true),
+    );
+    await tester.pumpAndSettle();
+    await selectVerse(tester, 1, longPress: true, flow: true);
+    await selectVerse(tester, 3, flow: true);
+    final verseText = tester.widget<VerseText>(find.byType(VerseText).first);
+    expect(verseText.showHighlightLabels, isTrue);
+    expect(verseText.passages!.take(3).map((p) => p.selected), [
+      true,
+      false,
+      true,
+    ]);
+    final text = tester
+        .state<VerseTextState>(find.byType(VerseText).first)
+        .paragraph!
+        .text
+        .toPlainText(includeSemanticsLabels: false);
+    expect(text, contains('(Markiert: Verheißung)'));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('verse menu exposes an accessible selection entry', (
     tester,
   ) async {
