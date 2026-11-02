@@ -14,6 +14,33 @@ Quellen ist keine vollständige Prüfung des gesamten Modulkatalogs. Das ist kei
 Aussage, dass alle Module unzulässig sind: Konkrete gewünschte Werke müssen anhand
 ihrer eigenen Rechte und Lizenzbedingungen separat geprüft werden.
 
+## Gewünschte Kommentare
+
+- **William MacDonald:** CLV führt den deutschen [Kommentar zum Alten Testament und
+  zum Neuen Testament](https://clv.de/Buecher/Kommentare/Kommentare-von-William-MacDonald/)
+  und bietet für den [NT-Band](https://clv.de/Kommentar-zum-Neuen-Testament/256682)
+  auch einen kostenlosen Download an. Der Verlag nennt MacDonalds Tod 2007; nach
+  [§ 64 UrhG](https://www.gesetze-im-internet.de/urhg/__64.html) ist der Text in
+  Deutschland nicht allein wegen Zeitablaufs gemeinfrei. Eine kostenlose Datei
+  oder ein MyBible-Modul belegt keine Lizenz für die Bereitstellung in Akribos.
+  Für die konkrete deutsche Ausgabe sind die Rechte an Original und Übersetzung
+  sowie ausdrücklich Serververöffentlichung und Offline-Downloads zu klären. Die
+  [Übersicht der MacDonald-Ausgaben](https://www.william-macdonald.org/bbc-translations/)
+  nennt CLV als deutschen Verlag. Ohne entsprechende Freigabe wird kein Text
+  übernommen.
+- **Arno C. Gaebelein:** CLV nennt 1945 als Todesjahr und bietet seinen deutschen
+  [Kommentar zum Alten Testament](https://clv.de/Kommentar-zum-Alten-Testament/255634)
+  als Download an. Bei einem allein von Gaebelein verfassten Original ist die
+  reguläre deutsche Schutzfrist nach § 64 und
+  [§ 69 UrhG](https://www.gesetze-im-internet.de/urhg/__69.html) abgelaufen;
+  das sagt nichts über eigenständige Rechte an einer späteren Übersetzung,
+  Bearbeitung oder Zusatzmaterialien. Die konkrete deutsche Fassung und ihre
+  Übersetzung sind daher nicht automatisch freigegeben. Für die englische
+  *Annotated Bible* verzeichnet die [University of Pennsylvania](https://onlinebooks.library.upenn.edu/webbin/book/lookupname?key=Gaebelein%2C+Arno+Clemens%2C+1861-1945)
+  historische Originalausgaben; eine mögliche Integration muss die konkrete
+  maschinenlesbare Quelle, ihren Inhalt und Rechte an Bearbeitungen je
+  Rechtsgebiet prüfen. Noch ist kein solches Modul für Akribos freigegeben.
+
 ## Quellen und Einordnung
 
 - [MyBible: For doers](https://mybible.zone/doers/) beschreibt das Modulformat als
