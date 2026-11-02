@@ -99,6 +99,51 @@ void main() {
     expect((await api.localStore.read())?['versePerLine'], isFalse);
   });
 
+  for (final eInk in [false, true]) {
+    testWidgets('flow labels belong to their verses (E-Ink $eInk)', (
+      tester,
+    ) async {
+      final data = readerFixture()..['versePerLine'] = false;
+      final chapter = asMap(asMaps(data['columns']).first['initialChapter']);
+      final rows = asMaps(asMap(chapter['chapter'])['rows']);
+      for (var i = 0; i < rows.length; i++) {
+        final cell = asMaps(rows[i]['cells']).first;
+        cell['segments'] = ['Text für Vers ${i + 1}.'];
+        if (i == 0) cell['heading'] = 'Abschnittsüberschrift';
+      }
+      chapter['highlights'] = [
+        {'verse': 2, 'name': 'Wichtig', 'color': '#facc15'},
+        {'verse': 2, 'name': 'Wichtig', 'color': '#facc15'},
+        {'verse': 3, 'name': 'Trost', 'color': '#00ff00'},
+      ];
+      final api = ReaderApi(data);
+      addTearDown(api.dispose);
+      await tester.pumpWidget(
+        app(api, const ReaderScreen(path: '/Joh1'), eInk: eInk),
+      );
+      await tester.pumpAndSettle();
+      final text = tester
+          .state<VerseTextState>(find.byType(VerseText).first)
+          .paragraph!
+          .text
+          .toPlainText();
+      if (eInk) {
+        expect(
+          text,
+          contains(
+            '2\u00a0Text für Vers 2. (Markiert: Wichtig) 3\u00a0Text für Vers 3. (Markiert: Trost)',
+          ),
+        );
+        expect(text, isNot(contains('1\u00a0Text für Vers 1. (Markiert:')));
+        expect(find.text('Markiert: Wichtig, Trost'), findsNothing);
+        expect(find.text('Abschnittsüberschrift'), findsOneWidget);
+      } else {
+        expect(text, isNot(contains('Markiert:')));
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final scale in [1.0, 2.0]) {
     testWidgets('flow verse numbers stay with the first word at scale $scale', (
       tester,
