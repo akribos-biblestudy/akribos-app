@@ -25,6 +25,8 @@ Future<void> _open(
   double scale = 1,
   bool signedIn = true,
   int catalogueSize = 2,
+  Brightness brightness = Brightness.light,
+  bool eInk = false,
   ValueChanged<String?>? onResult,
   GlobalKey? capture,
 }) async {
@@ -35,7 +37,7 @@ Future<void> _open(
       key: capture,
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: appTheme(Brightness.light),
+        theme: appTheme(brightness, eInk: eInk),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(
             textScaler: TextScaler.linear(scale),
@@ -187,6 +189,63 @@ void main() {
       }
     });
   }
+
+  for (final appearance in [
+    (Brightness.light, false),
+    (Brightness.dark, false),
+    (Brightness.light, true),
+  ]) {
+    testWidgets('verse menu is distinct and readable in $appearance', (
+      tester,
+    ) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await _open(tester, brightness: appearance.$1, eInk: appearance.$2);
+      final sheet = tester.widget<BottomSheet>(find.byType(BottomSheet));
+      expect(sheet.backgroundColor, isNotNull);
+      final outline = sheet.shape! as RoundedRectangleBorder;
+      expect(outline.side.width, appearance.$2 ? 2 : 1.5);
+      final label = tester.widget<Text>(find.text('Markieren'));
+      expect(label.style!.fontSize, 16);
+      expect(
+        tester.getSize(find.byKey(const ValueKey('verse-action-marks'))).height,
+        greaterThanOrEqualTo(56),
+      );
+    });
+  }
+
+  testWidgets('tablet uses larger verse actions', (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _open(tester, size: const Size(768, 1024));
+    expect(tester.widget<Text>(find.text('Markieren')).style!.fontSize, 18);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('verse-action-marks'))).height,
+      greaterThanOrEqualTo(72),
+    );
+    await tester.tap(find.byKey(const ValueKey('verse-action-marks')));
+    await tester.pumpAndSettle();
+    final choice = find.ancestor(
+      of: find.text('Verheißung'),
+      matching: find.byType(ListTile),
+    );
+    expect(tester.getSize(choice).height, greaterThanOrEqualTo(72));
+    expect(tester.widget<Text>(find.text('Verheißung')).style!.fontSize, 18);
+    expect(
+      tester
+          .widget<Text>(find.text('Versmarkierung entfernen'))
+          .style!
+          .fontSize,
+      18,
+    );
+    expect(
+      tester
+          .widget<Text>(find.text('Markierung „Verheißung“ entfernen'))
+          .style!
+          .fontSize,
+      18,
+    );
+  });
 
   testWidgets('removed word-marking and copy entries stay absent', (
     tester,
