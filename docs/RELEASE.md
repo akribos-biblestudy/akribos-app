@@ -1,10 +1,11 @@
 # Bauen und auf Geräten prüfen
 
 Der aktuell tatsächlich ausgeführte Prüfstand steht in [VALIDATION.md](VALIDATION.md).
-Die automatisierte Store-Verteilung ist derzeit nur für Android eingerichtet.
+Die automatisierte Store-Verteilung startet für stabile Releases Android und iOS
+unabhängig voneinander in ihre internen Testkanäle.
 Das Apple-Team slim-it GmbH (`8Y4NL9VW33`) und der Akribos-Eintrag sind seit
 26. Oktober 2026 bestätigt; API-Schlüssel, Distribution-Zertifikat und Akribos-Profil
-sind vorbereitet. Der manuelle TestFlight-Workflow ist implementiert; seinen tatsächlichen
+sind vorbereitet. Der TestFlight-Workflow wird automatisch oder manuell gestartet; seinen tatsächlichen
 Build-/Upload-Stand belegen die GitHub-Läufe. Einrichtung und offene Schritte: [TESTFLIGHT.md](TESTFLIGHT.md).
 
 ## Android für akribos.de
@@ -86,6 +87,12 @@ Workflow auf `main`; nach dem einmaligen manuellen Erstupload veröffentlicht di
 ausschließlich nach Google Play Internal Testing. Die vorhandene Store-Einrichtung,
 das geschützte GitHub-Environment und die Prüfung des tatsächlichen Upload-Ergebnisses
 sind dort dokumentiert.
+
+Parallel startet das Release den TestFlight-Workflow. Er überprüft nach dem Upload,
+ob Apple den Build der internen Gruppe `Betatester` zugeordnet und für Tests
+freigegeben hat. Eine nötige Export-Einstufung bleibt ein separater manueller Schritt;
+`VALID` allein bedeutet noch keine Verteilung an Tester. Details und der tatsächliche
+Laufstatus stehen in [TESTFLIGHT.md](TESTFLIGHT.md).
 
 Die direkte APK verwendet produktiven Server und optimierten Release-Code, ist jedoch
 weiter mit dem bisherigen lokalen Debugschlüssel signiert. Google Play verwendet die

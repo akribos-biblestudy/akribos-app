@@ -57,6 +57,50 @@ class IdentityTests(unittest.TestCase):
 
 
 class AppleTests(unittest.TestCase):
+    @staticmethod
+    def internal_metadata(state, groups=()):
+        return {'included': [
+            {'type': 'preReleaseVersions', 'attributes': {'version': '0.5.1', 'platform': 'IOS'}},
+            {'type': 'buildBetaDetails', 'attributes': {'internalBuildState': state}},
+            *groups,
+        ]}
+
+    def test_internal_delivery_waits_for_exact_internal_group_and_testing_state(self):
+        group = {'type': 'betaGroups', 'id': ios.INTERNAL_GROUP,
+                 'attributes': {'name': 'Betatester', 'isInternalGroup': True}}
+        api, data = Mock(), {'version': '0.5.1'}
+        api.request.side_effect = [self.internal_metadata('READY_FOR_BETA_TESTING'),
+                                   self.internal_metadata('IN_BETA_TESTING', [group])]
+        with patch.object(ios, 'write_manifest') as saved, patch.object(ios.time, 'sleep') as sleep, \
+                patch.dict(os.environ, {'GITHUB_STEP_SUMMARY': ''}):
+            ios.verify_internal_distribution(api, data, 'build')
+        self.assertTrue(data['internalDistributionVerified'])
+        self.assertEqual(api.request.call_count, 2)
+        sleep.assert_called_once()
+        self.assertEqual(saved.call_count, 2)
+        self.assertTrue(all(call.args[0] == 'GET' for call in api.request.call_args_list))
+
+    def test_internal_delivery_does_not_accept_another_or_external_group(self):
+        for group in (
+            {'type': 'betaGroups', 'id': 'other', 'attributes': {'name': 'Other', 'isInternalGroup': True}},
+            {'type': 'betaGroups', 'id': ios.INTERNAL_GROUP, 'attributes': {'name': 'Betatester', 'isInternalGroup': False}},
+        ):
+            api, data = Mock(), {'version': '0.5.1'}
+            api.request.return_value = self.internal_metadata('IN_BETA_TESTING', [group])
+            with patch.object(ios, 'write_manifest'), patch.object(ios.time, 'monotonic', side_effect=[0, 1]):
+                with self.assertRaisesRegex(ios.ReleaseError, 'distribution was not confirmed'):
+                    ios.verify_internal_distribution(api, data, 'build', timeout=1)
+            self.assertFalse(data['internalDistributionVerified'])
+
+    def test_internal_delivery_reports_missing_export_compliance_without_retry(self):
+        api, data = Mock(), {'version': '0.5.1'}
+        api.request.return_value = self.internal_metadata('MISSING_EXPORT_COMPLIANCE')
+        with patch.object(ios, 'write_manifest'), patch.object(ios.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(ios.ReleaseError, 'export compliance'):
+                ios.verify_internal_distribution(api, data, 'build')
+        sleep.assert_not_called()
+        self.assertFalse(data['internalDistributionVerified'])
+
     def test_processing_metadata_uses_supported_include_instead_of_group_read_routes(self):
         api = Mock()
         api.request.return_value = {'included': [

@@ -27,6 +27,7 @@ from play_release import ReleaseError, require, secret
 TEAM = "8Y4NL9VW33"
 APP = "6827126169"
 BUNDLE = "de.akribos.app"
+INTERNAL_GROUP = "d6ef6dca-99e3-408a-953d-eaf0e6bd688b"  # Betatester
 PREFIX = "testflight-build-ios-"
 API = "https://api.appstoreconnect.apple.com"
 SOURCE = Path("release-source")
@@ -467,6 +468,43 @@ def publish():
     write_manifest(data)
     item = find_processed_build(api, data)
     record_processed(api, data, item)
+    verify_internal_distribution(api, data, item["id"])
+
+
+def verify_internal_distribution(api, data, build_id, timeout=5 * 60):
+    """Verify Apple's automatic delivery, without adding groups or testers."""
+    deadline = time.monotonic() + timeout
+    while True:
+        response = api.request("GET", "/v1/builds/" + build_id
+                               + "?include=betaGroups,buildBetaDetail,preReleaseVersion")
+        included = response.get("included", [])
+        versions = [entry["attributes"] for entry in included if entry["type"] == "preReleaseVersions"]
+        details = [entry["attributes"] for entry in included if entry["type"] == "buildBetaDetails"]
+        require(len(details) == len(versions) == 1 and versions[0]["version"] == data["version"]
+                and versions[0]["platform"] == "IOS", "Unexpected Apple build metadata/version.")
+        state = details[0].get("internalBuildState")
+        groups = [entry for entry in included if entry["type"] == "betaGroups"
+                  and entry["attributes"].get("isInternalGroup")]
+        assigned = any(group.get("id") == INTERNAL_GROUP for group in groups)
+        data.update(internalBuildState=state,
+                    internalGroups=[group["attributes"]["name"] for group in groups],
+                    internalDistributionVerified=assigned and state == "IN_BETA_TESTING")
+        write_manifest(data)
+        if data["internalDistributionVerified"]:
+            print("Apple confirmed the exact build is testing in the internal Betatester group.")
+            if os.environ.get("GITHUB_STEP_SUMMARY"):
+                with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as stream:
+                    stream.write("Internal group **Betatester** and **IN_BETA_TESTING** confirmed.\n\n")
+            return
+        require(state != "MISSING_EXPORT_COMPLIANCE",
+                "Build uploaded but Apple requires export compliance information; resolve it in TestFlight.")
+        require(state not in {"PROCESSING_EXCEPTION", "EXPIRED"},
+                f"Build uploaded but internal testing is unavailable: {state}.")
+        require(time.monotonic() < deadline,
+                f"Build uploaded but internal Betatester distribution was not confirmed (state: {state}). "
+                "Inspect TestFlight before retrying; do not upload again blindly.")
+        print(f"Waiting for automatic internal group distribution (state: {state}).", flush=True)
+        time.sleep(min(15, max(0, deadline - time.monotonic())))
 
 
 def record_processed(api, data, item):
