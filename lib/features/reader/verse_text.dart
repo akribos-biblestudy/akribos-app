@@ -402,6 +402,7 @@ class VerseTextState extends State<VerseText> {
           range['end'],
           range['color'],
           if (widget.showHighlightLabels) range['name'],
+          if (widget.showHighlightLabels) range['label'],
         ],
       ],
     ];
@@ -568,18 +569,21 @@ class VerseTextState extends State<VerseText> {
             : offset;
         marks.add(VerseMarkerRange(runOffsets[indices.first], end, color));
       }
-      if (widget.showHighlightLabels && passage.highlights.isNotEmpty) {
+      if (widget.showHighlightLabels) {
         final labels = passage.highlights
+            .where((item) => item['label'] != false)
             .map((item) => asString(item['name'], 'Markierung'))
             .toSet();
-        final label = ' (Markiert: ${labels.join(', ')})';
-        spans.add(
-          TextSpan(
-            text: label,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        );
-        offset += label.length;
+        if (labels.isNotEmpty) {
+          final label = ' (Markiert: ${labels.join(', ')})';
+          spans.add(
+            TextSpan(
+              text: label,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          );
+          offset += label.length;
+        }
       }
     }
     final style = inheritedStyle.merge(

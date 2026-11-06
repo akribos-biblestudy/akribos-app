@@ -457,7 +457,14 @@ void main() {
         app(api, const ReaderScreen(path: '/Joh1'), eInk: true),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Markiert: Verheißung'), findsOneWidget);
+      expect(
+        tester
+            .state<VerseTextState>(find.byType(VerseText).first)
+            .paragraph!
+            .text
+            .toPlainText(),
+        contains('(Markiert: Verheißung)'),
+      );
       expect(find.byTooltip('Vorherige Bildschirmseite'), findsNothing);
       expect(find.byTooltip('Nächste Bildschirmseite'), findsNothing);
       expect(find.text('Blättern'), findsNothing);
