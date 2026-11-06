@@ -28,5 +28,10 @@ jobs:
             printf 'Expected a published vX.Y.Z release.\n' >&2
             exit 1
           }
-          gh workflow run "$STORE_WORKFLOW" --repo "$GITHUB_REPOSITORY" \
-            --ref main -f release_tag="$release_tag"
+          args=(--ref main -f "release_tag=$release_tag")
+          if [[ "$STORE_WORKFLOW" == ios-testflight.yml ]]; then
+            # The receiving workflow independently checks the source against
+            # the operator's pinned encryption attestation before signing.
+            args+=(-f encryption_exempt=true)
+          fi
+          gh workflow run "$STORE_WORKFLOW" --repo "$GITHUB_REPOSITORY" "${args[@]}"

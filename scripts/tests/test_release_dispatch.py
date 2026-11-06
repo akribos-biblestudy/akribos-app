@@ -32,10 +32,13 @@ class StoreDispatchTests(unittest.TestCase):
                 result = subprocess.run(['bash', '-e', '-c', shell], env={**env, 'STORE_WORKFLOW': target},
                                         capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(log.read_text().splitlines(), [
+                expected = [
                     'workflow', 'run', target, '--repo', 'owner/repo', '--ref', 'main',
                     '-f', 'release_tag=v0.6.1',
-                ])
+                ]
+                if target == 'ios-testflight.yml':
+                    expected += ['-f', 'encryption_exempt=true']
+                self.assertEqual(log.read_text().splitlines(), expected)
                 log.unlink()
             event.write_text(json.dumps({'release': {'tag_name': 'v0.6.1; echo unsafe'}}))
             result = subprocess.run(['bash', '-e', '-c', shell], env={**env, 'STORE_WORKFLOW': 'ios-testflight.yml'},

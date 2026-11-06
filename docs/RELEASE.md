@@ -90,8 +90,9 @@ sind dort dokumentiert.
 
 Parallel startet das Release den TestFlight-Workflow. Er überprüft nach dem Upload,
 ob Apple den Build der internen Gruppe `Betatester` zugeordnet und für Tests
-freigegeben hat. Eine nötige Export-Einstufung bleibt ein separater manueller Schritt;
-`VALID` allein bedeutet noch keine Verteilung an Tester. Details und der tatsächliche
+freigegeben hat. Die bestätigte Export-Einstufung wird nur bei passendem attestierten
+Quellumfang gesetzt; Kryptografieänderungen erfordern erneute Prüfung. `VALID` allein
+bedeutet noch keine Verteilung an Tester. Details und der tatsächliche
 Laufstatus stehen in [TESTFLIGHT.md](TESTFLIGHT.md).
 
 Die direkte APK verwendet produktiven Server und optimierten Release-Code, ist jedoch

@@ -122,12 +122,27 @@ gegen den Release-Commit und Apples exakte App-/Versionsdaten. Er importiert
 keine Signieridentität, baut keine IPA und lädt nichts hoch. Auch hier wird auf
 grüne CI des aktuellen Workflow-Commits und der Release-Quelle gewartet.
 
-Beim automatischen Start bleibt die Export-Einstufung offen. Nach geprüfter und vom
-Betreiber bestätigter Export-Einstufung kann für genau
-diesen Lauf `-f encryption_exempt=true` ergänzt werden. Dann erhält nur die
-Build-Kopie `ITSAppUsesNonExemptEncryption=false`. Standardmäßig bleibt die
-Angabe offen; das Ergebnis protokolliert Apples tatsächlichen TestFlight-Status.
-Die Bestätigung gilt nicht automatisch für spätere Versionen.
+Der Betreiber bestätigte am 6. November 2026 die Exportfreistellung für die
+verwendete HTTPS-, Keychain- und AES-256-GCM-Nutzung, solange diese Einstufung
+weiterhin zutrifft. Der automatische Dispatch setzt `encryption_exempt=true`.
+Vor jeder Reservierung prüft der Workflow die versionierte
+[`ios-encryption-attestation.json`](../scripts/ios-encryption-attestation.json)
+gegen den konkreten Release-Quellstand: erfasst sind `pubspec.yaml`, `pubspec.lock`,
+alle versionierten Dateien unter `ios/` und Dart-Dateien, die direkt Kryptografie-,
+Secure-Storage-, Keychain-, TLS-/SSL-, Security- oder FFI-Bibliotheken importieren,
+exportieren oder als Part einbinden. Neue und geänderte erfasste Dateien stoppen
+den Lauf, bevor eine Buildnummer reserviert oder ein Upload gestartet wird. Die
+Attestierung darf nur nach erneuter Prüfung und Bestätigung aktualisiert werden.
+
+Der Importabgleich ist eine konservative Hilfe, kein vollständiger Nachweis: etwa
+indirekte Verwendung über bestehende Wrapper, eigene Implementierungen oder neue
+Bibliotheken mit unauffälligem Namen können außerhalb des erfassten Dart-Scopes
+liegen. Jede Änderung der Kryptografie oder ihrer Nutzung muss deshalb zusätzlich
+im Code-Review auf die Export-Einstufung geprüft werden. Die Build-Kopie erhält
+nur nach bestandener Prüfung `ITSAppUsesNonExemptEncryption=false`. Manuelle Läufe
+ohne `encryption_exempt=true` lassen die Angabe offen. Ein bereits hochgeladener
+Build mit fehlender Export-Einstufung muss in App Store Connect geklärt werden;
+nicht blind erneut hochladen.
 
 Der Workflow verwendet Flutter **3.47.0**, Xcode **26.3** auf `macos-15` und
 checksum-gepinnte Actions. Python benötigt außer der Standardbibliothek nur

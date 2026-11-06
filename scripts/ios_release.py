@@ -33,6 +33,11 @@ API = "https://api.appstoreconnect.apple.com"
 SOURCE = Path("release-source")
 ARTIFACTS = Path("build/testflight")
 MANIFEST = ARTIFACTS / "release.json"
+ENCRYPTION_ATTESTATION = Path("scripts/ios-encryption-attestation.json")
+CRYPTO_IMPORT = re.compile(
+    r'''(?m)^\s*(?:import|export|part)\s+[rR]?["'][^"']*(?:crypt|encrypt|cipher|secure_storage|keychain|ssl|tls|ffi|security)[^"']*["']''',
+    re.IGNORECASE,
+)
 
 
 def run(args, **kwargs):
@@ -215,17 +220,53 @@ def reserve(minimum, source):
     return number
 
 
+def encryption_scope(source):
+    """Hash tracked iOS configuration, dependencies and direct crypto importers."""
+    tracked = run(["git", "-C", str(source), "ls-files", "-z", "--",
+                   "ios", "lib", "pubspec.yaml", "pubspec.lock"]).decode().split("\0")
+    hashes = {}
+    for name in sorted(filter(None, tracked)):
+        path = source / name
+        require(path.is_file() and not path.is_symlink(), f"Missing reviewed encryption input: {name}")
+        if name.startswith("lib/"):
+            if not name.endswith(".dart"):
+                continue
+            if not CRYPTO_IMPORT.search(path.read_text(encoding="utf-8")):
+                continue
+        hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest()
+    require("pubspec.yaml" in hashes and "pubspec.lock" in hashes
+            and "lib/features/reader/offline_resource_store.dart" in hashes,
+            "Encryption review scope is incomplete.")
+    return hashes
+
+
+def verify_encryption_attestation(source):
+    try:
+        attestation = json.loads(ENCRYPTION_ATTESTATION.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise ReleaseError("Missing or invalid encryption review attestation.") from error
+    require(attestation.get("confirmedExempt") is True and isinstance(attestation.get("files"), dict),
+            "Encryption exemption has not been attested.")
+    actual = encryption_scope(source)
+    expected = attestation["files"]
+    changed = sorted(name for name in set(actual) | set(expected) if actual.get(name) != expected.get(name))
+    require(not changed, "Encryption review inputs changed; review export compliance and update the "
+            "attestation before building: " + ", ".join(changed[:8]))
+
+
 def plan():
     data = gate()
+    exempt = os.environ.get("ENCRYPTION_EXEMPT", "false")
+    require(exempt in {"true", "false"}, "Invalid encryption declaration input.")
+    existing = os.environ.get("VERIFY_BUILD", "").strip()
+    if exempt == "true" and not existing:
+        verify_encryption_attestation(SOURCE)
     api = Apple()
     app = api.request("GET", f"/v1/apps/{APP}")["data"]
     require(app["id"] == APP and app["attributes"]["bundleId"] == BUNDLE,
             "Apple app does not match the intended bundle.")
     builds = api.all("/v1/builds?" + urlencode({"filter[app]": APP, "limit": 200}))
     maximum = max([0, *(build_number(item["attributes"]["version"]) for item in builds)])
-    exempt = os.environ.get("ENCRYPTION_EXEMPT", "false")
-    require(exempt in {"true", "false"}, "Invalid encryption declaration input.")
-    existing = os.environ.get("VERIFY_BUILD", "").strip()
     if existing:
         number = build_number(existing)
         require(common.commit_for_tag(PREFIX + str(number)) == data["sourceCommit"],
@@ -353,7 +394,7 @@ def prepare_signing():
     project = SOURCE / "ios/Runner.xcodeproj/project.pbxproj"
     project.write_text(distribution_project(project.read_text(), fingerprint))
     if data["encryptionExemptDeclaration"]:
-        # Explicit per-dispatch operator declaration; no blanket claim for future releases.
+        # The operator's attestation was checked against this exact release source.
         info_path = SOURCE / "ios/Runner/Info.plist"
         info = plistlib.loads(info_path.read_bytes())
         info["ITSAppUsesNonExemptEncryption"] = False

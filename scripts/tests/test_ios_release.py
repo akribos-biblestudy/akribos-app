@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+import subprocess
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -100,6 +101,52 @@ class AppleTests(unittest.TestCase):
                 ios.verify_internal_distribution(api, data, 'build')
         sleep.assert_not_called()
         self.assertFalse(data['internalDistributionVerified'])
+
+    def test_exemption_verifies_pinned_scope_and_detects_changed_or_new_crypto(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            files = {
+                'pubspec.yaml': 'dependencies: cryptography',
+                'pubspec.lock': 'locked',
+                'ios/Runner/Info.plist': 'configuration',
+                'lib/features/reader/offline_resource_store.dart': "import 'package:cryptography/cryptography.dart';",
+                'lib/ui.dart': "import 'package:flutter/material.dart';\nvoid render() {}",
+                'lib/new_feature.dart': "import 'package:flutter/material.dart';",
+            }
+            for name, content in files.items():
+                path = source / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content)
+            subprocess.run(['git', 'init', '-q', str(source)], check=True)
+            subprocess.run(['git', '-C', str(source), 'add', '.'], check=True)
+            attestation = source / 'attestation.json'
+            attestation.write_text(json.dumps({'confirmedExempt': True, 'files': ios.encryption_scope(source)}))
+            with patch.object(ios, 'ENCRYPTION_ATTESTATION', attestation):
+                ios.verify_encryption_attestation(source)
+                (source / 'lib/ui.dart').write_text("import 'package:flutter/material.dart';\nvoid render() { print('updated'); }")
+                ios.verify_encryption_attestation(source)
+                for name, content in (
+                    ('pubspec.lock', 'changed dependency'),
+                    ('ios/Runner/Info.plist', 'changed configuration'),
+                    ('lib/features/reader/offline_resource_store.dart', files['lib/features/reader/offline_resource_store.dart'] + '\nchanged'),
+                    ('lib/new_feature.dart', "import 'package:cryptography/cryptography.dart';"),
+                ):
+                    path = source / name
+                    path.write_text(content)
+                    with self.subTest(name=name), self.assertRaisesRegex(ios.ReleaseError, 'review inputs changed'):
+                        ios.verify_encryption_attestation(source)
+                    path.write_text(files[name])
+
+    def test_unreviewed_exemption_fails_before_apple_and_reservation(self):
+        with patch.dict(os.environ, {'VERIFY_BUILD': '', 'ENCRYPTION_EXEMPT': 'true'}), \
+                patch.object(ios, 'gate', return_value={'sourceCommit': 'source'}), \
+                patch.object(ios, 'verify_encryption_attestation', side_effect=ios.ReleaseError('review required')) as check, \
+                patch.object(ios, 'Apple') as apple, patch.object(ios, 'reserve') as reserve:
+            with self.assertRaisesRegex(ios.ReleaseError, 'review required'):
+                ios.plan()
+        check.assert_called_once_with(ios.SOURCE)
+        apple.assert_not_called()
+        reserve.assert_not_called()
 
     def test_processing_metadata_uses_supported_include_instead_of_group_read_routes(self):
         api = Mock()
