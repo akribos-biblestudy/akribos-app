@@ -144,6 +144,110 @@ void main() {
     });
   }
 
+  for (final versewise in [false, true]) {
+    testWidgets(
+      'E-Ink labels end consecutive styles across sections (versewise $versewise)',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 1600);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final data = readerFixture()..['versePerLine'] = versewise;
+        final column = asMaps(data['columns']).first;
+        final chapter = asMap(column['initialChapter']);
+        final rows = asMaps(asMap(chapter['chapter'])['rows']);
+        rows.removeRange(7, rows.length);
+        for (var i = 0; i < rows.length; i++) {
+          final cell = asMaps(rows[i]['cells']).first;
+          cell['segments'] = ['Versinhalt ${i + 1}.'];
+          if (i == 2) cell['heading'] = 'Neuer Abschnitt';
+        }
+        asMaps(rows[5]['cells']).first['verseEnd'] = 7;
+        rows.removeLast();
+        (asMap(chapter['chapter'])['rows'] as List).removeRange(6, 30);
+        chapter['highlights'] = [
+          for (final verse in [1, 2, 3, 5])
+            {'verse': verse, 'styleId': 'a', 'name': 'A', 'color': '#facc15'},
+          {'verse': 4, 'styleId': 'b', 'name': 'B', 'color': '#00ff00'},
+          {'verse': 7, 'styleId': 'd', 'name': 'D', 'color': '#0000ff'},
+          {
+            'verse': 1,
+            'endVerse': 2,
+            'resourceId': asMap(column['resource'])['id'],
+            'styleId': 'c',
+            'name': 'Teil',
+            'color': '#ff0000',
+            'startWord': 0,
+            'endWord': 0,
+          },
+        ];
+        final api = ReaderApi(data);
+        addTearDown(api.dispose);
+        await tester.pumpWidget(
+          app(api, const ReaderScreen(path: '/Joh1'), eInk: true),
+        );
+        await tester.pumpAndSettle();
+        final texts = tester
+            .stateList<VerseTextState>(find.byType(VerseText))
+            .map((state) => state.paragraph!.text.toPlainText())
+            .join(' | ');
+        expect(texts, isNot(contains('Versinhalt 1. (Markiert:')));
+        expect(texts, contains('Versinhalt 2. (Markiert: Teil)'));
+        expect(texts, contains('Versinhalt 3. (Markiert: A)'));
+        expect(texts, contains('Versinhalt 4. (Markiert: B)'));
+        expect(texts, contains('Versinhalt 5. (Markiert: A)'));
+        expect(texts, contains('Versinhalt 6. (Markiert: D)'));
+        expect(RegExp(r'Markiert: A').allMatches(texts), hasLength(2));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final versewise in [false, true]) {
+    testWidgets('labels survive an omitted end verse (versewise $versewise)', (
+      tester,
+    ) async {
+      final data = readerFixture()..['versePerLine'] = versewise;
+      final column = asMaps(data['columns']).first;
+      final chapter = asMap(column['initialChapter']);
+      final rows = asMaps(asMap(chapter['chapter'])['rows']);
+      rows.removeAt(2);
+      (asMap(chapter['chapter'])['rows'] as List).removeAt(2);
+      for (final row in rows) {
+        final cell = asMaps(row['cells']).first;
+        cell['segments'] = ['Versinhalt ${cell['verse']}.'];
+      }
+      chapter['highlights'] = [
+        // The server need not return records in verse order.
+        for (final verse in [3, 2, 1])
+          {'verse': verse, 'styleId': 'a', 'name': 'A', 'color': '#facc15'},
+        {
+          'verse': 1,
+          'endVerse': 3,
+          'resourceId': asMap(column['resource'])['id'],
+          'styleId': 'b',
+          'name': 'Teil',
+          'color': '#ff0000',
+          'startWord': 0,
+          'endWord': 0,
+        },
+      ];
+      final api = ReaderApi(data);
+      addTearDown(api.dispose);
+      await tester.pumpWidget(
+        app(api, const ReaderScreen(path: '/Joh1'), eInk: true),
+      );
+      await tester.pumpAndSettle();
+      final texts = tester
+          .stateList<VerseTextState>(find.byType(VerseText))
+          .map((state) => state.paragraph!.text.toPlainText())
+          .join(' | ');
+      expect(texts, isNot(contains('Versinhalt 1. (Markiert:')));
+      expect(texts, contains('Versinhalt 2. (Markiert: A, Teil)'));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final scale in [1.0, 2.0]) {
     testWidgets('flow verse numbers stay with the first word at scale $scale', (
       tester,

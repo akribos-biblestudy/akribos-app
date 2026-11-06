@@ -2536,19 +2536,56 @@ class _ChapterPaneState extends State<_ChapterPane> {
 
   List<Json> _highlights(Json chapter, Json cell) {
     final verse = asInt(cell['verse']);
+    final cellEnd = asInt(cell['verseEnd'], verse);
+    final items = asMaps(chapter['highlights']);
+    int endOf(Json item) => asInt(item['endVerse'], asInt(item['verse']));
+    bool sameStyle(Json a, Json b) => a['styleId'] != null
+        ? a['styleId'] == b['styleId']
+        : b['styleId'] == null &&
+              a['name'] == b['name'] &&
+              a['color'] == b['color'];
+    bool isWhole(Json item) => item['resourceId'] == null;
+    bool hasLaterVisibleVerse(Json item) {
+      var end = endOf(item);
+      if (isWhole(item)) {
+        // Expand over adjacent whole-verse records, including records for
+        // verses absent from this translation.
+        final candidates =
+            items
+                .where((next) => isWhole(next) && sameStyle(item, next))
+                .toList()
+              ..sort((a, b) => asInt(a['verse']).compareTo(asInt(b['verse'])));
+        for (final next in candidates) {
+          if (asInt(next['verse']) > end + 1) break;
+          if (endOf(next) > end) end = endOf(next);
+        }
+      }
+      for (final row in asMaps(asMap(chapter['chapter'])['rows'])) {
+        final cells = row['cells'] as List? ?? [];
+        if (cells.isEmpty || cells.first == null) continue;
+        final next = asMap(cells.first);
+        final nextVerse = asInt(next['verse']);
+        if (nextVerse > cellEnd && nextVerse <= end) return true;
+      }
+      return false;
+    }
+
     return [
-      for (final item in asMaps(chapter['highlights']))
-        if (verse >= asInt(item['verse']) &&
-            verse <= asInt(item['endVerse'], asInt(item['verse'])) &&
+      for (final item in items)
+        if ((isWhole(item) ? cellEnd : verse) >= asInt(item['verse']) &&
+            verse <= endOf(item) &&
             (item['resourceId'] == null ||
                 item['resourceId'] == widget.resource['id']))
           {
             'start': verse == item['verse'] ? asInt(item['startWord']) : 0,
-            'end': verse == asInt(item['endVerse'], asInt(item['verse']))
+            'end': verse == endOf(item)
                 ? asInt(item['endWord'], 100000)
                 : 100000,
             'color': item['color'],
             'name': item['name'],
+            // Whole-verse selections are stored as one row per verse. Show
+            // the label only where a consecutive run of the same style ends.
+            'label': AppScope.of(context).eInk && !hasLaterVisibleVerse(item),
           },
     ];
   }
@@ -2572,9 +2609,6 @@ class _ChapterPaneState extends State<_ChapterPane> {
   Widget _bibleBlock(Json chapter, List<Json> rows, String id) {
     final passages = rows.map((row) => _passage(chapter, row)).toList();
     final heading = asString(_cell(rows.first)['heading']);
-    final labels = passages.first.highlights
-        .map((item) => asString(item['name'], 'Markierung'))
-        .toSet();
     final first = passages.first;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -2592,13 +2626,6 @@ class _ChapterPaneState extends State<_ChapterPane> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-            ),
-          if (AppScope.of(context).eInk &&
-              widget.versePerLine &&
-              labels.isNotEmpty)
-            Text(
-              'Markiert: ${labels.join(', ')}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           VerseText(
             key: widget.versePerLine
@@ -2618,8 +2645,7 @@ class _ChapterPaneState extends State<_ChapterPane> {
             onWord: first.onWord,
             fontSize: 19 * widget.fontScale,
             highlights: first.highlights,
-            showHighlightLabels:
-                AppScope.of(context).eInk && !widget.versePerLine,
+            showHighlightLabels: AppScope.of(context).eInk,
             direction: widget.resource['direction'] == 'rtl'
                 ? TextDirection.rtl
                 : TextDirection.ltr,

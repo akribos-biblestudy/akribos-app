@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/json.dart';
+import '../../theme/akribos_theme.dart';
 import 'verse_text.dart';
 
 /// A fixed-size action overview; account-sized catalogues live on separate pages.
@@ -22,7 +23,20 @@ Future<String?> showReaderVerseMenu(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
-  constraints: const BoxConstraints(maxWidth: 720),
+  constraints: const BoxConstraints(maxWidth: 840),
+  backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+  barrierColor: Colors.black.withValues(
+    alpha: Theme.of(context).brightness == Brightness.dark ? .68 : .50,
+  ),
+  shape: RoundedRectangleBorder(
+    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    side: BorderSide(
+      color: AkribosThemeTokens.of(context).eInk
+          ? Colors.black
+          : Theme.of(context).colorScheme.onSurface.withValues(alpha: .45),
+      width: AkribosThemeTokens.of(context).eInk ? 2 : 1.5,
+    ),
+  ),
   builder: (_) => ReaderVerseMenu(
     reference: reference,
     text: text,
@@ -122,7 +136,9 @@ class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
     ];
     final scaler = MediaQuery.textScalerOf(context);
     final width = constraints.maxWidth - 32;
-    final labelStyle = Theme.of(context).textTheme.labelLarge;
+    final largeWindow = constraints.maxWidth >= 600;
+    final labelStyle = Theme.of(context).textTheme.labelLarge
+        ?.copyWith(fontSize: largeWindow ? 18 : 16);
     final labelWidths = actions.map((action) {
       final painter = TextPainter(
         text: TextSpan(text: action.$2, style: labelStyle),
@@ -181,7 +197,7 @@ class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
                       if (index > start) const SizedBox(width: 8),
                       SizedBox(
                         width: actionWidth,
-                        child: _action(actions[index]),
+                        child: _action(actions[index], labelStyle, largeWindow),
                       ),
                     ],
                   ],
@@ -208,19 +224,33 @@ class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
     );
   }
 
-  Widget _action((String, String, IconData, VoidCallback) action) {
+  Widget _action(
+    (String, String, IconData, VoidCallback) action,
+    TextStyle? labelStyle,
+    bool largeWindow,
+  ) {
     final colors = Theme.of(context).colorScheme;
+    final eInk = AkribosThemeTokens.of(context).eInk;
     return Material(
       color: colors.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: eInk ? Colors.black : colors.onSurface.withValues(alpha: .25),
+          width: eInk ? 2 : 1,
+        ),
+      ),
       child: InkWell(
         key: ValueKey('verse-action-${action.$1}'),
         onTap: action.$4,
         borderRadius: BorderRadius.circular(12),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          constraints: BoxConstraints(
+            minWidth: 48,
+            minHeight: largeWindow ? 72 : 56,
+          ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -231,7 +261,7 @@ class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
                     action.$2,
                     maxLines: 1,
                     softWrap: false,
-                    style: Theme.of(context).textTheme.labelLarge,
+                    style: labelStyle,
                   ),
                 ),
               ],
@@ -242,17 +272,21 @@ class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
     );
   }
 
-  Widget _markChoices() => ListView(
+  Widget _markChoices(bool largeWindow) => ListView(
     key: const ValueKey('verse-menu-marks'),
     padding: const EdgeInsets.only(bottom: 16),
     children: [
       for (final style in widget.styles)
         ListTile(
+          minTileHeight: largeWindow ? 72 : 56,
           leading: CircleAvatar(
             backgroundColor: verseColor(asString(style['color'])),
-            radius: 12,
+            radius: largeWindow ? 16 : 14,
           ),
-          title: Text(asString(style['name'], 'Markieren')),
+          title: Text(
+            asString(style['name'], 'Markieren'),
+            style: TextStyle(fontSize: largeWindow ? 18 : 16),
+          ),
           onTap: () => _select('highlight:${style['id']}'),
         ),
       if (widget.styles.isEmpty)
@@ -267,18 +301,22 @@ class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
         index++
       )
         ListTile(
+          minTileHeight: largeWindow ? 72 : 56,
           leading: const Icon(Icons.format_color_reset),
           title: Text(
             'Markierung „${widget.highlights[index]['name'] ?? 'Markierung'}“ entfernen',
+            style: TextStyle(fontSize: largeWindow ? 18 : 16),
           ),
           onTap: () => _select('removeRange:$index'),
         ),
       ListTile(
+        minTileHeight: largeWindow ? 72 : 56,
         leading: const Icon(Icons.format_color_reset),
         title: Text(
           widget.multiple
               ? 'Versmarkierungen entfernen'
               : 'Versmarkierung entfernen',
+          style: TextStyle(fontSize: largeWindow ? 18 : 16),
         ),
         onTap: () => _select('removeHighlight'),
       ),
@@ -343,7 +381,7 @@ class _ReaderVerseMenuState extends State<ReaderVerseMenu> {
                     const Divider(height: 1),
                     Expanded(
                       child: _page == ReaderMenuPage.marks
-                          ? _markChoices()
+                          ? _markChoices(constraints.maxWidth >= 600)
                           : _listChoices(),
                     ),
                   ],
