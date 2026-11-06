@@ -36,7 +36,8 @@ Wiederholungen; API-Schlüssel und Signieridentität jetzt nicht erneut erzeugen
 - Bestätigtes Apple-Team: slim-it GmbH, Team-ID `8Y4NL9VW33`.
 - Letztes veröffentlichtes GitHub-Release: `v0.5.1`; die Apple-Version ist `0.5.1`.
 - `ci.yml` baut nur einen unsignierten iOS-Simulatorbuild und führt XCTest aus.
-- `release.yml` startet ausschließlich Android; iOS wird separat manuell gestartet.
+- Veröffentlichte stabile Releases starten `ios-testflight.yml` und Android unabhängig
+  voneinander auf `main`. Der iOS-Workflow kann zusätzlich manuell gestartet werden.
 - **0.5.1 (2)** wurde am 27. Oktober signiert, hochgeladen und von Apple mit
   **VALID / READY_FOR_BETA_TESTING** bestätigt. Interne Tester ordnet der Nutzer
   selbst zu; die Geräteabnahme bleibt offen.
@@ -102,8 +103,9 @@ und der direkte Pixel-Build bleiben unabhängig.
 ## Workflow ausführen
 
 Der Workflow [`ios-testflight.yml`](../.github/workflows/ios-testflight.yml) wird
-manuell auf `main` gestartet. Er hat bewusst keinen automatischen Trigger bei
-neuen GitHub-Releases und veröffentlicht keine öffentliche App-Store-Version.
+bei einem veröffentlichten stabilen GitHub-Release durch `release.yml` auf `main`
+gestartet; Android und iOS werden unabhängig voneinander dispatcht. Er kann auch
+manuell auf `main` gestartet werden und veröffentlicht keine öffentliche App-Store-Version.
 
 ```sh
 gh workflow run ios-testflight.yml --ref main -f release_tag=v0.5.1
@@ -120,11 +122,27 @@ gegen den Release-Commit und Apples exakte App-/Versionsdaten. Er importiert
 keine Signieridentität, baut keine IPA und lädt nichts hoch. Auch hier wird auf
 grüne CI des aktuellen Workflow-Commits und der Release-Quelle gewartet.
 
-Nach geprüfter und vom Betreiber bestätigter Export-Einstufung kann für genau
-diesen Lauf `-f encryption_exempt=true` ergänzt werden. Dann erhält nur die
-Build-Kopie `ITSAppUsesNonExemptEncryption=false`. Standardmäßig bleibt die
-Angabe offen; das Ergebnis protokolliert Apples tatsächlichen TestFlight-Status.
-Die Bestätigung gilt nicht automatisch für spätere Versionen.
+Der Betreiber bestätigte am 6. November 2026 die Exportfreistellung für die
+verwendete HTTPS-, Keychain- und AES-256-GCM-Nutzung, solange diese Einstufung
+weiterhin zutrifft. Der automatische Dispatch setzt `encryption_exempt=true`.
+Vor jeder Reservierung prüft der Workflow die versionierte
+[`ios-encryption-attestation.json`](../scripts/ios-encryption-attestation.json)
+gegen den konkreten Release-Quellstand: erfasst sind `pubspec.yaml`, `pubspec.lock`,
+alle versionierten Dateien unter `ios/` und Dart-Dateien, die direkt Kryptografie-,
+Secure-Storage-, Keychain-, TLS-/SSL-, Security- oder FFI-Bibliotheken importieren,
+exportieren oder als Part einbinden. Neue und geänderte erfasste Dateien stoppen
+den Lauf, bevor eine Buildnummer reserviert oder ein Upload gestartet wird. Die
+Attestierung darf nur nach erneuter Prüfung und Bestätigung aktualisiert werden.
+
+Der Importabgleich ist eine konservative Hilfe, kein vollständiger Nachweis: etwa
+indirekte Verwendung über bestehende Wrapper, eigene Implementierungen oder neue
+Bibliotheken mit unauffälligem Namen können außerhalb des erfassten Dart-Scopes
+liegen. Jede Änderung der Kryptografie oder ihrer Nutzung muss deshalb zusätzlich
+im Code-Review auf die Export-Einstufung geprüft werden. Die Build-Kopie erhält
+nur nach bestandener Prüfung `ITSAppUsesNonExemptEncryption=false`. Manuelle Läufe
+ohne `encryption_exempt=true` lassen die Angabe offen. Ein bereits hochgeladener
+Build mit fehlender Export-Einstufung muss in App Store Connect geklärt werden;
+nicht blind erneut hochladen.
 
 Der Workflow verwendet Flutter **3.47.0**, Xcode **26.3** auf `macos-15` und
 checksum-gepinnte Actions. Python benötigt außer der Standardbibliothek nur
@@ -171,8 +189,14 @@ und den Logs. Ein fehlendes IPA-Download-Artefakt wird dort ausdrücklich genann
 Auch das Debug-APK-Artefakt der regulären CI ist optional; Tests und Builds
 bleiben verpflichtend. Schlüssel, Passwörter, temporäres Profil
 und Keychain werden beim Abschluss entfernt. Der Build wird keiner externen
-Prüfung zugeführt. Testgruppen und interne Tester werden in App Store Connect
-verwaltet; der Workflow verschickt keine Einladungen.
+Prüfung zugeführt. Die bestehende interne Gruppe `Betatester` verteilt Xcode-Builds
+automatisch. Nach einem Upload prüft der Workflow für höchstens fünf Minuten die
+Zuweisung genau dieser Gruppe und den Status `IN_BETA_TESTING`. Wird sie nicht
+bestätigt oder fehlen Exportangaben, meldet er den bereits hochgeladenen Build und
+schlägt fehl; vor einem Wiederholungsversuch zunächst TestFlight prüfen, damit kein
+zweiter Build unnötig hochgeladen wird. Gruppen und interne Tester werden in App
+Store Connect verwaltet; der Workflow fügt keine Gruppen hinzu und verschickt keine
+Einladungen.
 
 Ein interner Tester benötigt App-Zugriff als App-Store-Connect-Nutzer und eine
 Zuweisung des Builds zu seiner internen Testgruppe. Externe Tester benötigen

@@ -1,4 +1,4 @@
-name: Dispatch Android Play Release
+name: Dispatch Internal Store Releases
 on:
   release:
     types: [published]
@@ -10,12 +10,17 @@ jobs:
     if: ${{ !github.event.release.prerelease }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        workflow: [android-play.yml, ios-testflight.yml]
     steps:
       # No checkout and no store environment/secrets. The receiving workflow is
       # always the trusted main version, never code from the released tag.
       - name: Start the protected store workflow on main
         env:
           GH_TOKEN: ${{ github.token }}
+          STORE_WORKFLOW: ${{ matrix.workflow }}
         shell: bash
         run: |
           release_tag="$(jq -r '.release.tag_name' "$GITHUB_EVENT_PATH")"
@@ -23,5 +28,10 @@ jobs:
             printf 'Expected a published vX.Y.Z release.\n' >&2
             exit 1
           }
-          gh workflow run android-play.yml --repo "$GITHUB_REPOSITORY" \
-            --ref main -f release_tag="$release_tag"
+          args=(--ref main -f "release_tag=$release_tag")
+          if [[ "$STORE_WORKFLOW" == ios-testflight.yml ]]; then
+            # The receiving workflow independently checks the source against
+            # the operator's pinned encryption attestation before signing.
+            args+=(-f encryption_exempt=true)
+          fi
+          gh workflow run "$STORE_WORKFLOW" --repo "$GITHUB_REPOSITORY" "${args[@]}"
