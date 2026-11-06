@@ -2545,6 +2545,31 @@ class _ChapterPaneState extends State<_ChapterPane> {
               a['name'] == b['name'] &&
               a['color'] == b['color'];
     bool isWhole(Json item) => item['resourceId'] == null;
+    bool hasLaterVisibleVerse(Json item) {
+      var end = endOf(item);
+      if (isWhole(item)) {
+        // Expand over adjacent whole-verse records, including records for
+        // verses absent from this translation.
+        final candidates =
+            items
+                .where((next) => isWhole(next) && sameStyle(item, next))
+                .toList()
+              ..sort((a, b) => asInt(a['verse']).compareTo(asInt(b['verse'])));
+        for (final next in candidates) {
+          if (asInt(next['verse']) > end + 1) break;
+          if (endOf(next) > end) end = endOf(next);
+        }
+      }
+      for (final row in asMaps(asMap(chapter['chapter'])['rows'])) {
+        final cells = row['cells'] as List? ?? [];
+        if (cells.isEmpty || cells.first == null) continue;
+        final next = asMap(cells.first);
+        final nextVerse = asInt(next['verse']);
+        if (nextVerse > cellEnd && nextVerse <= end) return true;
+      }
+      return false;
+    }
+
     return [
       for (final item in items)
         if ((isWhole(item) ? cellEnd : verse) >= asInt(item['verse']) &&
@@ -2560,16 +2585,7 @@ class _ChapterPaneState extends State<_ChapterPane> {
             'name': item['name'],
             // Whole-verse selections are stored as one row per verse. Show
             // the label only where a consecutive run of the same style ends.
-            'label':
-                endOf(item) <= cellEnd &&
-                (!isWhole(item) ||
-                    !items.any(
-                      (next) =>
-                          isWhole(next) &&
-                          sameStyle(item, next) &&
-                          asInt(next['verse']) <= endOf(item) + 1 &&
-                          endOf(next) > endOf(item),
-                    )),
+            'label': AppScope.of(context).eInk && !hasLaterVisibleVerse(item),
           },
     ];
   }
