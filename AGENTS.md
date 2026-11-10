@@ -162,6 +162,8 @@ normal phone/tablet portrait and landscape sizes. Copying is available through t
 share sheet on Android and iOS; preserve the verse/reference/URL text and iPad popover origin.
 Offer whole-verse marking only; there is no word/partial-marking creation entry or handler.
 Existing partial highlights retain rendering and source-bound deletion without data migration.
+In E-Ink flow text, the next verse begins on a new line after a visible highlight label;
+consecutive highlights without a visible end label continue normally.
 Keep arbitrary highlight/list catalogues in separate choice pages; system Back returns to
 the overview. Preserve the remaining action codes and ordinary Strong-word lookups. Large
 accessibility text may scroll instead of shrinking text, touch targets or clipping controls.

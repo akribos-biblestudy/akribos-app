@@ -131,7 +131,7 @@ void main() {
         expect(
           text,
           contains(
-            '2\u00a0Text für Vers 2. (Markiert: Wichtig) 3\u00a0Text für Vers 3. (Markiert: Trost)',
+            '2\u00a0Text für Vers 2. (Markiert: Wichtig)\n3\u00a0Text für Vers 3. (Markiert: Trost)',
           ),
         );
         expect(text, isNot(contains('1\u00a0Text für Vers 1. (Markiert:')));

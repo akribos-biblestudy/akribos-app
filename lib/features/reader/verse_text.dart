@@ -425,6 +425,7 @@ class VerseTextState extends State<VerseText> {
       color: colors.primary,
     );
     var offset = 0;
+    var previousHasLabel = false;
     for (
       var passageIndex = 0;
       passageIndex < _passages.length;
@@ -432,7 +433,7 @@ class VerseTextState extends State<VerseText> {
     ) {
       final passage = _passages[passageIndex];
       if (spans.isNotEmpty) {
-        spans.add(const TextSpan(text: ' '));
+        spans.add(TextSpan(text: previousHasLabel ? '\n' : ' '));
         offset++;
       }
       _starts.add(offset);
@@ -569,12 +570,14 @@ class VerseTextState extends State<VerseText> {
             : offset;
         marks.add(VerseMarkerRange(runOffsets[indices.first], end, color));
       }
+      previousHasLabel = false;
       if (widget.showHighlightLabels) {
         final labels = passage.highlights
             .where((item) => item['label'] != false)
             .map((item) => asString(item['name'], 'Markierung'))
             .toSet();
         if (labels.isNotEmpty) {
+          previousHasLabel = true;
           final label = ' (Markiert: ${labels.join(', ')})';
           spans.add(
             TextSpan(
