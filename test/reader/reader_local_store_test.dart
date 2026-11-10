@@ -68,6 +68,7 @@ void main() {
       await store(storage).write(second, layoutSizes: sizes);
       expect(await store(storage).read(), {
         'path': second,
+        'updatedAt': isA<int>(),
         'layoutSizes': sizes,
         'versePerLine': false,
         'companion': const ReaderCompanion().toJson(),
@@ -192,4 +193,24 @@ void main() {
     await expectLater(target.read(), throwsA(isA<ApiException>()));
     expect(storage.values[target.storageKey], '{broken');
   });
+  test(
+    'auth change during a guarded write restores the prior snapshot',
+    () async {
+      final storage = ControlledStorage();
+      final target = store(storage);
+      await target.write(first);
+      storage.pause = Completer<void>();
+      var current = true;
+      void validate() {
+        if (!current) throw const ApiException('Konto geändert');
+      }
+
+      final write = target.write(second, validate: validate);
+      await Future<void>.delayed(Duration.zero);
+      current = false;
+      storage.pause!.complete();
+      await expectLater(write, throwsA(isA<ApiException>()));
+      expect((await target.read())?['path'], first);
+    },
+  );
 }

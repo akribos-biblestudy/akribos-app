@@ -47,6 +47,7 @@ class ReaderLocalStore {
       }
       return {
         'path': localReaderAddress(path),
+        'updatedAt': snapshot['updatedAt'],
         'layoutSizes': asMap(snapshot['layoutSizes']),
         'versePerLine': snapshot['versePerLine'] == true,
         'companion': ReaderCompanion.fromJson(snapshot['companion']).toJson(),
@@ -63,6 +64,7 @@ class ReaderLocalStore {
     Json layoutSizes = const {},
     bool versePerLine = false,
     ReaderCompanion companion = const ReaderCompanion(),
+    void Function()? validate,
   }) {
     if (!_validPath(path)) {
       throw const ApiException(
@@ -72,6 +74,7 @@ class ReaderLocalStore {
     // Freeze the value before waiting: a later scroll must not mutate this write.
     final value = jsonEncode({
       'version': 1,
+      'updatedAt': DateTime.now().microsecondsSinceEpoch,
       'path': localReaderAddress(path),
       'layoutSizes': layoutSizes,
       'versePerLine': versePerLine,
@@ -84,7 +87,22 @@ class ReaderLocalStore {
       } catch (_) {
         // A successful retry replaces only this account's previous snapshot.
       }
+      validate?.call();
+      final previous = validate == null
+          ? null
+          : await _storage.read(key: storageKey);
+      validate?.call();
       await _storage.write(key: storageKey, value: value);
+      try {
+        validate?.call();
+      } catch (_) {
+        if (previous == null) {
+          await _storage.delete(key: storageKey);
+        } else {
+          await _storage.write(key: storageKey, value: previous);
+        }
+        rethrow;
+      }
     }();
     _writes[storageKey] = task;
     // Keep only pending writes; read errors remain visible to the caller.

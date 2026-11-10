@@ -127,8 +127,6 @@ void main() {
       final api = OfflineTestApi();
       addTearDown(api.dispose);
       await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
-      await waitFor(tester, find.text('Offline lesen'));
-      await tester.tap(find.text('Offline lesen'));
       await waitFor(tester, find.byType(OfflineReaderScreen));
       tester
           .widget<OfflineReaderScreen>(find.byType(OfflineReaderScreen))
@@ -205,8 +203,6 @@ void main() {
       final api = OfflineTestApi();
       addTearDown(api.dispose);
       await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
-      await waitFor(tester, find.text('Offline lesen'));
-      await tester.tap(find.text('Offline lesen'));
       await waitFor(tester, find.byType(OfflineReaderScreen));
       tester
           .widget<OfflineReaderScreen>(find.byType(OfflineReaderScreen))
@@ -296,8 +292,6 @@ void main() {
           final api = ObservedOfflineApi();
           addTearDown(api.dispose);
           await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
-          await waitFor(tester, find.text('Offline lesen'));
-          await tester.tap(find.text('Offline lesen'));
           await waitFor(tester, find.byType(OfflineReaderScreen));
           final secret = modal == 'lexicon'
               ? 'Liebe erklärt'
