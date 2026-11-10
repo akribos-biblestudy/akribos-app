@@ -1,7 +1,7 @@
 {
   "confirmedBy": "Operator",
   "confirmedExempt": true,
-  "confirmedOn": "2026-11-06",
+  "confirmedOn": "2026-11-10",
   "files": {
     "ios/.gitignore": "37380775aeb2499662b7aca80f4ac4c95ae827c3ba2bfa179aa3e9af4812c623",
     "ios/Flutter/AppFrameworkInfo.plist": "da12038f9b2688a8a26160fea2609fa8fcb11421448c109f09c0f573efe7698d",
@@ -53,13 +53,13 @@
     "ios/Runner/StoreUpdates.swift": "d133dd6ed2ca5eeae4ff2ad20a3d32d15f6d6563cb7c3d66aea20b26b6c1f1be",
     "ios/Runner/StorefrontCountry.swift": "2844ac07de8120279aace63ad032bfbb312b647da67b07a9133ecf4ea514f173",
     "ios/RunnerTests/RunnerTests.swift": "8c333704da544e1f9151d77fd5f4acf21550d60339ef04614ef85a33ecf20556",
-    "lib/core/api_client.dart": "1a91d264ecad5c9102532146039407494b9857d5e6e094fb40d5b8bbc5a443ac",
+    "lib/core/api_client.dart": "66a3dd2e0e89e41eb25258acf26db08df2f750437c57f69a96b6280164f31173",
     "lib/features/documents/document_editor.dart": "3c4efeb9b28d9fce4df8f4619fe83b649d8616affca0b84b127ad7973511f707",
     "lib/features/reader/offline_resource_manager.dart": "eeffa0a60075ba22ef8af415eea9592465ab62bf812de583d93fb588ca2badeb",
-    "lib/features/reader/offline_resource_store.dart": "4387b02068ae7e15906a075606be4458c77dce4602c3021ba36bcec344b50cfe",
-    "lib/features/reader/reader_local_store.dart": "fba96576bd67f70c397d9b60e48f2c9a8487e096bfc323652b1bdba9b5dfe008",
+    "lib/features/reader/offline_resource_store.dart": "10b1f479b45bbb03c1a6e80452955f8b88e4b3daeac856e985e4d21e746a8675",
+    "lib/features/reader/reader_local_store.dart": "407d705adfa5ca40600497a3343472dd24eda588a9b65fd56f87802ea82d2079",
     "pubspec.lock": "0e864a5f65525f13f602698f459744058e2c908820cbfefa886bdc6efc32ea35",
     "pubspec.yaml": "387700a20f3fe033f6e8ca96c38b93c8f1e906caa4b61749b8a525b2753121e6"
   },
-  "scope": "Operator confirmed exemption on 2026-11-06 for the stated HTTPS, Keychain and AES-256-GCM uses, provided the classification remains valid. Hash coverage is partial; human review of crypto changes remains mandatory."
+  "scope": "Operator reconfirmed exemption on 2026-11-10 for the stated HTTPS, Keychain and AES-256-GCM uses, provided the classification remains valid. AES-256-GCM processing now runs in a Dart isolate. Hash coverage is partial; human review of crypto changes remains mandatory."
 }
