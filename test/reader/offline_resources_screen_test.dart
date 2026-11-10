@@ -88,6 +88,40 @@ void main() {
     expect(changed, 2);
   });
 
+  testWidgets(
+    'downloads a selection sequentially and keeps failed works selected',
+    (tester) async {
+      final paths = <String>[];
+      api.handler = (path) async {
+        if (path == '/api/app/offline/resources') {
+          return catalog('one', ['A', 'B', 'C']);
+        }
+        paths.add(path);
+        if (path.endsWith('/B')) {
+          throw const ApiException('Download fehlgeschlagen');
+        }
+        return package('one', path.split('/').last);
+      };
+      await tester.pumpWidget(
+        MaterialApp(home: OfflineResourcesScreen(manager: manager)),
+      );
+      await finishLoading(tester);
+      await tester.tap(find.text('Alle verfügbaren Werke auswählen'));
+      await tester.pump();
+      await tester.tap(find.text('Auswahl herunterladen (3)'));
+      await tester.pump();
+      await finishLoading(tester);
+      expect(paths, [
+        '/api/app/offline/resources/A',
+        '/api/app/offline/resources/B',
+        '/api/app/offline/resources/C',
+      ]);
+      expect(await tester.runAsync(manager.store.ids), ['A', 'C']);
+      expect(find.textContaining('B: Download fehlgeschlagen'), findsOneWidget);
+      expect(find.text('Auswahl herunterladen (1)'), findsOneWidget);
+    },
+  );
+
   testWidgets('keeps saved works removable when the connection fails', (
     tester,
   ) async {
@@ -210,7 +244,7 @@ void main() {
       ),
     );
     await finishLoading(tester);
-    await tester.ensureVisible(find.text('Herunterladen'));
+    await tester.scrollUntilVisible(find.text('Herunterladen'), 200);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     tester.view.physicalSize = const Size(1200, 700);

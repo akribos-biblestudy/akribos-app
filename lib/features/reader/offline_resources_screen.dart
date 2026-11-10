@@ -25,6 +25,8 @@ class _OfflineResourcesScreenState extends State<OfflineResourcesScreen> {
   Map<String, Json> _saved = {};
   bool _loading = true;
   bool _busy = false;
+  final Set<String> _selected = {};
+  String? _progress;
   Object? _error;
   int _generation = 0;
 
@@ -42,6 +44,8 @@ class _OfflineResourcesScreenState extends State<OfflineResourcesScreen> {
       _saved = {};
       _error = null;
       _busy = false;
+      _selected.clear();
+      _progress = null;
       _refresh();
     }
   }
@@ -86,6 +90,11 @@ class _OfflineResourcesScreenState extends State<OfflineResourcesScreen> {
       setState(() {
         _available = available;
         _saved = verifiedSaved;
+        _selected.removeWhere(
+          (id) =>
+              verifiedSaved.containsKey(id) ||
+              !available.any((resource) => resource['id'] == id),
+        );
       });
     } catch (error) {
       if (!_current(generation)) return;
@@ -135,7 +144,10 @@ class _OfflineResourcesScreenState extends State<OfflineResourcesScreen> {
       }
       final saved = await _readSaved(manager);
       if (!_current(generation)) return;
-      setState(() => _saved = saved);
+      setState(() {
+        _saved = saved;
+        if (!remove) _selected.remove(id);
+      });
       widget.onChanged?.call();
     } catch (error) {
       if (_current(generation)) {
@@ -152,6 +164,58 @@ class _OfflineResourcesScreenState extends State<OfflineResourcesScreen> {
     }
   }
 
+  Future<void> _downloadSelection() async {
+    if (_busy || _loading || _selected.isEmpty) return;
+    final manager = widget.manager;
+    final generation = _generation;
+    final ids = _selected.toList();
+    final failures = <String>[];
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      for (var i = 0; i < ids.length; i++) {
+        if (!_current(generation) || !_identityValid(manager)) break;
+        final id = ids[i];
+        final resource = _available.firstWhere((item) => item['id'] == id);
+        final title = asString(
+          resource['selectionTitle'],
+          asString(resource['name'], id),
+        );
+        setState(() => _progress = '${i + 1} / ${ids.length}: $title');
+        try {
+          await manager.download(id);
+          if (!_current(generation)) return;
+          if (!_identityValid(manager)) break;
+          setState(() {
+            _saved[id] = resource;
+            _selected.remove(id);
+          });
+          widget.onChanged?.call();
+        } catch (error) {
+          failures.add('$title: ${_errorMessage(error)}');
+          if (!_identityValid(manager)) break;
+        }
+      }
+      if (_current(generation) && failures.isNotEmpty) {
+        setState(() => _error = ApiException(failures.join('\n')));
+      }
+    } finally {
+      if (_current(generation)) {
+        setState(() {
+          if (!_identityValid(manager)) {
+            _available = [];
+            _saved = {};
+            _selected.clear();
+          }
+          _progress = null;
+          _busy = false;
+        });
+      }
+    }
+  }
+
   String _errorMessage(Object error) => error is ApiException
       ? error.message
       : 'Die Offline-Werke konnten nicht aktualisiert werden. Bitte erneut versuchen.';
@@ -164,6 +228,10 @@ class _OfflineResourcesScreenState extends State<OfflineResourcesScreen> {
         if (!_available.any((resource) => resource['id'] == entry.key))
           entry.key: entry.value,
     };
+    final downloadable = _available
+        .where((resource) => !_saved.containsKey(resource['id']))
+        .map((resource) => asString(resource['id']))
+        .toList();
     return Scaffold(
       appBar: AppBar(title: const Text('Offline-Werke')),
       body: Center(
@@ -197,9 +265,37 @@ class _OfflineResourcesScreenState extends State<OfflineResourcesScreen> {
                   ),
                 ),
               ],
+              if (downloadable.isNotEmpty) ...[
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Alle verfügbaren Werke auswählen'),
+                  value: downloadable.every(_selected.contains),
+                  onChanged: _loading || _busy
+                      ? null
+                      : (checked) => setState(() {
+                          if (checked == true) {
+                            _selected.addAll(downloadable);
+                          } else {
+                            _selected.clear();
+                          }
+                        }),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    onPressed: _loading || _busy || _selected.isEmpty
+                        ? null
+                        : _downloadSelection,
+                    icon: const Icon(Icons.download_outlined),
+                    label: Text('Auswahl herunterladen (${_selected.length})'),
+                  ),
+                ),
+              ],
               if (_loading || _busy) ...[
                 const SizedBox(height: 12),
                 const LinearProgressIndicator(),
+                if (_progress != null)
+                  Semantics(liveRegion: true, child: Text(_progress!)),
               ],
               if (_error != null) ...[
                 const SizedBox(height: 12),
@@ -229,13 +325,35 @@ class _OfflineResourcesScreenState extends State<OfflineResourcesScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          asString(
-                            entry.value['selectionTitle'],
-                            asString(entry.value['name'], entry.key),
+                        if (!_saved.containsKey(entry.key) &&
+                            downloadable.contains(entry.key))
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              asString(
+                                entry.value['selectionTitle'],
+                                asString(entry.value['name'], entry.key),
+                              ),
+                            ),
+                            value: _selected.contains(entry.key),
+                            onChanged: _loading || _busy
+                                ? null
+                                : (checked) => setState(() {
+                                    if (checked == true) {
+                                      _selected.add(entry.key);
+                                    } else {
+                                      _selected.remove(entry.key);
+                                    }
+                                  }),
+                          )
+                        else
+                          Text(
+                            asString(
+                              entry.value['selectionTitle'],
+                              asString(entry.value['name'], entry.key),
+                            ),
+                            style: Theme.of(context).textTheme.titleMedium,
                           ),
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
                         const SizedBox(height: 4),
                         Text(
                           _saved.containsKey(entry.key)

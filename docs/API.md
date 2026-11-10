@@ -53,7 +53,7 @@ Die getrennte Schnittstelle `/api/v1` und deren API-Key-/Lizenzregeln bleiben un
 | Endpunkt | Aufgabe |
 | --- | --- |
 | `GET /api/reader/resources/{resource}/navigation` | Für das aktuelle lesbare Werk tatsächlich vorhandene Bücher und Kapitel; prüft die Reader-Leserechte und liefert `books: [{book, chapters}]` |
-| `GET /api/app/offline/resources` und `GET /api/app/offline/resources/{id}` | Lizenzierte und für das aktuelle Konto lesbare Werke abrufen. Version 1 umfasst Bibeln, Kommentare und Parallelstellen. Pakete enthalten keine persönlichen Markierungen oder Notizen. |
+| `GET /api/app/offline/resources` und `GET /api/app/offline/resources/{id}` | Lizenzierte und für das aktuelle Konto lesbare Werke abrufen. Version 1 umfasst Bibeln, Kommentare und Parallelstellen. Pakete enthalten keine persönlichen Markierungen oder Notizen; ihre serialisierte UTF-8-JSON-Größe ist auf 128 MiB begrenzt (ältere Server: 32 MiB). |
 | `GET /api/app/offline/v2/lexicons` und `GET /api/app/offline/v2/lexicons/{id}` | Separater Version-2-Katalog und Artikelpakete für offline freigegebene Lexika. Ein fehlender oder fehlgeschlagener Katalog bestätigt keine Rechte für gespeicherte Lexika. |
 | `GET /api/app/bootstrap` | Layout, sichere Sitzungsidentität, Werke, 66 Bücher, Einstellungen und Nutzernavigation |
 | `GET /api/app/page?path=/notes%3Fkind%3Dnote` | Notizbibliothek als JSON laden; der innere Pfad einschließlich Query wird URL-kodiert |
