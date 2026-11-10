@@ -38,6 +38,63 @@ void main() {
         .load();
   });
 
+  test('source indentation before br does not add a second line break', () {
+    final segments = <dynamic>[
+      {'kind': 'w', 'text': 'Rühmt', 'strong': 'H1984'},
+      {'kind': 'note', 'marker': 'a', 'text': 'Erste Anmerkung'},
+      ' seinen Namen!\n  ',
+      {'kind': 'br'},
+      {'kind': 'w', 'text': 'Freut', 'strong': 'H8055'},
+      {'kind': 'note', 'marker': 'b', 'text': 'Zweite Anmerkung'},
+      '.',
+    ];
+    final runs = verseRuns(segments);
+    expect(
+      runs.where((run) => run.note == null).map((run) => run.text).join(),
+      'Rühmt seinen Namen!\nFreut.',
+    );
+    final words = runs.where((run) => run.word != null).toList();
+    expect(words.map((run) => run.position), [0, 1]);
+    expect(words.map((run) => run.wordIndex), [0, 3]);
+    expect(words.map((run) => strongNumbers(run.word!)), [
+      ['H1984'],
+      ['H8055'],
+    ]);
+    expect(runs.where((run) => run.note != null).map((run) => run.note), [
+      'Erste Anmerkung',
+      'Zweite Anmerkung',
+    ]);
+    expect(segments[2], ' seinen Namen!\n  ');
+  });
+
+  test('distinct explicit line breaks remain distinct', () {
+    expect(
+      verseRuns([
+        'Erste Zeile\n  ',
+        {'kind': 'br'},
+        '  \n',
+        {'kind': 'br'},
+        'Dritte Zeile',
+      ]).map((run) => run.text).join(),
+      'Erste Zeile\n\nDritte Zeile',
+    );
+    expect(
+      verseRuns([
+        'Erste Zeile',
+        {'kind': 'br'},
+        'Zweite Zeile',
+      ]).map((run) => run.text).join(),
+      'Erste Zeile\nZweite Zeile',
+    );
+  });
+
+  test('source line breaks without br stay unchanged', () {
+    expect(
+      verseRuns(['Zeile eins\n  Zeile zwei']).map((run) => run.text).join(),
+      'Zeile eins\n  Zeile zwei',
+    );
+  });
+
   test(
     'verse notes merge with final word notes without changing source positions',
     () {

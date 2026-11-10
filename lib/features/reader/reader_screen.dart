@@ -2612,7 +2612,7 @@ class _ChapterPaneState extends State<_ChapterPane> {
     final first = passages.first;
     final hasSourceLineBreak = verseHasSourceLineBreak(first.segments);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: EdgeInsets.symmetric(vertical: hasSourceLineBreak ? 0 : 2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -56,6 +56,73 @@ Map<String, dynamic> package(
 };
 
 void main() {
+  testWidgets('offline poetry ignores source line breaks before explicit br', (
+    tester,
+  ) async {
+    final source = chapter(43, 3, verses: 3);
+    final rows = (source['chapter'] as Map)['rows'] as List;
+    final cells = [
+      for (final row in rows) ((row as Map)['cells'] as List).first,
+    ];
+    cells[0]['segments'] = [
+      'Erste Zeile',
+      {'kind': 'br'},
+      'zweite Zeile',
+    ];
+    cells[1]['segments'] = [
+      'Dritte Zeile,\n  ',
+      {'kind': 'br'},
+      'vierte Zeile',
+    ];
+    cells[2]['segments'] = [
+      'Fünfte Zeile,\n  ',
+      {'kind': 'br'},
+      'sechste Zeile',
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OfflineReaderScreen(
+          packages: [
+            package('Bibel', 'bible', [source]),
+          ],
+          eInk: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final paragraphs = tester
+        .stateList<VerseTextState>(find.byType(VerseText))
+        .map((state) => state.paragraph!)
+        .toList();
+    expect(paragraphs, hasLength(3));
+
+    double topOfText(int paragraphIndex, String text) {
+      final paragraph = paragraphs[paragraphIndex];
+      final start = paragraph.text.toPlainText().indexOf(text);
+      expect(start, greaterThanOrEqualTo(0));
+      final box = paragraph
+          .getBoxesForSelection(
+            TextSelection(baseOffset: start, extentOffset: start + 1),
+          )
+          .single;
+      return paragraph.localToGlobal(Offset(box.left, box.top)).dy;
+    }
+
+    final ordinaryLineSpacing = topOfText(0, 'zweite') - topOfText(0, 'Erste');
+    expect(
+      topOfText(1, 'vierte') - topOfText(1, 'Dritte'),
+      closeTo(ordinaryLineSpacing, 0.1),
+    );
+    expect(
+      topOfText(2, 'sechste') - topOfText(2, 'Fünfte'),
+      closeTo(ordinaryLineSpacing, 0.1),
+    );
+    expect(
+      topOfText(2, 'Fünfte') - topOfText(1, 'vierte'),
+      closeTo(ordinaryLineSpacing, 0.1),
+    );
+  });
+
   testWidgets('offline flow separates verses with source line breaks', (
     tester,
   ) async {

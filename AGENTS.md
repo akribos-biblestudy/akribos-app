@@ -136,7 +136,11 @@ choices remain unchanged), never in shared
 Reader URLs or server workspaces. Flow paragraphs keep source headings/line breaks and
 per-verse word positions, actions and scroll anchors. Verses with explicit source line
 breaks are separate start-aligned blocks, including breaks nested in wj/nd containers;
-verses without such metadata continue as flow text without guessing poetry boundaries. Use actual RenderParagraph glyph boxes
+verses without such metadata continue as flow text without guessing poetry boundaries. In display-only
+whitespace normalization, a source newline immediately before a `br` is
+part of that line break, while consecutive explicit `br` segments remain distinct. Adjacent
+multiline verse blocks add no vertical padding. Preserve source word and highlight indices.
+Use actual RenderParagraph glyph boxes
 for continuous marker strokes and in-paragraph verse alignment; include spaces, preserve
 partial word boundaries and retain opaque, pixel-aligned monochrome underlines without
 antialiasing in E-Ink. Scripture section/chapter
