@@ -2610,6 +2610,7 @@ class _ChapterPaneState extends State<_ChapterPane> {
     final passages = rows.map((row) => _passage(chapter, row)).toList();
     final heading = asString(_cell(rows.first)['heading']);
     final first = passages.first;
+    final hasSourceLineBreak = verseHasSourceLineBreak(first.segments);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Column(
@@ -2636,7 +2637,9 @@ class _ChapterPaneState extends State<_ChapterPane> {
                   ),
             selectable: false,
             segments: first.segments,
-            passages: widget.versePerLine ? null : passages,
+            passages: widget.versePerLine || hasSourceLineBreak
+                ? null
+                : passages,
             verseNumber: first.number,
             onVerseNumber: first.onOpen,
             onSelectVerse: first.onSelect,
@@ -2714,6 +2717,8 @@ class _ChapterPaneState extends State<_ChapterPane> {
           if (cells.isEmpty || cells.first == null) continue;
           if (widget.versePerLine ||
               groups.isEmpty ||
+              verseHasSourceLineBreak(_cell(row)['segments']) ||
+              verseHasSourceLineBreak(_cell(groups.last.last)['segments']) ||
               asString(_cell(row)['heading']).isNotEmpty) {
             groups.add([]);
           }

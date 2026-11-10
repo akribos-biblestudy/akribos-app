@@ -643,6 +643,8 @@ class _OfflineReaderScreenState extends State<OfflineReaderScreen> {
         final cell = asMap(cells.first);
         if (widget.versePerLine ||
             groups.isEmpty ||
+            verseHasSourceLineBreak(cell['segments']) ||
+            verseHasSourceLineBreak(groups.last.last['segments']) ||
             asString(cell['heading']).isNotEmpty) {
           groups.add([]);
         }
@@ -695,7 +697,9 @@ class _OfflineReaderScreenState extends State<OfflineReaderScreen> {
               segments: group.first['segments'] is List
                   ? group.first['segments'] as List
                   : [],
-              passages: widget.versePerLine
+              passages:
+                  widget.versePerLine ||
+                      verseHasSourceLineBreak(group.first['segments'])
                   ? null
                   : [
                       for (final cell in group)

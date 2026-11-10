@@ -134,7 +134,9 @@ to flush positions and change the retained reader, including when it is offstage
 versePerLine in the existing encrypted local snapshot (missing means false; explicit saved
 choices remain unchanged), never in shared
 Reader URLs or server workspaces. Flow paragraphs keep source headings/line breaks and
-per-verse word positions, actions and scroll anchors. Use actual RenderParagraph glyph boxes
+per-verse word positions, actions and scroll anchors. Verses with explicit source line
+breaks are separate start-aligned blocks, including breaks nested in wj/nd containers;
+verses without such metadata continue as flow text without guessing poetry boundaries. Use actual RenderParagraph glyph boxes
 for continuous marker strokes and in-paragraph verse alignment; include spaces, preserve
 partial word boundaries and retain opaque, pixel-aligned monochrome underlines without
 antialiasing in E-Ink. Scripture section/chapter
