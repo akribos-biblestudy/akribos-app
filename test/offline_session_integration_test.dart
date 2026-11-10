@@ -136,8 +136,6 @@ void main() {
     final api = OfflineTestApi();
     addTearDown(api.dispose);
     await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
-    await waitFor(tester, find.text('Offline lesen'));
-    await tester.tap(find.text('Offline lesen'));
     await waitFor(tester, find.byType(OfflineReaderScreen));
     expect(find.text('Johannes 3'), findsOneWidget);
     api.connected = true;
@@ -172,8 +170,6 @@ void main() {
       final api = OfflineTestApi();
       addTearDown(api.dispose);
       await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
-      await waitFor(tester, find.text('Offline lesen'));
-      await tester.tap(find.text('Offline lesen'));
       await waitFor(tester, find.byType(OfflineReaderScreen));
       var reader = tester.widget<OfflineReaderScreen>(
         find.byType(OfflineReaderScreen),
@@ -207,8 +203,6 @@ void main() {
       await tester.pumpWidget(
         AkribosApp(api: restartedApi, enableLinks: false),
       );
-      await waitFor(tester, find.text('Offline lesen'));
-      await tester.tap(find.text('Offline lesen'));
       await waitFor(tester, find.byType(OfflineReaderScreen));
       reader = tester.widget<OfflineReaderScreen>(
         find.byType(OfflineReaderScreen),
@@ -228,8 +222,6 @@ void main() {
       final api = OfflineTestApi()..fingerprint = 'session-B';
       addTearDown(api.dispose);
       await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
-      await waitFor(tester, find.text('Offline lesen'));
-      await tester.tap(find.text('Offline lesen'));
       await waitFor(
         tester,
         find.textContaining('Offline-Anmeldung stimmt nicht mehr'),
@@ -247,8 +239,6 @@ void main() {
     final api = OfflineTestApi();
     addTearDown(api.dispose);
     await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
-    await waitFor(tester, find.text('Offline lesen'));
-    await tester.tap(find.text('Offline lesen'));
     await waitFor(tester, find.byType(OfflineReaderScreen));
     api.connected = true;
     api.allowed = [];
@@ -303,13 +293,12 @@ void main() {
     await tester.pumpWidget(AkribosApp(api: api, enableLinks: false));
     await waitFor(tester, find.text('Mehr'));
     final scope = AppScope.of(tester.element(find.byType(Scaffold).first));
-    await scope.open('/offline');
-    await waitFor(tester, find.text('Auf diesem Gerät gespeichert'));
     final pending = Completer<String?>();
     final started = Completer<void>();
     api.delayedFingerprint = pending;
     api.fingerprintStarted = started;
-    await tester.tap(find.text('Offline lesen'));
+    api.connected = false;
+    api.onReaderConnectionFailure!();
     for (var i = 0; i < 200 && !started.isCompleted; i++) {
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 10)),
@@ -319,8 +308,13 @@ void main() {
     expect(started.isCompleted, isTrue);
     api.owner = 'B';
     api.fingerprint = 'session-B';
+    api.connected = true;
     final changed = scope.authenticationChanged();
     await tester.pump();
+    expect(
+      find.byKey(const ValueKey('automatic-offline-transition')),
+      findsNothing,
+    );
     pending.complete('session-A');
     var finished = false;
     changed.then((_) => finished = true);

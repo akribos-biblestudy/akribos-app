@@ -196,3 +196,119 @@ String readerActionPath(String path, Json data, {String? readerState}) {
   final local = localReaderAddress('${Uri.parse(path).path}?$state');
   return '$local${local.contains('?') ? '&' : '?'}workspaceDetached=true';
 }
+
+/// Restore an offline position while retaining local tabs and linked groups.
+String? readerPathWithOfflinePosition(
+  String path,
+  String resourceId,
+  Json ref,
+) {
+  final book = asInt(ref['book']);
+  final chapter = asInt(ref['chapter']);
+  if (book < 1 ||
+      book > bibleBooks.length ||
+      chapter < 1 ||
+      resourceId.isEmpty) {
+    return null;
+  }
+  final uri = Uri.tryParse(path);
+  if (uri == null) return null;
+  final parts = uri.query.split('&').where((s) => s.isNotEmpty).toList();
+  if (!parts.any((part) => part.startsWith('layout='))) {
+    parts.add('layout=single');
+  }
+  final tabs = <int, List<String>>{};
+  for (var i = 0; i < parts.length; i++) {
+    if (!parts[i].startsWith('tab=')) continue;
+    final fields = parts[i].substring(4).split(':');
+    if (fields.length == 4 && RegExp(r'^\d+\.\d+$').hasMatch(fields[0])) {
+      tabs[i] = fields;
+    }
+  }
+  final active = parts
+      .where((part) => part.startsWith('active='))
+      .map((part) => part.substring(7))
+      .toSet();
+  final matches = tabs.entries
+      .where((entry) => Uri.decodeComponent(entry.value[1]) == resourceId)
+      .toList();
+  final focus = uri.queryParameters['focus'];
+  final chosen =
+      matches
+          .where(
+            (entry) =>
+                entry.value[0].startsWith('$focus.') &&
+                active.contains(entry.value[0]),
+          )
+          .firstOrNull ??
+      matches.where((entry) => active.contains(entry.value[0])).firstOrNull ??
+      matches.firstOrNull;
+  String coordinate;
+  final encodedReference = Uri.encodeComponent(referenceLabel(ref))
+      .replaceAll('%2C', ',');
+  if (chosen == null) {
+    final max = tabs.values
+        .map((fields) => fields[0].split('.'))
+        .where((fields) => fields[0] == '1')
+        .map((fields) => int.tryParse(fields[1]) ?? 0)
+        .fold(0, (int a, int b) => a > b ? a : b);
+    coordinate = '1.${max + 1}';
+    parts.add(
+      'tab=$coordinate:${Uri.encodeComponent(resourceId)}:-:$encodedReference',
+    );
+  } else {
+    coordinate = chosen.value[0];
+    final group = chosen.value[2];
+    for (final entry in tabs.entries) {
+      if (entry.key == chosen.key ||
+          (group != '-' && group.isNotEmpty && entry.value[2] == group)) {
+        entry.value[3] = encodedReference;
+        parts[entry.key] = 'tab=${entry.value.join(':')}';
+      }
+    }
+  }
+  final tile = coordinate.split('.').first;
+  parts.removeWhere((part) {
+    if (part.startsWith('focus=')) return true;
+    return part.startsWith('active=$tile.');
+  });
+  parts.add('active=$coordinate');
+  parts.add('focus=$tile');
+  return '/${referenceLabel(ref)}?${parts.join('&')}';
+}
+
+/// Extract the focused tab and reference from a local Reader snapshot.
+({String resource, Json reference})? readerPositionFromPath(String path) {
+  final uri = Uri.tryParse(path);
+  if (uri == null) return null;
+  final focus = uri.queryParameters['focus'] ?? '1';
+  final active = uri.queryParametersAll['active']
+      ?.where((value) => value.startsWith('$focus.'))
+      .firstOrNull;
+  if (active == null) return null;
+  for (final raw in uri.query.split('&')) {
+    if (!raw.startsWith('tab=')) continue;
+    final fields = raw.substring(4).split(':');
+    if (fields.length != 4 || fields[0] != active) continue;
+    final resource = Uri.decodeComponent(fields[1]);
+    final label = Uri.decodeComponent(fields[3]);
+    for (final book in bibleBooks) {
+      if (!label.startsWith(book.abbreviation)) continue;
+      final match = RegExp(r'^(\d+)(?:,(\d+)(?:-(\d+))?)?$')
+          .firstMatch(label.substring(book.abbreviation.length));
+      if (match == null) continue;
+      final chapter = int.parse(match.group(1)!);
+      if (chapter < 1 || chapter > book.chapters) return null;
+      return (
+        resource: resource,
+        reference: {
+          'book': book.id,
+          'chapter': chapter,
+          if (match.group(2) != null) 'verse': int.parse(match.group(2)!),
+          if (match.group(3) != null) 'verseEnd': int.parse(match.group(3)!),
+        },
+      );
+    }
+  }
+  return null;
+}

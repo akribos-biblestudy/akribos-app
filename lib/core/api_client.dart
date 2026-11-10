@@ -230,6 +230,10 @@ class AppApi {
   late final CookieJar _cookies;
   final String browserTabId;
   Json bootstrap = {};
+
+  /// Connection failures from Reader reads, used to switch to cached content.
+  void Function()? onReaderConnectionFailure;
+  void Function()? onReaderConnectionRestored;
   final EditorWebSession _editorWebSession;
   String? _bootstrapOwner;
   int _sessionGeneration = 0;
@@ -381,6 +385,18 @@ class AppApi {
     return resolved;
   }
 
+  bool _isReaderRequest(String path) {
+    if (path.startsWith('/api/reader/')) return true;
+    final uri = Uri.tryParse(path);
+    if (uri?.path != '/api/app/page') return false;
+    final target = uri?.queryParameters['path'];
+    final targetPath = target == null ? null : Uri.tryParse(target)?.path;
+    if (targetPath == null) return false;
+    return !RegExp(
+      r'^/(search|G\d|H\d|notes|sermons|lists|l/|invites|account|login|logout|register|password-reset|admin|help|menu|settings|offline|workspaces|datenschutz|impressum|about|api)',
+    ).hasMatch(targetPath);
+  }
+
   Future<Response<dynamic>> _request(
     String method,
     String path, {
@@ -405,8 +421,20 @@ class AppApi {
           'Die Serverweiterleitung enthält keine gültige Zieladresse.',
         );
       }
+      if (method == 'GET' &&
+          response.statusCode! < 400 &&
+          _isReaderRequest(path)) {
+        onReaderConnectionRestored?.call();
+      }
       return response;
     } on DioException catch (error) {
+      if (method == 'GET' &&
+          _isReaderRequest(path) &&
+          (error.type == DioExceptionType.connectionTimeout ||
+              error.type == DioExceptionType.receiveTimeout ||
+              error.type == DioExceptionType.connectionError)) {
+        onReaderConnectionFailure?.call();
+      }
       throw ApiException(
         switch (error.type) {
           DioExceptionType.connectionTimeout ||

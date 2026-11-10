@@ -128,6 +128,7 @@ class OfflineResourceStore {
       'version': 1,
       'resourceId': resourceId,
       'reference': reference,
+      'updatedAt': DateTime.now().microsecondsSinceEpoch,
     });
     final generation = _positionGenerations[_scope] ?? 0;
     return _serial(() async {

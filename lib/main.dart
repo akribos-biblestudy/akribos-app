@@ -21,6 +21,8 @@ import 'features/reader/offline_reader_screen.dart';
 import 'features/reader/offline_resource_manager.dart';
 import 'features/reader/offline_resource_store.dart';
 import 'features/reader/offline_resources_screen.dart';
+import 'features/reader/reader_state.dart';
+import 'features/reader/reader_companion.dart';
 import 'features/reader/reader_local_store.dart';
 import 'features/reader/reader_controller.dart';
 import 'features/reader/books.dart';
@@ -267,6 +269,14 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
   (String, Json)? _offlinePositionDraft;
   bool _offlineRightsValidated = false;
   bool _offlineRechecking = false;
+  bool _openingAutomaticOffline = false;
+  bool _offlineProbeInFlight = false;
+  Timer? _offlineProbe;
+  Timer? _automaticOfflineRetry;
+  int _readerNetworkEpoch = 0;
+  bool _readerFailurePending = false;
+  OverlayEntry? _automaticBlock;
+  bool _automaticBlockAttached = false;
   OverlayEntry? _offlineCheckOverlay;
   Future<void>? _offlineRoutesClosing;
   StreamSubscription<Uri>? _links;
@@ -275,6 +285,15 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.api.onReaderConnectionFailure = () {
+      _readerFailurePending = true;
+      scheduleMicrotask(_openAutomaticOffline);
+    };
+    widget.api.onReaderConnectionRestored = () {
+      _readerNetworkEpoch++;
+      _readerFailurePending = false;
+      _automaticOfflineRetry?.cancel();
+    };
     if (widget.enableLinks) {
       _links = AppLinks().uriLinkStream.listen(
         (uri) {
@@ -327,6 +346,115 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
       }
     } catch (error) {
       if (mounted) setState(() => _error = error);
+      if (error is ApiException && error.connectionFailure && mounted) {
+        await _openOffline(automatic: true);
+      }
+    }
+  }
+
+  Future<void> _openAutomaticOffline() async {
+    if (!mounted ||
+        !_readerFailurePending ||
+        !_ready ||
+        _activeBranch != 0 ||
+        _offlinePackages != null ||
+        _openingAutomaticOffline) {
+      return;
+    }
+    if (Navigator.of(context, rootNavigator: true).canPop()) {
+      _automaticOfflineRetry?.cancel();
+      _automaticOfflineRetry = Timer(
+        const Duration(seconds: 1),
+        _openAutomaticOffline,
+      );
+      return;
+    }
+    _automaticOfflineRetry?.cancel();
+    _openingAutomaticOffline = true;
+    final generation = _bootstrapGeneration;
+    final entry = OverlayEntry(
+      builder: (context) => const Positioned.fill(
+        child: BlockSemantics(
+          key: ValueKey('automatic-offline-transition'),
+          child: ColoredBox(
+            color: Colors.transparent,
+            child: AbsorbPointer(
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ),
+        ),
+      ),
+    );
+    _automaticBlock = entry;
+    Overlay.of(context, rootOverlay: true).insert(entry);
+    _automaticBlockAttached = true;
+    try {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted || generation != _bootstrapGeneration) return;
+      if (!await _flushBranch() || !mounted) return;
+      if (!await _readerController.flush() ||
+          !mounted ||
+          generation != _bootstrapGeneration ||
+          _activeBranch != 0 ||
+          Navigator.of(context, rootNavigator: true).canPop()) {
+        if (mounted && _activeBranch == 0) {
+          _automaticOfflineRetry?.cancel();
+          _automaticOfflineRetry = Timer(
+            const Duration(seconds: 1),
+            _openAutomaticOffline,
+          );
+        }
+        return;
+      }
+      await _openOffline(
+        automatic: true,
+        resource: _readerController.activeResource?.id,
+        reference: _readerController.reference,
+      );
+      if (mounted && _activeBranch == 0) _readerFailurePending = false;
+    } finally {
+      if (_automaticBlockAttached) entry.remove();
+      _automaticBlockAttached = false;
+      _automaticBlock = null;
+      entry.dispose();
+      _openingAutomaticOffline = false;
+    }
+  }
+
+  Future<T?> _allowAutomaticChoice<T>(Future<T?> Function() show) async {
+    final entry = _automaticBlock;
+    if (entry != null && _automaticBlockAttached) {
+      entry.remove();
+      _automaticBlockAttached = false;
+    }
+    try {
+      return await show();
+    } finally {
+      if (mounted && entry != null && identical(_automaticBlock, entry)) {
+        Overlay.of(context, rootOverlay: true).insert(entry);
+        _automaticBlockAttached = true;
+      }
+    }
+  }
+
+  Future<void> _probeOfflineConnection() async {
+    if (_offlineProbeInFlight ||
+        _offlinePackages == null ||
+        _offlineRechecking) {
+      return;
+    }
+    _offlineProbeInFlight = true;
+    try {
+      try {
+        await widget.api.get('/api/app/bootstrap');
+      } on ApiException catch (error) {
+        if (error.connectionFailure) return;
+      } catch (_) {
+        return;
+      }
+      if (mounted && _offlinePackages != null) await _resumeOffline();
+    } finally {
+      _offlineProbeInFlight = false;
     }
   }
 
@@ -350,13 +478,26 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _openOffline() async {
+  Future<void> _openOffline({
+    bool automatic = false,
+    String? resource,
+    Json? reference,
+  }) async {
     final generation = _bootstrapGeneration;
     final sessionOwner = _sessionOwner;
+    final navigation = _navigationRequest;
+    final networkEpoch = _readerNetworkEpoch;
+    final identityGeneration = widget.api.offlineIdentityGeneration;
     void checkSession() {
       if (!mounted ||
           generation != _bootstrapGeneration ||
-          sessionOwner != _sessionOwner) {
+          identityGeneration != widget.api.offlineIdentityGeneration ||
+          sessionOwner != _sessionOwner ||
+          (automatic &&
+              _ready &&
+              (_activeBranch != 0 ||
+                  navigation != _navigationRequest ||
+                  networkEpoch != _readerNetworkEpoch))) {
         throw const ApiException('Die Anmeldung hat sich geändert.');
       }
     }
@@ -399,19 +540,144 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
       if (packages.isEmpty) {
         throw const ApiException('Es sind keine Werke offline gespeichert.');
       }
-      final position = await store.readPosition();
+      var position = await store.readPosition();
       checkSession();
       final preferences = await ReaderLocalStore(
         origin: widget.api.origin,
         userId: owner,
       ).read();
       checkSession();
+      final online = readerPositionFromPath(asString(preferences?['path']));
+      if (resource != null &&
+          resource.isNotEmpty &&
+          reference != null &&
+          reference.isNotEmpty) {
+        position = {'resourceId': resource, 'reference': Map.of(reference)};
+      } else if (automatic && online != null) {
+        final onlinePosition = {
+          'resourceId': online.resource,
+          'reference': online.reference,
+        };
+        final onlineTime = asInt(preferences?['updatedAt']);
+        final offlineTime = asInt(position?['updatedAt']);
+        final old = asMap(position?['reference']);
+        final different =
+            position != null &&
+            (position['resourceId'] != online.resource ||
+                old['book'] != online.reference['book'] ||
+                old['chapter'] != online.reference['chapter'] ||
+                old['verse'] != online.reference['verse']);
+        if (different && (onlineTime == 0 || offlineTime == 0)) {
+          if (!mounted) return;
+          final choice = await _allowAutomaticChoice(
+            () => showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Lesestelle auswählen'),
+                content: Text(
+                  'Es gibt unterschiedliche gespeicherte Lesestellen. Welche möchtest du öffnen?\n\n'
+                  'Online: ${online.resource} · ${referenceLabel(online.reference)}\n'
+                  'Offline: ${asString(position?['resourceId'])} · ${referenceLabel(asMap(position?['reference']))}',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Offline-Lesestelle'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Online-Lesestelle'),
+                  ),
+                ],
+              ),
+            ),
+          );
+          checkSession();
+          if (choice == null) return;
+          if (choice) position = onlinePosition;
+        } else if (position == null || onlineTime > offlineTime) {
+          position = onlinePosition;
+        }
+      }
+      final currentId = asString(position?['resourceId']);
+      if (currentId.isNotEmpty &&
+          !packages.any(
+            (package) => asMap(package['resource'])['id'] == currentId,
+          )) {
+        if (!mounted) return;
+        final chosen = await _allowAutomaticChoice(
+          () => showDialog<String>(
+            context: context,
+            builder: (context) => SimpleDialog(
+              title: const Text('Aktuelles Werk nicht offline gespeichert'),
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    'Wähle ein gespeichertes Werk, um offline weiterzulesen.',
+                  ),
+                ),
+                for (final package in packages)
+                  SimpleDialogOption(
+                    onPressed: () => Navigator.pop(
+                      context,
+                      asString(asMap(package['resource'])['id']),
+                    ),
+                    child: Text(
+                      asString(
+                        asMap(package['resource'])['selectionTitle'],
+                        asString(
+                          asMap(package['resource'])['name'],
+                          asString(asMap(package['resource'])['id']),
+                        ),
+                      ),
+                    ),
+                  ),
+                SimpleDialogOption(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Abbrechen'),
+                ),
+              ],
+            ),
+          ),
+        );
+        checkSession();
+        if (chosen == null) return;
+        position = {
+          'resourceId': chosen,
+          'reference': asMap(position?['reference']),
+        };
+      }
       // Authentication can change while encrypted storage is being read. Recheck
       // both the marker and the cookie before presenting any loaded text.
       final currentIdentity = await identityStore.read();
       checkSession();
       final currentFingerprint = await widget.api.offlineSessionFingerprint();
       checkSession();
+      if (automatic && _ready) {
+        if (!await _readerController.flush()) {
+          throw const ApiException(
+            'Die aktuelle Lesestelle konnte nicht gespeichert werden.',
+          );
+        }
+        checkSession();
+        if (_readerController.activeResource?.id != resource) {
+          throw const ApiException(
+            'Das aktuelle Werk hat sich geändert. Bitte erneut versuchen.',
+          );
+        }
+        final latest = _readerController.reference;
+        if (position != null &&
+            resource != null &&
+            resource.isNotEmpty &&
+            asInt(latest['book']) > 0 &&
+            asInt(latest['chapter']) > 0) {
+          position = {
+            'resourceId': position['resourceId'],
+            'reference': latest,
+          };
+        }
+      }
       if (currentIdentity == null ||
           currentIdentity['owner'] != owner ||
           currentIdentity['fingerprint'] != fingerprint ||
@@ -426,11 +692,20 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
         _offlineVersePerLine = preferences?['versePerLine'] == true;
         _offlinePackages = packages;
       });
+      _offlineProbe?.cancel();
+      _offlineProbe = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => unawaited(_probeOfflineConnection()),
+      );
     } catch (error) {
       if (mounted &&
           generation == _bootstrapGeneration &&
           sessionOwner == _sessionOwner) {
-        showError(context, error);
+        if (automatic && !_ready) {
+          setState(() => _error = error);
+        } else {
+          showError(context, error);
+        }
       }
     }
   }
@@ -539,6 +814,15 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
       ..add(_activeBranch);
     _readerController.update(tabCount: 0, activeTitle: '');
     _offlineManager = null;
+    _readerFailurePending = false;
+    if (_automaticBlockAttached) {
+      _automaticBlock?.remove();
+      _automaticBlockAttached = false;
+    }
+    _offlineProbe?.cancel();
+    _offlineProbe = null;
+    _automaticOfflineRetry?.cancel();
+    _automaticOfflineRetry = null;
     _offlinePackages = null;
     _offlinePositionStore = null;
     _offlinePositionDraft = null;
@@ -568,7 +852,36 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
     }
   }
 
+  /// Hide private UI immediately, then let the authenticated bootstrap and
+  /// catalog decide whether the existing account's downloads can be retained.
+  Future<void> _revalidateChangedSession() {
+    final previous = _refreshing;
+    final generation = ++_bootstrapGeneration;
+    widget.api.invalidateOfflineIdentity();
+    _acceptedBootstrap = {};
+    widget.api.bootstrap = {};
+    _sessionOwner = null;
+    _readerFontScale = null;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    setState(() {
+      _invalidatePrivateBranches(preserveAuthForm: true);
+      _ready = false;
+      _error = null;
+    });
+    return _trackRefresh(() async {
+      try {
+        await previous;
+      } catch (_) {}
+      if (!mounted || generation != _bootstrapGeneration) return;
+      await _loadSession(generation);
+      if (mounted && generation == _bootstrapGeneration) {
+        setState(() => _ready = true);
+      }
+    }());
+  }
+
   Future<void> _authenticationChanged() {
+    final wasOffline = _offlinePackages != null;
     final precedingRefresh = _refreshing;
     final generation = ++_bootstrapGeneration;
     widget.api.invalidateOfflineIdentity();
@@ -598,6 +911,12 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
       } catch (_) {}
       if (!mounted || generation != _bootstrapGeneration) return;
       await _loadSession(generation);
+      if (mounted && generation == _bootstrapGeneration && wasOffline) {
+        setState(() {
+          _error = null;
+          _ready = true;
+        });
+      }
     }());
   }
 
@@ -809,6 +1128,11 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
         _branchPaths[_activeBranch] = target;
         _visited.add(_activeBranch);
       });
+      if (_activeBranch == 0 && _readerFailurePending) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _openAutomaticOffline(),
+        );
+      }
     } catch (error) {
       if (mounted) showError(context, error);
     }
@@ -896,6 +1220,36 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
       final refreshError = await refresh;
       if (refreshError != null) throw refreshError;
       if (!mounted || generation != _bootstrapGeneration) return;
+      final validatedGeneration = widget.api.offlineIdentityGeneration;
+      final validatedIdentity = _offlineRightsValidated && store != null
+          ? await OfflineIdentityStore(origin: widget.api.origin).read()
+          : null;
+      final validatedFingerprint = validatedIdentity == null
+          ? null
+          : await widget.api.offlineSessionFingerprint();
+      bool identityChanged() =>
+          validatedGeneration != widget.api.offlineIdentityGeneration ||
+          (store != null &&
+              store.userId !=
+                  (_sessionOwner?.isEmpty == true ? null : _sessionOwner));
+      Future<void> invalidateChangedIdentity() async {
+        if (!mounted || generation != _bootstrapGeneration) return;
+        try {
+          await _revalidateChangedSession();
+        } catch (error) {
+          if (mounted) setState(() => _error = error);
+        }
+      }
+
+      if (!mounted || generation != _bootstrapGeneration) return;
+      if (identityChanged() ||
+          (_offlineRightsValidated &&
+              (validatedIdentity == null ||
+                  validatedIdentity['owner'] != store?.userId ||
+                  validatedIdentity['fingerprint'] != validatedFingerprint))) {
+        await invalidateChangedIdentity();
+        return;
+      }
       // A failed position write must never block the server rights check. Only
       // keep the reader mounted when this exact account and every displayed
       // package have just been revalidated successfully.
@@ -908,6 +1262,16 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
         try {
           final available = (await store.ids()).toSet();
           if (!mounted || generation != _bootstrapGeneration) return;
+          final currentFingerprint = validatedIdentity == null
+              ? null
+              : await widget.api.offlineSessionFingerprint();
+          if (!mounted || generation != _bootstrapGeneration) return;
+          if (identityChanged() ||
+              (validatedIdentity != null &&
+                  currentFingerprint != validatedFingerprint)) {
+            await invalidateChangedIdentity();
+            return;
+          }
           if (packages.every(
             (package) =>
                 available.contains(asString(asMap(package['resource'])['id'])),
@@ -923,9 +1287,95 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
         }
       }
       if (!mounted || generation != _bootstrapGeneration) return;
+      final remainingIds = store == null
+          ? <String>{}
+          : (await store.ids()).toSet();
+      if (!mounted || generation != _bootstrapGeneration) return;
+      if (identityChanged()) {
+        await invalidateChangedIdentity();
+        return;
+      }
+      final canRetainOffline =
+          _offlineRightsValidated &&
+          packages != null &&
+          store != null &&
+          store.userId ==
+              (_sessionOwner?.isEmpty == true ? null : _sessionOwner) &&
+          packages.every(
+            (package) => remainingIds.contains(
+              asString(asMap(package['resource'])['id']),
+            ),
+          );
+      if (canRetainOffline &&
+          positionError == null &&
+          _offlinePosition != null) {
+        try {
+          final local = ReaderLocalStore(
+            origin: widget.api.origin,
+            userId: store.userId,
+          );
+          final snapshot = await local.read();
+          {
+            final position = _offlinePosition!;
+            final path = readerPathWithOfflinePosition(
+              asString(snapshot?['path'], '/?layout=single'),
+              asString(position['resourceId']),
+              asMap(position['reference']),
+            );
+            if (path == null) {
+              throw const ApiException(
+                'Die Offline-Lesestelle konnte keinem geöffneten Tab zugeordnet werden.',
+              );
+            }
+            await local.write(
+              path,
+              layoutSizes: asMap(snapshot?['layoutSizes']),
+              versePerLine: snapshot?['versePerLine'] == true,
+              companion: ReaderCompanion.fromJson(snapshot?['companion']),
+              validate: () {
+                if (!mounted ||
+                    generation != _bootstrapGeneration ||
+                    validatedGeneration !=
+                        widget.api.offlineIdentityGeneration ||
+                    store.userId !=
+                        (_sessionOwner?.isEmpty == true
+                            ? null
+                            : _sessionOwner)) {
+                  throw const ApiException('Die Anmeldung hat sich geändert.');
+                }
+              },
+            );
+          }
+        } catch (error) {
+          if (identityChanged()) {
+            await invalidateChangedIdentity();
+          } else if (mounted) {
+            showError(context, error);
+          }
+          return;
+        }
+      }
+      if (!mounted || generation != _bootstrapGeneration) return;
+      final currentFingerprint = validatedIdentity == null
+          ? null
+          : await widget.api.offlineSessionFingerprint();
+      if (!mounted || generation != _bootstrapGeneration) return;
+      if (identityChanged() ||
+          (validatedIdentity != null &&
+              currentFingerprint != validatedFingerprint)) {
+        await invalidateChangedIdentity();
+        return;
+      }
+      _offlineProbe?.cancel();
+      _offlineProbe = null;
       setState(() {
         _ready = true;
         _offlinePackages = null;
+        _branchPaths[0] = '/';
+        _activeBranch = 0;
+        _path = '/';
+        _visited.add(0);
+        _readerRevision++;
       });
       if (positionError != null) {
         showError(
@@ -959,6 +1409,14 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     _removeOfflineCheckOverlay();
+    if (_automaticBlockAttached) {
+      _automaticBlock?.remove();
+      _automaticBlockAttached = false;
+    }
+    _offlineProbe?.cancel();
+    _automaticOfflineRetry?.cancel();
+    widget.api.onReaderConnectionFailure = null;
+    widget.api.onReaderConnectionRestored = null;
     _links?.cancel();
     _readerController.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -1117,6 +1575,10 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
                           onPositionChanged: (resource, reference) {
                             final store = _offlinePositionStore;
                             if (store == null) return;
+                            _offlinePosition = {
+                              'resourceId': resource,
+                              'reference': Map.of(reference),
+                            };
                             _offlinePositionDraft = (
                               resource,
                               Map.of(reference),
@@ -1298,13 +1760,6 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
               icon: const Icon(Icons.refresh),
               label: const Text('Erneut versuchen'),
             ),
-          if (_error is ApiException &&
-              (_error as ApiException).connectionFailure)
-            TextButton.icon(
-              onPressed: _openOffline,
-              icon: const Icon(Icons.offline_bolt_outlined),
-              label: const Text('Offline lesen'),
-            ),
           const SizedBox(height: 12),
           Text(
             widget.api.origin.origin,
@@ -1329,10 +1784,7 @@ class _AppShellState extends State<_AppShell> with WidgetsBindingObserver {
         api: widget.api,
         userId: id.isEmpty ? null : id,
       );
-      return OfflineResourcesScreen(
-        manager: manager,
-        onReadOffline: _openOffline,
-      );
+      return OfflineResourcesScreen(manager: manager);
     }
     if (route.startsWith('/notes') || route.startsWith('/sermons')) {
       return DocumentsScreen(path: path);

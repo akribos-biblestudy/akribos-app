@@ -42,6 +42,7 @@ class ControlledLocalStore extends ReaderLocalStore {
     Json layoutSizes = const {},
     bool versePerLine = true,
     ReaderCompanion companion = const ReaderCompanion(),
+    void Function()? validate,
   }) async {
     writes.add(path);
     await paused?.future;
@@ -55,6 +56,7 @@ class ControlledLocalStore extends ReaderLocalStore {
       layoutSizes: layoutSizes,
       versePerLine: versePerLine,
       companion: companion,
+      validate: validate,
     );
   }
 }
