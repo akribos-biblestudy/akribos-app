@@ -2606,10 +2606,24 @@ class _ChapterPaneState extends State<_ChapterPane> {
     );
   }
 
+  bool _hasSourceLineBreak(List<dynamic> segments) {
+    for (final item in segments) {
+      if (item is! Map) continue;
+      final segment = asMap(item);
+      if (segment['kind'] == 'br') return true;
+      if ((segment['kind'] == 'wj' || segment['kind'] == 'nd') &&
+          _hasSourceLineBreak(segment['children'] as List? ?? [])) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   Widget _bibleBlock(Json chapter, List<Json> rows, String id) {
     final passages = rows.map((row) => _passage(chapter, row)).toList();
     final heading = asString(_cell(rows.first)['heading']);
     final first = passages.first;
+    final hasSourceLineBreak = _hasSourceLineBreak(first.segments);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Column(
@@ -2636,7 +2650,9 @@ class _ChapterPaneState extends State<_ChapterPane> {
                   ),
             selectable: false,
             segments: first.segments,
-            passages: widget.versePerLine ? null : passages,
+            passages: widget.versePerLine || hasSourceLineBreak
+                ? null
+                : passages,
             verseNumber: first.number,
             onVerseNumber: first.onOpen,
             onSelectVerse: first.onSelect,
@@ -2714,6 +2730,10 @@ class _ChapterPaneState extends State<_ChapterPane> {
           if (cells.isEmpty || cells.first == null) continue;
           if (widget.versePerLine ||
               groups.isEmpty ||
+              _hasSourceLineBreak(_cell(row)['segments'] as List? ?? []) ||
+              _hasSourceLineBreak(
+                _cell(groups.last.last)['segments'] as List? ?? [],
+              ) ||
               asString(_cell(row)['heading']).isNotEmpty) {
             groups.add([]);
           }
