@@ -90,11 +90,7 @@ class _OfflineResourcesScreenState extends State<OfflineResourcesScreen> {
       setState(() {
         _available = available;
         _saved = verifiedSaved;
-        _selected.removeWhere(
-          (id) =>
-              verifiedSaved.containsKey(id) ||
-              !available.any((resource) => resource['id'] == id),
-        );
+        _pruneSelection();
       });
     } catch (error) {
       if (!_current(generation)) return;
@@ -121,11 +117,20 @@ class _OfflineResourcesScreenState extends State<OfflineResourcesScreen> {
       setState(() {
         _available = _identityValid(manager) ? available : [];
         _saved = _identityValid(manager) ? after : {};
+        _pruneSelection();
         _error = error;
       });
     } finally {
       if (_current(generation)) setState(() => _loading = false);
     }
+  }
+
+  void _pruneSelection() {
+    _selected.removeWhere(
+      (id) =>
+          _saved.containsKey(id) ||
+          !_available.any((resource) => resource['id'] == id),
+    );
   }
 
   Future<void> _change(String id, {required bool remove}) async {
@@ -155,6 +160,7 @@ class _OfflineResourcesScreenState extends State<OfflineResourcesScreen> {
           if (!_identityValid(manager)) {
             _available = [];
             _saved = {};
+            _selected.clear();
           }
           _error = error;
         });
@@ -178,7 +184,10 @@ class _OfflineResourcesScreenState extends State<OfflineResourcesScreen> {
       for (var i = 0; i < ids.length; i++) {
         if (!_current(generation) || !_identityValid(manager)) break;
         final id = ids[i];
-        final resource = _available.firstWhere((item) => item['id'] == id);
+        final resource = _available
+            .where((item) => item['id'] == id)
+            .firstOrNull;
+        if (resource == null) continue;
         final title = asString(
           resource['selectionTitle'],
           asString(resource['name'], id),
