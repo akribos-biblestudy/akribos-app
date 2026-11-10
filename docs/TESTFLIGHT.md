@@ -156,7 +156,14 @@ ausgecheckt. Der Tag darf älter als die Workflow-Implementierung sein, muss
 aber ein Vorfahr von `main` sein. Der Tag wird niemals verschoben. Release-ID,
 Tag-Commit, aktuelles `main` und die jeweils neueste erfolgreiche Main-Push-CI
 für **beide** Commits werden geprüft. Am Einstieg wird höchstens 45 Minuten auf
-laufende CI gewartet; abgeschlossene Fehler und API-Fehler brechen sofort ab.
+laufende CI gewartet. Wurde die Push-CI einer älteren Release-Quelle abgebrochen,
+startet der Preflight genau diesen Lauf einmal erneut und wartet auf seinen Erfolg.
+Ein echter CI-Fehler, eine weitere Absage oder ein API-Fehler bricht ab; der aktuelle
+Workflow-Commit wird nicht automatisch wiederholt. GitHub begrenzt die Wiederholung
+auf Läufe der letzten 30 Tage und höchstens 50 Versuche. Ist eine Wiederholung nicht
+möglich, scheitert der Preflight: Eine erfolgreiche CI für den exakten Quell-Commit
+bleibt Voraussetzung. Für diesen einmaligen Rerun besitzt nur der Preflight-Job
+`actions: write`.
 Vor Signierung, Build und Upload gelten erneute strikte Prüfungen ohne Warten.
 
 Alle existierenden Apple-Buildnummern und permanenten Tags nach dem Muster

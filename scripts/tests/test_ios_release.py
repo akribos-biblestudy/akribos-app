@@ -56,6 +56,112 @@ class IdentityTests(unittest.TestCase):
             with self.assertRaisesRegex(ios.ReleaseError, 'identity changed'):
                 ios.gate(wait=True)
 
+    def test_cancelled_older_source_ci_is_retried_once_and_must_succeed(self):
+        data = {'workflowCommit': 'workflow', 'sourceCommit': 'source'}
+        cancelled = {'id': 41, 'status': 'completed', 'conclusion': 'cancelled', 'run_attempt': 1}
+        sequence = iter([cancelled, cancelled,  # initial read and pre-rerun recheck
+                         cancelled,  # delayed API visibility after requesting rerun
+                         {'id': 41, 'status': 'in_progress', 'conclusion': None, 'run_attempt': 2},
+                         {'id': 41, 'status': 'completed', 'conclusion': 'success', 'run_attempt': 2}])
+        def latest(sha):
+            return next(sequence) if sha == 'source' else {'status': 'completed', 'conclusion': 'success'}
+        with patch.object(ios, 'identity', return_value=data), \
+                patch.object(ios.common, 'latest_ci_run', side_effect=latest), \
+                patch.object(ios.common, 'gh', return_value=None) as gh, \
+                patch.object(ios.time, 'sleep'):
+            self.assertEqual(ios.gate(wait=True), data)
+        gh.assert_called_once_with('POST', '/actions/runs/41/rerun', {}, allow_empty=True)
+
+    def test_cancelled_source_rerun_failure_or_second_cancellation_fails_closed(self):
+        data = {'workflowCommit': 'workflow', 'sourceCommit': 'source'}
+        initial = {'id': 41, 'status': 'completed', 'conclusion': 'cancelled', 'run_attempt': 1}
+        for conclusion in ['failure', 'cancelled', 'timed_out']:
+            results = iter([initial, initial, {'id': 41, 'status': 'completed',
+                                                'conclusion': conclusion, 'run_attempt': 2}])
+            def latest(sha):
+                return next(results) if sha == 'source' else {'status': 'completed', 'conclusion': 'success'}
+            with self.subTest(conclusion=conclusion), patch.object(ios, 'identity', return_value=data), \
+                    patch.object(ios.common, 'latest_ci_run', side_effect=latest), \
+                    patch.object(ios.common, 'gh', return_value=None) as gh, \
+                    patch.object(ios.time, 'sleep'):
+                with self.assertRaisesRegex(ios.ReleaseError, 'CI failed'):
+                    ios.gate(wait=True)
+                gh.assert_called_once()
+
+    def test_only_initial_wait_retries_cancelled_old_source(self):
+        for data, wait, sha in [
+            ({'workflowCommit': 'workflow', 'sourceCommit': 'source'}, False, 'source'),
+            ({'workflowCommit': 'same', 'sourceCommit': 'same'}, True, 'same'),
+            ({'workflowCommit': 'workflow', 'sourceCommit': 'source'}, True, 'workflow'),
+        ]:
+            def latest(candidate):
+                if candidate == sha:
+                    return {'id': 41, 'status': 'completed', 'conclusion': 'cancelled', 'run_attempt': 1}
+                return {'status': 'completed', 'conclusion': 'success'}
+            with self.subTest(data=data, wait=wait, sha=sha), \
+                    patch.object(ios, 'identity', return_value=data), \
+                    patch.object(ios.common, 'latest_ci_run', side_effect=latest), \
+                    patch.object(ios.common, 'gh') as gh:
+                with self.assertRaisesRegex(ios.ReleaseError, 'CI failed'):
+                    ios.gate(wait=wait)
+                gh.assert_not_called()
+
+    def test_source_recheck_and_identity_change_prevent_rerun(self):
+        data = {'workflowCommit': 'workflow', 'sourceCommit': 'source'}
+        cancelled = {'id': 41, 'status': 'completed', 'conclusion': 'cancelled', 'run_attempt': 1}
+        for changed in ['identity', 'run']:
+            checks = iter([cancelled, {**cancelled, 'id': 42}])
+            def latest(sha):
+                return next(checks) if sha == 'source' else {'status': 'completed', 'conclusion': 'success'}
+            identities = [data, data, {**data, 'releaseId': 2}] if changed == 'identity' else None
+            with self.subTest(changed=changed), \
+                    patch.object(ios, 'identity', side_effect=identities, return_value=data), \
+                    patch.object(ios.common, 'latest_ci_run', side_effect=latest), \
+                    patch.object(ios.common, 'gh') as gh:
+                with self.assertRaises(ios.ReleaseError):
+                    ios.gate(wait=True)
+                gh.assert_not_called()
+
+    def test_rerun_api_error_fails_immediately_without_retry(self):
+        data = {'workflowCommit': 'workflow', 'sourceCommit': 'source'}
+        cancelled = {'id': 41, 'status': 'completed', 'conclusion': 'cancelled', 'run_attempt': 1}
+        def latest(sha):
+            return cancelled if sha == 'source' else {'status': 'completed', 'conclusion': 'success'}
+        with patch.object(ios, 'identity', return_value=data), \
+                patch.object(ios.common, 'latest_ci_run', side_effect=latest), \
+                patch.object(ios.common, 'gh', side_effect=ios.ReleaseError('GitHub API POST failed (HTTP 403).')) as gh, \
+                patch.object(ios.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(ios.ReleaseError, 'HTTP 403'):
+                ios.gate(wait=True)
+            gh.assert_called_once()
+            sleep.assert_not_called()
+
+    def test_failed_current_ci_never_triggers_cancelled_source_rerun(self):
+        data = {'workflowCommit': 'workflow', 'sourceCommit': 'source'}
+        def latest(sha):
+            return ({'status': 'completed', 'conclusion': 'failure'} if sha == 'workflow' else
+                    {'id': 41, 'status': 'completed', 'conclusion': 'cancelled', 'run_attempt': 1})
+        with patch.object(ios, 'identity', return_value=data), \
+                patch.object(ios.common, 'latest_ci_run', side_effect=latest), \
+                patch.object(ios.common, 'gh') as gh:
+            with self.assertRaisesRegex(ios.ReleaseError, 'CI failed'):
+                ios.gate(wait=True)
+            gh.assert_not_called()
+
+    def test_cancelled_source_rerun_visibility_timeout_never_triggers_a_second_request(self):
+        data = {'workflowCommit': 'workflow', 'sourceCommit': 'source'}
+        cancelled = {'id': 41, 'status': 'completed', 'conclusion': 'cancelled', 'run_attempt': 1}
+        def latest(sha):
+            return cancelled if sha == 'source' else {'status': 'completed', 'conclusion': 'success'}
+        with patch.object(ios, 'identity', return_value=data), \
+                patch.object(ios.common, 'latest_ci_run', side_effect=latest), \
+                patch.object(ios.common, 'gh', return_value=None) as gh, \
+                patch.object(ios.time, 'monotonic', side_effect=[0, 0, 0, 45]), \
+                patch.object(ios.time, 'sleep'):
+            with self.assertRaisesRegex(ios.ReleaseError, 'not succeeded'):
+                ios.gate(wait=True, timeout=45)
+            gh.assert_called_once()
+
 
 class AppleTests(unittest.TestCase):
     @staticmethod

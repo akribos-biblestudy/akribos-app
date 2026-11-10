@@ -52,7 +52,7 @@ def code(value):
     return number
 
 
-def gh(method, path, body=None):
+def gh(method, path, body=None, *, allow_empty=False):
     request = Request("https://api.github.com/repos/" + secret("GITHUB_REPOSITORY") + path,
                       method=method, data=None if body is None else json.dumps(body).encode(),
                       headers={"Authorization": "Bearer " + secret("GH_TOKEN"),
@@ -61,7 +61,11 @@ def gh(method, path, body=None):
                                "X-GitHub-Api-Version": "2026-03-10"})
     try:
         with urlopen(request, timeout=45) as response:
-            return json.load(response)
+            content = response.read()
+            if not content:
+                require(allow_empty, "GitHub API returned an empty response.")
+                return None
+            return json.loads(content)
     except HTTPError as error:
         # Never print raw provider responses, request headers or credentials.
         raise ReleaseError(f"GitHub API {method} failed (HTTP {error.code}).") from None
