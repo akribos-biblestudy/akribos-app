@@ -56,6 +56,7 @@ List<VerseRun> verseRuns(List<dynamic> segments, {String? studiedStrong}) {
   var wordIndex = -1;
   var openWord = false;
   final result = <VerseRun>[];
+  var lastExplicitBreak = 0;
   void visit(List<dynamic> items, {bool red = false, bool divine = false}) {
     Json? precedingWord;
     for (final item in items) {
@@ -107,7 +108,21 @@ List<VerseRun> verseRuns(List<dynamic> segments, {String? studiedStrong}) {
         );
       } else if (kind == 'br') {
         openWord = false;
+        // Imported XML can retain indentation/newlines directly before a br.
+        // Like HTML, show that source whitespace and the br as one line break;
+        // distinct explicit br segments must still remain distinct.
+        var start = result.length;
+        var containsLineBreak = false;
+        while (start > lastExplicitBreak &&
+            result[start - 1].word == null &&
+            result[start - 1].note == null &&
+            result[start - 1].text.trim().isEmpty) {
+          final text = result[--start].text;
+          containsLineBreak |= text.contains('\n') || text.contains('\r');
+        }
+        if (containsLineBreak) result.removeRange(start, result.length);
         result.add(VerseRun('\n'));
+        lastExplicitBreak = result.length;
       } else if (kind == 'em') {
         for (final match in RegExp(
           r'\s+|\S+',
