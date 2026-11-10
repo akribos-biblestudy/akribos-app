@@ -11,6 +11,21 @@ import 'reader_rich_text.dart';
 const assignmentNote =
     'Automatische Wortzuordnung; fachlich noch nicht bestätigt.';
 
+/// Whether the source explicitly breaks a line within this verse.
+bool verseHasSourceLineBreak(dynamic segments) {
+  if (segments is! List) return false;
+  for (final item in segments) {
+    if (item is! Map) continue;
+    final segment = asMap(item);
+    if (segment['kind'] == 'br') return true;
+    if ((segment['kind'] == 'wj' || segment['kind'] == 'nd') &&
+        verseHasSourceLineBreak(segment['children'])) {
+      return true;
+    }
+  }
+  return false;
+}
+
 class VerseRun {
   VerseRun(
     this.text, {

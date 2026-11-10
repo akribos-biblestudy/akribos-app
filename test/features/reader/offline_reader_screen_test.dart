@@ -56,6 +56,53 @@ Map<String, dynamic> package(
 };
 
 void main() {
+  testWidgets('offline flow separates verses with source line breaks', (
+    tester,
+  ) async {
+    final source = chapter(43, 3, verses: 4);
+    final rows = (source['chapter'] as Map)['rows'] as List;
+    ((rows[1] as Map)['cells'] as List).first['segments'] = [
+      'Erste Zeile',
+      {'kind': 'br'},
+      'zweite Zeile',
+    ];
+    ((rows[2] as Map)['cells'] as List).first['segments'] = [
+      {
+        'kind': 'nd',
+        'children': [
+          'Dritte Zeile',
+          {'kind': 'br'},
+          'vierte Zeile',
+        ],
+      },
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OfflineReaderScreen(
+          packages: [
+            package('Bibel', 'bible', [source]),
+          ],
+          eInk: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final paragraphs = tester
+        .stateList<VerseTextState>(find.byType(VerseText))
+        .map((state) => state.paragraph!)
+        .toList();
+    expect(paragraphs, hasLength(4));
+    expect(paragraphs[1].textAlign, TextAlign.start);
+    expect(
+      paragraphs[1].text.toPlainText(),
+      '2\u00a0Erste Zeile\nzweite Zeile',
+    );
+    expect(paragraphs[2].textAlign, TextAlign.start);
+    expect(
+      paragraphs[2].text.toPlainText(),
+      '3\u00a0DRITTE ZEILE\nVIERTE ZEILE',
+    );
+  });
   testWidgets('restores and reports the visible verse in an offline chapter', (
     tester,
   ) async {
