@@ -80,6 +80,41 @@ void main() {
     },
   );
 
+  testWidgets('drops revoked selections when a partial catalog refresh fails', (
+    tester,
+  ) async {
+    await tester.runAsync(
+      () => manager.store.write(lexiconPackage('one', 'lex')),
+    );
+    var ids = ['A', 'B'];
+    api.handler = (path) async => path == '/api/app/offline/resources'
+        ? catalog('one', ids)
+        : package('one', path.split('/').last);
+    await tester.pumpWidget(
+      MaterialApp(home: OfflineResourcesScreen(manager: manager)),
+    );
+    await finishLoading(tester);
+    await tester.tap(find.text('A'));
+    await tester.pump();
+    expect(find.text('Auswahl herunterladen (1)'), findsOneWidget);
+    ids = ['B'];
+    await tester.tap(find.text('Freigaben aktualisieren'));
+    await tester.pump();
+    await finishLoading(tester);
+    expect(find.text('A'), findsNothing);
+    expect(find.text('Auswahl herunterladen (0)'), findsOneWidget);
+    await tester.tap(find.text('B'));
+    await tester.pump();
+    await tester.tap(find.text('Auswahl herunterladen (1)'));
+    await tester.pump();
+    await finishLoading(tester);
+    expect(
+      await tester.runAsync(() => manager.store.read('B')),
+      package('one', 'B'),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   test('v2 outage does not permit an unlisted lexicon download', () async {
     expect((await manager.catalog()).map((item) => item['id']), ['Bibel']);
     await expectLater(manager.download('lex'), throwsA(isA<ApiException>()));

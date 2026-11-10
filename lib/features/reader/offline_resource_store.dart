@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 
 import 'package:cryptography/cryptography.dart';
@@ -8,6 +9,55 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/api_client.dart';
+
+Future<List<int>> _encodePackage(
+  Json package,
+  List<int> keyBytes,
+  List<int> aad,
+) => Isolate.run(() async {
+  final bytes = utf8.encode(jsonEncode(package));
+  if (bytes.length > OfflineResourceStore.maxPackageBytes) {
+    throw const FormatException('Offline package too large');
+  }
+  final box = await AesGcm.with256bits().encrypt(
+    bytes,
+    secretKey: SecretKey(keyBytes),
+    aad: aad,
+  );
+  return utf8.encode(
+    jsonEncode({
+      'version': 1,
+      'nonce': base64Encode(box.nonce),
+      'ciphertext': base64Encode(box.cipherText),
+      'mac': base64Encode(box.mac.bytes),
+    }),
+  );
+});
+
+Future<Json> _decodePackage(
+  List<int> encoded,
+  List<int> keyBytes,
+  List<int> aad,
+) => Isolate.run(() async {
+  final envelope = asMap(jsonDecode(utf8.decode(encoded)));
+  if (envelope['version'] != 1) {
+    throw const FormatException('Invalid offline envelope');
+  }
+  final box = SecretBox(
+    base64Decode(asString(envelope['ciphertext'])),
+    nonce: base64Decode(asString(envelope['nonce'])),
+    mac: Mac(base64Decode(asString(envelope['mac']))),
+  );
+  final plaintext = await AesGcm.with256bits().decrypt(
+    box,
+    secretKey: SecretKey(keyBytes),
+    aad: aad,
+  );
+  if (plaintext.length > OfflineResourceStore.maxPackageBytes) {
+    throw const FormatException('Offline package too large');
+  }
+  return asMap(jsonDecode(utf8.decode(plaintext)));
+});
 
 /// Encrypted packages are scoped to one server and one account (or the guest).
 /// This store does not decide whether a resource is licensed for offline use:
@@ -31,7 +81,7 @@ class OfflineResourceStore {
   final Future<Directory> Function() _directory;
   static final _operations = <String, Future<void>>{};
   static final _positionGenerations = <String, int>{};
-  static const maxPackageBytes = 32 * 1024 * 1024;
+  static const maxPackageBytes = 128 * 1024 * 1024;
   final _cipher = AesGcm.with256bits();
 
   Future<String> _hash(String value) async =>
@@ -160,16 +210,13 @@ class OfflineResourceStore {
     if (!supported || package['owner'] != userId || id.isEmpty) {
       throw const FormatException('Invalid offline package');
     }
-    final bytes = utf8.encode(jsonEncode(package));
-    if (bytes.length > maxPackageBytes) {
-      throw const FormatException('Offline package too large');
-    }
     final key = (await _key(create: true))!;
-    final box = await _cipher.encrypt(
-      bytes,
-      secretKey: key,
-      aad: utf8.encode('$_scope\n$id'),
-    );
+    final keyBytes = await key.extractBytes();
+    final aad = utf8.encode('$_scope\n$id');
+    // JSON serialization, encryption and base64 can take seconds for a large
+    // Bible. Keep that work off the UI isolate while retaining the envelope.
+    final envelope = await _encodePackage(package, keyBytes, aad);
+    validate?.call();
     final file = await _file(id);
     final random = Random.secure();
     final temp = File(
@@ -177,15 +224,7 @@ class OfflineResourceStore {
     );
     var committed = false;
     try {
-      await temp.writeAsString(
-        jsonEncode({
-          'version': 1,
-          'nonce': base64Encode(box.nonce),
-          'ciphertext': base64Encode(box.cipherText),
-          'mac': base64Encode(box.mac.bytes),
-        }),
-        flush: true,
-      );
+      await temp.writeAsBytes(envelope, flush: true);
       validate?.call();
       await temp.rename(file.path);
       committed = true;
@@ -230,21 +269,10 @@ class OfflineResourceStore {
     }
     final key = await _key();
     if (key == null) throw const FormatException('Offline key missing');
-    final envelope = asMap(jsonDecode(await file.readAsString()));
-    if (envelope['version'] != 1) {
-      throw const FormatException('Invalid offline envelope');
-    }
-    final box = SecretBox(
-      base64Decode(asString(envelope['ciphertext'])),
-      nonce: base64Decode(asString(envelope['nonce'])),
-      mac: Mac(base64Decode(asString(envelope['mac']))),
-    );
-    final plaintext = await _cipher.decrypt(
-      box,
-      secretKey: key,
-      aad: utf8.encode('$_scope\n$id'),
-    );
-    final package = asMap(jsonDecode(utf8.decode(plaintext)));
+    final encoded = await file.readAsBytes();
+    final keyBytes = await key.extractBytes();
+    final aad = utf8.encode('$_scope\n$id');
+    final package = await _decodePackage(encoded, keyBytes, aad);
     final resource = asMap(package['resource']);
     final supported =
         (package['version'] == 1 && package['chapters'] is List) ||

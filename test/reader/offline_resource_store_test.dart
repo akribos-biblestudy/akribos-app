@@ -124,6 +124,17 @@ void main() {
   );
 
   test(
+    'stores and reads a package larger than the previous 32 MiB limit',
+    () async {
+      final text = 'x' * (32 * 1024 * 1024 + 1);
+      await store().write(package('large', text: text));
+      final restored = await store().read('large');
+      expect((restored!['chapters'] as List).single['text'], text);
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
+
+  test(
     'authenticates ciphertext and refuses swapping a different resource',
     () async {
       await store().write(package('a'));
