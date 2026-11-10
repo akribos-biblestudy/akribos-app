@@ -13,6 +13,14 @@ import play_release as release
 
 
 class CIWaitTests(unittest.TestCase):
+    def test_github_rerun_endpoint_can_return_an_empty_body(self):
+        with patch.dict(os.environ, {'GITHUB_REPOSITORY': 'example/repo', 'GH_TOKEN': 'test-token'}), \
+                patch.object(release, 'urlopen') as urlopen:
+            urlopen.return_value.__enter__.return_value.read.return_value = b''
+            self.assertIsNone(release.gh('POST', '/actions/runs/41/rerun', {}, allow_empty=True))
+            with self.assertRaisesRegex(release.ReleaseError, 'empty response'):
+                release.gh('POST', '/git/refs', {})
+
     @staticmethod
     def ci_run(status='completed', conclusion='success', **fields):
         return {'id': 1, 'head_sha': 'sha', 'head_branch': 'main', 'event': 'push',

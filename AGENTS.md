@@ -199,6 +199,10 @@ navigation guards and the retained Reader; failed saves block launching. Dispose
 outstanding check deadlines. No forced update, background installation or push permission.
 CI includes Android policy tests and an unsigned iOS simulator build plus native XCTest;
 that does not establish Store/device acceptance or authorize publication.
+Flutter CI cancels superseded runs per event/ref; reruns use a separate run-ID group so
+an older exact-commit verification cannot cancel current main CI. TestFlight preflight
+may retry one cancelled older source push CI after validating release identity; actual
+test failures and later release gates remain strict. See `docs/TESTFLIGHT.md` for limits.
 
 Android store automation is separate from the direct Pixel APK. `release.yml` has no
 store secrets and dispatches `android-play.yml` explicitly on `main`; the verified

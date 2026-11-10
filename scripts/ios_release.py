@@ -97,13 +97,53 @@ def identity():
 def gate(wait=False, timeout=45 * 60):
     initial = identity()
     deadline = time.monotonic() + timeout
+    retried = None
     while True:
         require(identity() == initial, "Release identity changed during CI verification.")
         pending = False
-        for sha in set((initial["workflowCommit"], initial["sourceCommit"])):
+        # Check the current trusted workflow CI first. A failure there must not
+        # trigger a needless rerun of the older source CI.
+        for sha in dict.fromkeys((initial["workflowCommit"], initial["sourceCommit"])):
             latest = common.latest_ci_run(sha)
             if latest and latest.get("status") == "completed":
-                require(latest.get("conclusion") == "success", "Latest exact-commit CI failed.")
+                if latest.get("conclusion") == "success":
+                    continue
+                is_old_source = sha == initial["sourceCommit"] and sha != initial["workflowCommit"]
+                if (wait and is_old_source and latest.get("conclusion") == "cancelled"
+                        and retried is None):
+                    run_id = latest.get("id")
+                    attempt = latest.get("run_attempt", 1)
+                    require(type(run_id) is int and run_id > 0
+                            and type(attempt) is int and attempt > 0,
+                            "Invalid cancelled CI run identity.")
+                    # The tag/main and the exact latest push run may have changed
+                    # while the initial query was running. Never rerun a stale run.
+                    require(identity() == initial, "Release identity changed during CI verification.")
+                    current = common.latest_ci_run(sha)
+                    require(current and current.get("id") == run_id
+                            and current.get("run_attempt", 1) == attempt
+                            and current.get("status") == "completed"
+                            and current.get("conclusion") == "cancelled",
+                            "Source CI changed before rerun; retry the release.")
+                    require(identity() == initial, "Release identity changed during CI verification.")
+                    try:
+                        common.gh("POST", f"/actions/runs/{run_id}/rerun", {}, allow_empty=True)
+                    except ReleaseError as error:
+                        raise ReleaseError(
+                            f"Could not rerun cancelled source CI ({error}); "
+                            "check Actions permissions and rerun limits."
+                        ) from None
+                    retried = (run_id, attempt)
+                    pending = True
+                elif (wait and is_old_source and retried is not None
+                      and latest.get("id") == retried[0]
+                      and latest.get("run_attempt", 1) == retried[1]
+                      and latest.get("conclusion") == "cancelled"):
+                    # The API can briefly return the previous attempt after
+                    # accepting the rerun; keep waiting but never request twice.
+                    pending = True
+                else:
+                    raise ReleaseError("Latest exact-commit CI failed.")
             else:
                 require(not latest or latest.get("status") in {
                     "requested", "waiting", "pending", "queued", "in_progress"},
