@@ -382,22 +382,25 @@ void main() {
     expect(tester.getSize(_chapter(3)).height, greaterThanOrEqualTo(48));
   });
 
-  testWidgets('keeps both panes scrollable with landscape keyboard insets', (
-    tester,
-  ) async {
-    await _openPicker(
-      tester,
-      NavigationApi(),
-      size: const Size(640, 360),
-      textScale: 2,
-      keyboard: 160,
+  for (final (scale, keyboard) in [(1.0, 0.0), (2.0, 0.0), (2.0, 160.0)]) {
+    testWidgets(
+      'shows centered selections in landscape at $scale×, keyboard $keyboard',
+      (tester) async {
+        await _openPicker(
+          tester,
+          NavigationApi(),
+          initial: const {'book': 19, 'chapter': 118},
+          size: const Size(640, 360),
+          textScale: scale,
+          keyboard: keyboard,
+        );
+        _expectCentered(tester, _book(19), _bookList);
+        _expectCentered(tester, _chapter(118), _chapterList);
+        expect(_book(19).hitTestable(), findsOneWidget);
+        expect(_chapter(118).hitTestable(), findsOneWidget);
+        expect(tester.getCenter(_chapter(118)).dy, lessThan(360 - keyboard));
+        expect(tester.takeException(), isNull);
+      },
     );
-    expect(tester.takeException(), isNull);
-    final viewport = find.byKey(const ValueKey('passage-viewport'));
-    await tester.drag(viewport, const Offset(0, -238));
-    await tester.pumpAndSettle();
-    expect(_bookList, findsOneWidget);
-    expect(_chapterList, findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  }
 }

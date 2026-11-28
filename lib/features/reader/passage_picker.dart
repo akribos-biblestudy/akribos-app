@@ -60,8 +60,10 @@ enum _BookCategory {
 }
 
 class _PassagePickerState extends State<PassagePicker> {
+  final _sheetScroll = ScrollController(keepScrollOffset: false);
   final _bookScroll = ScrollController(keepScrollOffset: false);
   final _chapterScroll = ScrollController(keepScrollOffset: false);
+  final _bookViewport = GlobalKey();
   final _selectedBookAnchor = GlobalKey();
   Map<int, List<int>> _chapters = {};
   int get _currentBook => asInt(widget.initial['book'], 43);
@@ -80,6 +82,7 @@ class _PassagePickerState extends State<PassagePicker> {
 
   @override
   void dispose() {
+    _sheetScroll.dispose();
     _bookScroll.dispose();
     _chapterScroll.dispose();
     super.dispose();
@@ -140,7 +143,7 @@ class _PassagePickerState extends State<PassagePicker> {
         _selectedBook = _firstBookFor(_oldTestament);
         _loading = false;
       });
-      _positionSelection(centerBook: true);
+      _positionSelection(centerBook: true, revealPanes: true);
     } catch (_) {
       if (!mounted || generation != _generation) return;
       setState(() {
@@ -178,7 +181,7 @@ class _PassagePickerState extends State<PassagePicker> {
   double _chapterExtent(BuildContext context) =>
       math.max(52, MediaQuery.textScalerOf(context).scale(16) * 1.35 + 20);
 
-  void _positionSelection({bool centerBook = false}) {
+  void _positionSelection({bool centerBook = false, bool revealPanes = false}) {
     final book = _selectedBook;
     if (book == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -202,6 +205,15 @@ class _PassagePickerState extends State<PassagePicker> {
           index * extent +
           math.max(0.0, (extent - position.viewportDimension) / 2);
       _chapterScroll.jumpTo(offset.clamp(0.0, position.maxScrollExtent));
+      // With the keyboard or a very short window, the sheet itself may scroll.
+      // Reveal the centered rows on opening. Later gestures control that scroll.
+      final viewport = _bookViewport.currentContext?.findRenderObject();
+      if (revealPanes &&
+          viewport != null &&
+          _sheetScroll.hasClients &&
+          _sheetScroll.position.maxScrollExtent > 0) {
+        unawaited(_sheetScroll.position.ensureVisible(viewport, alignment: .5));
+      }
     });
   }
 
@@ -319,6 +331,7 @@ class _PassagePickerState extends State<PassagePicker> {
         _paneHeading(context, 'Buch'),
         Expanded(
           child: LayoutBuilder(
+            key: _bookViewport,
             builder: (context, constraints) => Scrollbar(
               controller: _bookScroll,
               thumbVisibility: true,
@@ -462,8 +475,20 @@ class _PassagePickerState extends State<PassagePicker> {
     referenceLabel({'book': book.id, 'chapter': chapter}),
   );
 
-  Widget _controls(BuildContext context, {required bool shortLabels}) {
+  Widget _controls(
+    BuildContext context, {
+    required bool shortLabels,
+    required bool shortLayout,
+  }) {
     final theme = Theme.of(context);
+    final search = widget._localChapters == null
+        ? SearchBox(
+            label: shortLabels || shortLayout
+                ? 'Bibelstelle'
+                : 'Direkte Bibelstelle, z. B. Joh 3,16',
+            onSearch: (value) => Navigator.pop(context, value),
+          )
+        : null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
       child: Column(
@@ -472,13 +497,15 @@ class _PassagePickerState extends State<PassagePicker> {
           Row(
             children: [
               Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    'Buch und Kapitel',
-                    style: theme.textTheme.headlineSmall,
-                  ),
-                ),
+                child: shortLayout && search != null
+                    ? search
+                    : Semantics(
+                        header: true,
+                        child: Text(
+                          'Buch und Kapitel',
+                          style: theme.textTheme.headlineSmall,
+                        ),
+                      ),
               ),
               IconButton(
                 tooltip: 'Schließen',
@@ -487,15 +514,8 @@ class _PassagePickerState extends State<PassagePicker> {
               ),
             ],
           ),
-          if (widget._localChapters == null) ...[
-            SearchBox(
-              label: shortLabels
-                  ? 'Bibelstelle'
-                  : 'Direkte Bibelstelle, z. B. Joh 3,16',
-              onSearch: (value) => Navigator.pop(context, value),
-            ),
-            const SizedBox(height: 8),
-          ],
+          if (!shortLayout && search != null) search,
+          if (search != null) const SizedBox(height: 8),
           Row(
             children: [
               for (final old in [true, false]) ...[
@@ -526,7 +546,11 @@ class _PassagePickerState extends State<PassagePicker> {
     );
   }
 
-  Widget _panes(BuildContext context, BibleBook book) {
+  Widget _panes(
+    BuildContext context,
+    BibleBook book, {
+    required bool shortLayout,
+  }) {
     final tokens = AkribosThemeTokens.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -561,7 +585,8 @@ class _PassagePickerState extends State<PassagePicker> {
                 child: _chapterPane(
                   context,
                   book,
-                  compact: largeText && constraints.maxWidth < 500,
+                  compact:
+                      shortLayout || (largeText && constraints.maxWidth < 500),
                 ),
               ),
             ],
@@ -575,17 +600,19 @@ class _PassagePickerState extends State<PassagePicker> {
   Widget build(BuildContext context) {
     final screen = MediaQuery.sizeOf(context);
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    final scaled = MediaQuery.textScalerOf(context).scale(16);
+    final shortLayout = screen.height < math.max(500, 330 + scaled * 5);
     final selected = _selectedBook;
     return Padding(
       padding: EdgeInsets.only(bottom: keyboard),
       child: SizedBox(
-        height: math.max(0, screen.height * .8 - keyboard),
+        height: math.max(0, screen.height * (shortLayout ? 1 : .8) - keyboard),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final scaled = MediaQuery.textScalerOf(context).scale(16);
             final controls = _controls(
               context,
               shortLabels: constraints.maxWidth < scaled * 19,
+              shortLayout: shortLayout,
             );
             if (_loading || _failed || selected == null) {
               return SingleChildScrollView(
@@ -623,9 +650,10 @@ class _PassagePickerState extends State<PassagePicker> {
                 ),
               );
             }
-            final minHeight = 202 + scaled * 9;
+            final minHeight = shortLayout ? 132 + scaled * 4 : 202 + scaled * 9;
             return SingleChildScrollView(
               key: const ValueKey('passage-viewport'),
+              controller: _sheetScroll,
               physics: constraints.maxHeight >= minHeight
                   ? const NeverScrollableScrollPhysics()
                   : null,
@@ -634,7 +662,13 @@ class _PassagePickerState extends State<PassagePicker> {
                 child: Column(
                   children: [
                     controls,
-                    Expanded(child: _panes(context, bibleBooks[selected - 1])),
+                    Expanded(
+                      child: _panes(
+                        context,
+                        bibleBooks[selected - 1],
+                        shortLayout: shortLayout,
+                      ),
+                    ),
                   ],
                 ),
               ),
