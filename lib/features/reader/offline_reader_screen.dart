@@ -152,7 +152,11 @@ class _OfflineReaderScreenState extends State<OfflineReaderScreen> {
     _scheduleReport();
   }
 
-  Future<void> _pickPassage(Json reference) async {
+  Future<void> _pickPassage() async {
+    if (_chapters.isEmpty) return;
+    final bounds = _restoringVerse ? null : _viewportBounds();
+    final visible = bounds == null ? null : _visibleChapterIndex(bounds);
+    final reference = asMap(_chapters[visible ?? _current]['reference']);
     final resourceId = asMap(_package['resource'])['id'];
     final chapters = <int, List<int>>{};
     for (final chapter in _chapters) {
@@ -217,41 +221,55 @@ class _OfflineReaderScreenState extends State<OfflineReaderScreen> {
     widget.onPositionChanged?.call(resource, reference);
   }
 
+  ({double top, double bottom})? _viewportBounds() {
+    final viewport = _viewport.currentContext?.findRenderObject();
+    if (viewport is! RenderBox || !viewport.attached || !viewport.hasSize) {
+      return null;
+    }
+    final top = viewport.localToGlobal(Offset.zero).dy;
+    return (top: top, bottom: top + viewport.size.height);
+  }
+
+  int? _visibleChapterIndex(({double top, double bottom}) bounds) {
+    final (:top, :bottom) = bounds;
+    int? best;
+    var bestY = double.negativeInfinity;
+    var firstBelow = double.infinity;
+    for (var i = 0; i < _chapters.length; i++) {
+      final ref = asMap(_chapters[i]['reference']);
+      final box = _chapterKeys[_key(ref)]?.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.attached || !box.hasSize) continue;
+      final y = box.localToGlobal(Offset.zero).dy;
+      final end = y + box.size.height;
+      if (y <= top + 1 && end > top && y > bestY) {
+        best = i;
+        bestY = y;
+      } else if (bestY == double.negativeInfinity &&
+          y >= top &&
+          y < bottom &&
+          y < firstBelow) {
+        best = i;
+        firstBelow = y;
+      }
+    }
+    return best;
+  }
+
   void _scheduleReport() {
     if (_reportScheduled) return;
     _reportScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _reportScheduled = false;
       if (!mounted || _restoringVerse) return;
-      final viewport = _viewport.currentContext?.findRenderObject();
-      if (viewport is! RenderBox || !viewport.hasSize) return;
-      final top = viewport.localToGlobal(Offset.zero).dy;
-      final bottom = top + viewport.size.height;
-      int? best;
-      var bestY = double.negativeInfinity;
-      var firstBelow = double.infinity;
-      for (var i = 0; i < _chapters.length; i++) {
-        final ref = asMap(_chapters[i]['reference']);
-        final box = _chapterKeys[_key(ref)]?.currentContext?.findRenderObject();
-        if (box is! RenderBox || !box.attached || !box.hasSize) continue;
-        final y = box.localToGlobal(Offset.zero).dy;
-        final end = y + box.size.height;
-        if (y <= top + 1 && end > top && y > bestY) {
-          best = i;
-          bestY = y;
-        } else if (bestY == double.negativeInfinity &&
-            y >= top &&
-            y < bottom &&
-            y < firstBelow) {
-          best = i;
-          firstBelow = y;
-        }
-      }
+      final bounds = _viewportBounds();
+      if (bounds == null) return;
+      final best = _visibleChapterIndex(bounds);
       if (best == null) return;
       if (best != _current) {
-        setState(() => _current = best!);
+        setState(() => _current = best);
         _visibleVerse = null;
       }
+      final (:top, :bottom) = bounds;
       final ref = asMap(_chapters[_current]['reference']);
       final prefix = '${_key(ref)}:';
       int? precedingVerse, nextVerse;
@@ -544,7 +562,7 @@ class _OfflineReaderScreenState extends State<OfflineReaderScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: OutlinedButton.icon(
-                              onPressed: () => _pickPassage(reference),
+                              onPressed: _pickPassage,
                               icon: const Icon(Icons.menu_book_outlined),
                               label: Text(
                                 'Buch und Kapitel · ${referenceLabel(reference)}',

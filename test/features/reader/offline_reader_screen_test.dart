@@ -486,10 +486,13 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Johannes 3'), findsOneWidget);
+    final previousCaption = find.text('Buch und Kapitel · Joh3');
     await tester.drag(find.byType(CustomScrollView), const Offset(0, 700));
-    await tester.pumpAndSettle();
+    // Paint the new position and tap before the pending caption rebuild.
+    await tester.pump();
     expect(find.text('Johannes 2'), findsOneWidget);
-    await tester.tap(find.text('Buch und Kapitel · Joh2'));
+    expect(previousCaption, findsOneWidget);
+    await tester.tap(previousCaption);
     await tester.pumpAndSettle();
     final chapterTwo = find.byKey(const ValueKey('passage-chapter-2'));
     expect(tester.widget<Semantics>(chapterTwo).properties.selected, isTrue);
