@@ -224,6 +224,14 @@ Play upload. Automatic uploads target `internal` only. Keep pinned Actions/depen
 hashes, artifact checksums and actual upload/readback status. Setup is documented in
 `docs/PLAY-STORE.md`; the existing Pixel signing identity and script stay unchanged.
 
+Book and chapter selection use the same two independently scrolling panes in the
+online and offline readers. Center the actual reader book and chapter on opening,
+including first and last entries, using vertical viewport padding. Browsing keeps its
+scroll offsets. Full book names and textual group headings remain readable in E-Ink.
+Online choices come from the selected resource's navigation endpoint, with the
+existing lexicon fallback. Offline choices use that downloaded resource's actual
+positive chapter keys and continue to work beyond canonical chapter counts.
+
 ## Legacy standalone source/reader widgets
 
 The following notes describe the retained standalone native widgets, not the active
