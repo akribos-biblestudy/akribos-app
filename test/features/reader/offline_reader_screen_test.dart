@@ -1,5 +1,6 @@
 import 'package:akribos_app/features/reader/offline_reader_screen.dart';
 import 'package:akribos_app/features/reader/verse_text.dart';
+import 'package:akribos_app/theme/akribos_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -430,33 +431,41 @@ void main() {
     final changes = <String>[];
     await tester.pumpWidget(
       MaterialApp(
+        theme: buildAkribosTheme(Brightness.light, eInk: true),
         home: OfflineReaderScreen(
           packages: [
             package('Bibel', 'bible', [
               chapter(1, 1),
-              chapter(43, 3),
+              chapter(43, 3, verses: 60),
               chapter(43, 5),
             ]),
+            package('Andere Bibel', 'bible', [chapter(43, 4)]),
           ],
           eInk: true,
-          initialReference: const {'book': 43, 'chapter': 3},
-          onPositionChanged: (id, ref) =>
-              changes.add('$id:${ref['book']}:${ref['chapter']}'),
+          initialReference: const {'book': 43, 'chapter': 3, 'verse': 12},
+          onPositionChanged: (id, ref) => changes.add(
+            '$id:${ref['book']}:${ref['chapter']}:${ref['verse'] ?? '-'}',
+          ),
         ),
       ),
     );
     await tester.pumpAndSettle();
     expect(find.text('Offline lesen'), findsOneWidget);
-    expect(find.text('Johannes 3'), findsOneWidget);
-    expect(find.text('Abschnitt'), findsWidgets);
-    await tester.tap(find.byType(DropdownButtonFormField<int>).last);
+    expect(find.byType(DropdownButtonFormField<int>), findsNothing);
+    final chapterThree = find.byKey(const ValueKey('passage-chapter-3'));
+    final chapterFive = find.byKey(const ValueKey('passage-chapter-5'));
+    await tester.tap(find.text('Buch und Kapitel · Joh3'));
     await tester.pumpAndSettle();
-    expect(find.text('5').last, findsOneWidget);
-    expect(find.text('4'), findsNothing);
-    await tester.tap(find.text('5').last);
+    expect(tester.widget<Semantics>(chapterThree).properties.selected, isTrue);
+    expect(chapterFive, findsOneWidget);
+    expect(find.byKey(const ValueKey('passage-chapter-4')), findsNothing);
+    await tester.tap(chapterFive);
     await tester.pumpAndSettle();
     expect(find.text('Johannes 5'), findsOneWidget);
-    expect(changes, contains('Bibel:43:5'));
+    expect(changes, contains('Bibel:43:5:-'));
+    await tester.tap(find.text('Buch und Kapitel · Joh5'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Semantics>(chapterFive).properties.selected, isTrue);
   });
 
   testWidgets('scrolls across chapters in both directions', (tester) async {
@@ -480,6 +489,12 @@ void main() {
     await tester.drag(find.byType(CustomScrollView), const Offset(0, 700));
     await tester.pumpAndSettle();
     expect(find.text('Johannes 2'), findsOneWidget);
+    await tester.tap(find.text('Buch und Kapitel · Joh2'));
+    await tester.pumpAndSettle();
+    final chapterTwo = find.byKey(const ValueKey('passage-chapter-2'));
+    expect(tester.widget<Semantics>(chapterTwo).properties.selected, isTrue);
+    Navigator.of(tester.element(chapterTwo)).pop();
+    await tester.pumpAndSettle();
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -700));
     await tester.pumpAndSettle();
     expect(find.text('Johannes 3'), findsOneWidget);
@@ -547,6 +562,13 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Buch und Kapitel · Joh3'));
+    await tester.pumpAndSettle();
+    final chapterThree = find.byKey(const ValueKey('passage-chapter-3'));
+    expect(chapterThree.hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(chapterThree);
+    await tester.pumpAndSettle();
     await tester.pumpWidget(
       const MaterialApp(home: OfflineReaderScreen(packages: [], eInk: true)),
     );

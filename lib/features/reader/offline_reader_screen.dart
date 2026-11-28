@@ -8,6 +8,7 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import '../../core/json.dart';
 import 'books.dart';
 import 'offline_lexicon_search.dart';
+import 'passage_picker.dart';
 import 'verse_text.dart';
 
 /// Read-only view of packages already validated and loaded by the caller.
@@ -149,6 +150,42 @@ class _OfflineReaderScreenState extends State<OfflineReaderScreen> {
     if (_scroll.hasClients) _scroll.jumpTo(0);
     _emitPosition();
     _scheduleReport();
+  }
+
+  Future<void> _pickPassage(Json reference) async {
+    final resourceId = asMap(_package['resource'])['id'];
+    final chapters = <int, List<int>>{};
+    for (final chapter in _chapters) {
+      final position = asMap(chapter['reference']);
+      final book = asInt(position['book']);
+      final number = asInt(position['chapter']);
+      final numbers = chapters.putIfAbsent(book, () => []);
+      if (numbers.lastOrNull != number) numbers.add(number);
+    }
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      sheetAnimationStyle: widget.eInk ? AnimationStyle.noAnimation : null,
+      builder: (_) =>
+          PassagePicker.local(initial: reference, chapters: chapters),
+    );
+    if (!mounted ||
+        selected == null ||
+        asMap(_package['resource'])['id'] != resourceId) {
+      return;
+    }
+    _navigate(
+      _chapters.indexWhere((chapter) {
+        final position = asMap(chapter['reference']);
+        final label = referenceLabel({
+          'book': asInt(position['book']),
+          'chapter': asInt(position['chapter']),
+        });
+        return label == selected;
+      }),
+    );
   }
 
   void _selectPackage(Json package) {
@@ -450,20 +487,15 @@ class _OfflineReaderScreenState extends State<OfflineReaderScreen> {
   @override
   Widget build(BuildContext context) {
     final resource = asMap(_package['resource']);
-    final ref = _chapters.isEmpty
-        ? <String, dynamic>{}
+    final current = _chapters.isEmpty
+        ? null
         : asMap(_chapters[_current]['reference']);
-    final book = asInt(ref['book']);
-    final chapter = asInt(ref['chapter']);
-    final books =
-        _chapters
-            .map((c) => asInt(asMap(c['reference'])['book']))
-            .toSet()
-            .toList()
-          ..sort();
-    final chapters = _chapters
-        .where((c) => asInt(asMap(c['reference'])['book']) == book)
-        .toList();
+    final reference = current == null
+        ? null
+        : {
+            'book': asInt(current['book']),
+            'chapter': asInt(current['chapter']),
+          };
     final scaler = widget.fontScale.clamp(.7, 2.0);
     final colors = widget.eInk
         ? const ColorScheme.light(
@@ -508,68 +540,17 @@ class _OfflineReaderScreenState extends State<OfflineReaderScreen> {
                             ),
                           ),
                         ),
-                        if (_chapters.isNotEmpty)
-                          Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButtonFormField<int>(
-                                  key: ValueKey('book:$book'),
-                                  initialValue: book,
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Buch',
-                                  ),
-                                  items: [
-                                    for (final id in books)
-                                      DropdownMenuItem(
-                                        value: id,
-                                        child: Text(
-                                          bookName(id),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                  ],
-                                  onChanged: (id) => _navigate(
-                                    _chapters.indexWhere(
-                                      (c) =>
-                                          asInt(
-                                            asMap(c['reference'])['book'],
-                                          ) ==
-                                          id,
-                                    ),
-                                  ),
-                                ),
+                        if (reference != null)
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _pickPassage(reference),
+                              icon: const Icon(Icons.menu_book_outlined),
+                              label: Text(
+                                'Buch und Kapitel · ${referenceLabel(reference)}',
+                                textAlign: TextAlign.center,
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: DropdownButtonFormField<int>(
-                                  key: ValueKey('chapter:$book:$chapter'),
-                                  initialValue: chapter,
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Kapitel',
-                                  ),
-                                  items: [
-                                    for (final c in chapters)
-                                      DropdownMenuItem(
-                                        value: asInt(
-                                          asMap(c['reference'])['chapter'],
-                                        ),
-                                        child: Text(
-                                          '${asMap(c['reference'])['chapter']}',
-                                        ),
-                                      ),
-                                  ],
-                                  onChanged: (value) => _navigate(
-                                    _chapters.indexWhere((c) {
-                                      final r = asMap(c['reference']);
-                                      return asInt(r['book']) == book &&
-                                          asInt(r['chapter']) == value;
-                                    }),
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                       ],
                     ),
