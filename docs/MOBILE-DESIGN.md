@@ -74,7 +74,8 @@ ein Fehler zeigt den bestätigten Teil und lässt die übrigen Stellen ausgewäh
 
 Die Buchliste steht links, die Kapitel des ausgewählten Buchs stehen rechts. Beide
 Listen scrollen vertikal und unabhängig. Rechts sind alle verfügbaren Kapitel in
-einer Liste erreichbar. Beim Öffnen stehen das aktuelle Buch und das aktuelle Kapitel
+einer Liste erreichbar. Eine feine Linie trennt Buchname und Kapitelzahl von der
+scrollbaren Liste. Beim Öffnen stehen das aktuelle Buch und das aktuelle Kapitel
 mittig in ihrem jeweiligen Scrollbereich. Dafür haben die Listen oben und unten
 genug Platz, auch für ihre ersten und letzten Einträge. Beim Scrollen bleibt die
 Auswahl stehen. Ein Buchwechsel aktualisiert die rechte Liste. Das Antippen eines

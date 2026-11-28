@@ -199,6 +199,17 @@ void main() {
     await tester.tap(find.text('Öffnen'));
     await tester.pumpAndSettle();
 
+    final divider = find.descendant(
+      of: find.byKey(const ValueKey('passage-chapters-pane')),
+      matching: find.byType(Divider),
+    );
+    final dividerBounds = tester.getRect(divider);
+    expect(
+      dividerBounds.top,
+      greaterThan(tester.getRect(find.text('150 Kapitel')).bottom),
+    );
+    expect(dividerBounds.bottom, lessThan(tester.getRect(_chapterList).top));
+
     await tester.scrollUntilVisible(
       _chapter(1),
       -650,
@@ -217,6 +228,7 @@ void main() {
       scrollable: _chapterScrollable,
     );
     expect(tester.getCenter(_book(19)).dy, closeTo(openedBookY, .1));
+    expect(tester.getRect(divider), dividerBounds);
     expect(find.byTooltip('Nächste Kapitel'), findsNothing);
     await tester.tap(_chapter(150));
     await tester.pumpAndSettle();

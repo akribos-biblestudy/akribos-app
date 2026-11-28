@@ -373,6 +373,7 @@ class _PassagePickerState extends State<PassagePicker> {
     final extent = _chapterExtent(context);
     final name = _displayName(book);
     final count = chapters.length;
+    final dividerThickness = tokens.eInk ? 2.0 : 1.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -385,6 +386,14 @@ class _PassagePickerState extends State<PassagePicker> {
               children: [
                 Text(name, style: theme.textTheme.titleLarge),
                 Text('$count Kapitel', style: theme.textTheme.bodySmall),
+                const SizedBox(height: 8),
+                Divider(
+                  height: dividerThickness,
+                  thickness: dividerThickness,
+                  color: tokens.eInk
+                      ? tokens.line
+                      : tokens.muted.withValues(alpha: .35),
+                ),
               ],
             ),
           ),
