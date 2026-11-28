@@ -163,11 +163,12 @@ Bibel-/Tabpositionen. Öffnen verwendet `/notes/[id]`, Anlegen die vorhandene `/
 `create` mit `kind=note` und Stellenanker; Bearbeiten bleibt im gemeinsamen WebView-Editor.
 Verschieben von Tabs ändert nur deren lokalen URL-Snapshot; es gibt dafür keine Serveraktion.
 
-Die Notizbibliothek verwendet standardmäßig `/notes?kind=note&passage=Joh3` (Beispiel),
-wobei das Kapitel nach dem Reader-Flush aus der sichtbaren Lesestelle stammt. Der vorhandene
-Load filtert serverseitig vor der Paginierung über Stellenanker und indizierte Textverweise.
-Es wird keine Übersetzung erzwungen. Bei abgeschaltetem „Aktuelles Kapitel“ entfällt dieser
-automatische `passage`-Parameter; manuelle Filter bleiben verfügbar. Kein neuer API-Endpunkt.
+Die Notizbibliothek sendet den Kapitelbezug als expliziten Bereich, etwa
+`/notes?kind=note&passage=Joh3%2C1-999`. Das Kapitel stammt nach dem Reader-Flush aus der
+sichtbaren Lesestelle. Die Obergrenze von Vers 999 deckt alle Verszählungen ab und bleibt
+auf die Serveranfrage beschränkt. Die Bibliothek filtert übersetzungsübergreifend vor der
+Paginierung über Stellenanker und indizierte Textverweise. „Aktuelles Kapitel“ schaltet
+den automatischen `passage`-Parameter ab. Manuelle Stellenfilter bleiben verfügbar.
 
 ## Bestehende JSON- und Binärschnittstellen
 

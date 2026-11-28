@@ -64,11 +64,34 @@ class _SeedApi extends AppApi {
     if (path == '/login') return {'pending': null, 'redirectTo': '/account'};
     if (path.startsWith('/help')) return {'topics': [], 'results': []};
     if (Uri.parse(path).path == '/notes') {
+      final passage = Uri.parse(path).queryParameters['passage'];
+      // The notes page requires an explicit verse or range in a passage filter.
+      final invalidPassage = passage != null && !passage.contains(',');
+      const first = {
+        'id': 'note',
+        'kind': 'note',
+        'title': 'Persönliche Notiz',
+      };
+      const last = {
+        'id': 'last',
+        'kind': 'note',
+        'title': 'Notiz zum letzten Vers',
+      };
+      const other = {
+        'id': 'other',
+        'kind': 'note',
+        'title': 'Notiz zu 1. Mose',
+      };
       return {
-        'documents': [
-          {'id': 'note', 'kind': 'note', 'title': 'Persönliche Notiz'},
-        ],
-        'filters': {'kind': 'note'},
+        'documents': switch (passage) {
+          null => [other, first, last],
+          'Joh3,1-999' => [first, last],
+          'Joh3,36' => [last],
+          '1Mo2,1-999' => [other],
+          _ => [],
+        },
+        'filters': {'kind': 'note', 'passage': passage},
+        if (invalidPassage) 'filterError': 'passage',
       };
     }
     if (Uri.parse(path).path == '/sermons') {
@@ -314,7 +337,7 @@ void main() {
       await select('Notizen');
       expect(Uri.parse(api.pageCalls.last).queryParameters, {
         'kind': 'note',
-        'passage': 'Joh3',
+        'passage': 'Joh3,1-999',
       });
       expect(find.text('Meine Notizen'), findsOneWidget);
       expect(find.text('Persönliche Notiz'), findsOneWidget);
@@ -370,14 +393,17 @@ void main() {
       }
 
       await select('Notizen');
-      expect(Uri.parse(api.pageCalls.last).queryParameters['passage'], 'Joh3');
       expect(
         tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
         isTrue,
       );
+      expect(find.text('Persönliche Notiz'), findsOneWidget);
+      expect(find.text('Notiz zum letzten Vers'), findsOneWidget);
+      expect(find.text('Notiz zu 1. Mose'), findsNothing);
       await tester.tap(find.text('Aktuelles Kapitel'));
       await tester.pumpAndSettle();
       expect(Uri.parse(api.pageCalls.last).queryParameters, {'kind': 'note'});
+      expect(find.text('Notiz zu 1. Mose'), findsOneWidget);
       await select('Lesen');
       await select('Notizen');
       expect(
@@ -395,8 +421,37 @@ void main() {
       expect(Uri.parse(api.pageCalls.last).queryParameters, {'kind': 'note'});
       await tester.tap(find.text('Aktuelles Kapitel'));
       await tester.pumpAndSettle();
-      expect(Uri.parse(api.pageCalls.last).queryParameters['passage'], 'Joh3');
+      expect(
+        Uri.parse(api.pageCalls.last).queryParameters['passage'],
+        'Joh3,1-999',
+      );
+      await tester.tap(find.byTooltip('Filtern'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.widgetWithText(TextFormField, 'Bibelstelle'),
+            )
+            .controller!
+            .text,
+        'Joh3',
+      );
+      await tester.tap(find.text('Abbrechen'));
+      await tester.pumpAndSettle();
       final scope = AppScope.of(tester.element(find.byType(DocumentsScreen)));
+      await scope.open('/notes?passage=Joh3%2C36&resource=SEEDDE');
+      await tester.pumpAndSettle();
+      expect(Uri.parse(api.pageCalls.last).queryParameters, {
+        'kind': 'note',
+        'passage': 'Joh3,36',
+        'resource': 'SEEDDE',
+      });
+      expect(
+        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+        isFalse,
+      );
+      expect(find.text('Notiz zum letzten Vers'), findsOneWidget);
+      expect(find.text('Persönliche Notiz'), findsNothing);
       final workspace = asMap(api.reader['workspace']);
       final tile = asMaps(workspace['tiles'])
           .firstWhere((t) => t['id'] == workspace['focusedTileId']);
@@ -404,7 +459,12 @@ void main() {
       await scope.open('/1Mo2,4');
       await tester.pumpAndSettle();
       await select('Notizen');
-      expect(Uri.parse(api.pageCalls.last).queryParameters['passage'], '1Mo2');
+      expect(
+        Uri.parse(api.pageCalls.last).queryParameters['passage'],
+        '1Mo2,1-999',
+      );
+      expect(find.text('Notiz zu 1. Mose'), findsOneWidget);
+      expect(find.text('Notiz zum letzten Vers'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
@@ -424,7 +484,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(Uri.parse(api.pageCalls.last).queryParameters, {
         'kind': 'note',
-        'passage': 'Joh3',
+        'passage': 'Joh3,1-999',
       });
       expect(find.text('Meine Notizen'), findsOneWidget);
       await scope.open('/sermons/templates');

@@ -36,7 +36,8 @@ class DocumentsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectivePath = mobileDocumentPath(path);
-    final pathname = Uri.parse(effectivePath).path;
+    final uri = Uri.parse(effectivePath);
+    final pathname = uri.path;
     if (pathname.startsWith('/notes/published/')) {
       return RemotePage(
         path: effectivePath,
@@ -87,8 +88,22 @@ class DocumentsScreen extends StatelessWidget {
     if (pathname.startsWith('/notes/')) {
       return DocumentEditor(path: effectivePath);
     }
+    final chapter = AppScope.of(context).notesChapter;
+    final params = uri.queryParameters;
+    // The API expects an explicit passage. MAX_PASSAGE_VERSE covers the whole
+    // chapter across translations. Keep this bound out of navigation and forms.
+    final requestPath =
+        pathname == '/notes' &&
+            chapter.isNotEmpty &&
+            params['passage'] == chapter
+        ? uri
+              .replace(
+                queryParameters: {...params, 'passage': '$chapter,1-999'},
+              )
+              .toString()
+        : effectivePath;
     return RemotePage(
-      path: effectivePath,
+      path: requestPath,
       builder: (context, data, reload) {
         return _Library(
           path: effectivePath,
@@ -177,7 +192,9 @@ class _Library extends StatelessWidget {
         FeatureField(
           'passage',
           'Bibelstelle',
-          value: asString(filters['passage']),
+          value:
+              Uri.parse(path).queryParameters['passage'] ??
+              asString(filters['passage']),
         ),
         FeatureField(
           'book',
