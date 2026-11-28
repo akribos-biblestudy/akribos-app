@@ -128,9 +128,7 @@ void main() {
       expect(api.reads.any((path) => path.contains('COMMENTARY')), isFalse);
       await tester.tap(find.widgetWithText(TextButton, 'Bibel 0 · Joh1').first);
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Joh'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(OutlinedButton, '2'));
+      await tester.tap(find.byKey(const ValueKey('passage-chapter-2')));
       await tester.pumpAndSettle();
       expect(controller.reference['chapter'], 2);
       expect(find.text('Notiz 1 zu Joh1'), findsNothing);
