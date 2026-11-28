@@ -70,6 +70,46 @@ Sammlung, Notiz und Teilen. Die Versnummer bietet im Versmenü zusätzlich einen
 Einstieg in die Auswahl. Notizen verknüpfen die tatsächlich gewählten Stellen einzeln;
 ein Fehler zeigt den bestätigten Teil und lässt die übrigen Stellen ausgewählt.
 
+## Buch- und Kapitelauswahl
+
+Die Buchliste steht links, die Kapitel des ausgewählten Buchs stehen rechts. Beide
+Listen scrollen vertikal und unabhängig. Rechts sind alle verfügbaren Kapitel in
+einer Liste erreichbar. Eine feine Linie trennt Buchname und Kapitelzahl von der
+scrollbaren Liste. Beim Öffnen stehen das aktuelle Buch und das aktuelle Kapitel
+mittig in ihrem jeweiligen Scrollbereich. Dafür haben die Listen oben und unten
+genug Platz, auch für ihre ersten und letzten Einträge. Beim Scrollen bleibt die
+Auswahl stehen. Ein Buchwechsel aktualisiert die rechte Liste. Das Antippen eines
+Kapitels öffnet die Stelle.
+
+Die Buchliste zeigt volle Namen und acht kanonische Gruppen. Dezente Farbstreifen
+und Flächen unterscheiden die Gruppen in Hell und Dunkel. Gruppenüberschriften und
+die Umrandung der Auswahl machen dieselben Informationen im E-Ink-Modus sichtbar.
+CSV-Bibel war eine visuelle Referenz. Olive Tree beschreibt Kategorienfarben im
+Stellenwähler, JW Library dokumentiert acht Buchgruppen. Akribos verwendet dazu
+eigene Farben und Listen. [CSV-Bibel](https://www.csv-bibel.de/bibel/1-mose-1) ·
+[Olive-Tree-Hilfe](https://help.olivetree.com/hc/en-us/articles/4404188579725-Using-Bibles) ·
+[JW-Library-Hilfe](https://www.jw.org/en/online-help/jw-library/apple/faqs/)
+
+Die Direkteingabe bleibt im Online-Reader verfügbar. Der Offline-Reader verwendet
+dieselbe Listenansicht mit den heruntergeladenen Kapiteln des ausgewählten Werks.
+In sehr schmalen Fenstern mit großer Schrift nutzt die Leiste AT und NT.
+Screenreader lesen die ausgeschriebenen Testamentnamen. Die vollen Buchnamen können
+umbrechen. Im niedrigen Querformat teilt sich die Direkteingabe die Zeile mit dem
+Schließen-Button, damit die ausgewählten Einträge sichtbar bleiben.
+
+| Aufnahme | Prüfpunkt |
+| --- | --- |
+| [Bisheriges Kapitelraster](screenshots/passage-picker/vorher-kapitelraster.png) | Psalm 118 im vorherigen Bereich 85–126 |
+| [Smartphone](screenshots/passage-picker/smartphone-psalm-118.png) | Psalmen und 118 beim Öffnen mittig, Psalm 119 direkt darunter |
+| [Tablet, Dunkel](screenshots/passage-picker/tablet-psalm-150-dunkel.png) | Psalm 150 am unteren Listenende mittig |
+| [320 dp, 200 % Schrift, E-Ink](screenshots/passage-picker/schmal-eink-grosse-schrift.png) | Umbruch von „2. Thessalonicher“ und sichtbare Auswahlbegrenzungen |
+| [640 × 360 dp, 200 % Schrift](screenshots/passage-picker/querformat-grosse-schrift.png) | Im Querformat bleiben Buch und Kapitel mittig und antippbar |
+
+Die Aufnahmen stammen vom Flutter-Widget mit Testnavigation. Widget-Tests vergleichen
+die Mittelpunkte der ausgewählten Zeilen mit ihren Scrollbereichen und prüfen
+Psalm 1, 118 und 150, lückenhafte Werke, das Querformat mit Tastatur und die Öffnung
+direkt nach einem Kapitelwechsel durch Scrollen, online und offline.
+
 ## Aktualitätsgrenzen und Bildherkunft
 
 [Logos v54 vom 06.10.2026](https://www.logos.com/grow/release-october-2026/) macht Tabs und

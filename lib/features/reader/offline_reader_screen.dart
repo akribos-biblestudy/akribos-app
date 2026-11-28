@@ -8,6 +8,7 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import '../../core/json.dart';
 import 'books.dart';
 import 'offline_lexicon_search.dart';
+import 'passage_picker.dart';
 import 'verse_text.dart';
 
 /// Read-only view of packages already validated and loaded by the caller.
@@ -151,6 +152,46 @@ class _OfflineReaderScreenState extends State<OfflineReaderScreen> {
     _scheduleReport();
   }
 
+  Future<void> _pickPassage() async {
+    if (_chapters.isEmpty) return;
+    final bounds = _restoringVerse ? null : _viewportBounds();
+    final visible = bounds == null ? null : _visibleChapterIndex(bounds);
+    final reference = asMap(_chapters[visible ?? _current]['reference']);
+    final resourceId = asMap(_package['resource'])['id'];
+    final chapters = <int, List<int>>{};
+    for (final chapter in _chapters) {
+      final position = asMap(chapter['reference']);
+      final book = asInt(position['book']);
+      final number = asInt(position['chapter']);
+      final numbers = chapters.putIfAbsent(book, () => []);
+      if (numbers.lastOrNull != number) numbers.add(number);
+    }
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      sheetAnimationStyle: widget.eInk ? AnimationStyle.noAnimation : null,
+      builder: (_) =>
+          PassagePicker.local(initial: reference, chapters: chapters),
+    );
+    if (!mounted ||
+        selected == null ||
+        asMap(_package['resource'])['id'] != resourceId) {
+      return;
+    }
+    _navigate(
+      _chapters.indexWhere((chapter) {
+        final position = asMap(chapter['reference']);
+        final label = referenceLabel({
+          'book': asInt(position['book']),
+          'chapter': asInt(position['chapter']),
+        });
+        return label == selected;
+      }),
+    );
+  }
+
   void _selectPackage(Json package) {
     final ref = _chapters.isEmpty
         ? null
@@ -180,41 +221,55 @@ class _OfflineReaderScreenState extends State<OfflineReaderScreen> {
     widget.onPositionChanged?.call(resource, reference);
   }
 
+  ({double top, double bottom})? _viewportBounds() {
+    final viewport = _viewport.currentContext?.findRenderObject();
+    if (viewport is! RenderBox || !viewport.attached || !viewport.hasSize) {
+      return null;
+    }
+    final top = viewport.localToGlobal(Offset.zero).dy;
+    return (top: top, bottom: top + viewport.size.height);
+  }
+
+  int? _visibleChapterIndex(({double top, double bottom}) bounds) {
+    final (:top, :bottom) = bounds;
+    int? best;
+    var bestY = double.negativeInfinity;
+    var firstBelow = double.infinity;
+    for (var i = 0; i < _chapters.length; i++) {
+      final ref = asMap(_chapters[i]['reference']);
+      final box = _chapterKeys[_key(ref)]?.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.attached || !box.hasSize) continue;
+      final y = box.localToGlobal(Offset.zero).dy;
+      final end = y + box.size.height;
+      if (y <= top + 1 && end > top && y > bestY) {
+        best = i;
+        bestY = y;
+      } else if (bestY == double.negativeInfinity &&
+          y >= top &&
+          y < bottom &&
+          y < firstBelow) {
+        best = i;
+        firstBelow = y;
+      }
+    }
+    return best;
+  }
+
   void _scheduleReport() {
     if (_reportScheduled) return;
     _reportScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _reportScheduled = false;
       if (!mounted || _restoringVerse) return;
-      final viewport = _viewport.currentContext?.findRenderObject();
-      if (viewport is! RenderBox || !viewport.hasSize) return;
-      final top = viewport.localToGlobal(Offset.zero).dy;
-      final bottom = top + viewport.size.height;
-      int? best;
-      var bestY = double.negativeInfinity;
-      var firstBelow = double.infinity;
-      for (var i = 0; i < _chapters.length; i++) {
-        final ref = asMap(_chapters[i]['reference']);
-        final box = _chapterKeys[_key(ref)]?.currentContext?.findRenderObject();
-        if (box is! RenderBox || !box.attached || !box.hasSize) continue;
-        final y = box.localToGlobal(Offset.zero).dy;
-        final end = y + box.size.height;
-        if (y <= top + 1 && end > top && y > bestY) {
-          best = i;
-          bestY = y;
-        } else if (bestY == double.negativeInfinity &&
-            y >= top &&
-            y < bottom &&
-            y < firstBelow) {
-          best = i;
-          firstBelow = y;
-        }
-      }
+      final bounds = _viewportBounds();
+      if (bounds == null) return;
+      final best = _visibleChapterIndex(bounds);
       if (best == null) return;
       if (best != _current) {
-        setState(() => _current = best!);
+        setState(() => _current = best);
         _visibleVerse = null;
       }
+      final (:top, :bottom) = bounds;
       final ref = asMap(_chapters[_current]['reference']);
       final prefix = '${_key(ref)}:';
       int? precedingVerse, nextVerse;
@@ -450,20 +505,15 @@ class _OfflineReaderScreenState extends State<OfflineReaderScreen> {
   @override
   Widget build(BuildContext context) {
     final resource = asMap(_package['resource']);
-    final ref = _chapters.isEmpty
-        ? <String, dynamic>{}
+    final current = _chapters.isEmpty
+        ? null
         : asMap(_chapters[_current]['reference']);
-    final book = asInt(ref['book']);
-    final chapter = asInt(ref['chapter']);
-    final books =
-        _chapters
-            .map((c) => asInt(asMap(c['reference'])['book']))
-            .toSet()
-            .toList()
-          ..sort();
-    final chapters = _chapters
-        .where((c) => asInt(asMap(c['reference'])['book']) == book)
-        .toList();
+    final reference = current == null
+        ? null
+        : {
+            'book': asInt(current['book']),
+            'chapter': asInt(current['chapter']),
+          };
     final scaler = widget.fontScale.clamp(.7, 2.0);
     final colors = widget.eInk
         ? const ColorScheme.light(
@@ -508,68 +558,17 @@ class _OfflineReaderScreenState extends State<OfflineReaderScreen> {
                             ),
                           ),
                         ),
-                        if (_chapters.isNotEmpty)
-                          Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButtonFormField<int>(
-                                  key: ValueKey('book:$book'),
-                                  initialValue: book,
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Buch',
-                                  ),
-                                  items: [
-                                    for (final id in books)
-                                      DropdownMenuItem(
-                                        value: id,
-                                        child: Text(
-                                          bookName(id),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                  ],
-                                  onChanged: (id) => _navigate(
-                                    _chapters.indexWhere(
-                                      (c) =>
-                                          asInt(
-                                            asMap(c['reference'])['book'],
-                                          ) ==
-                                          id,
-                                    ),
-                                  ),
-                                ),
+                        if (reference != null)
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: _pickPassage,
+                              icon: const Icon(Icons.menu_book_outlined),
+                              label: Text(
+                                'Buch und Kapitel · ${referenceLabel(reference)}',
+                                textAlign: TextAlign.center,
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: DropdownButtonFormField<int>(
-                                  key: ValueKey('chapter:$book:$chapter'),
-                                  initialValue: chapter,
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Kapitel',
-                                  ),
-                                  items: [
-                                    for (final c in chapters)
-                                      DropdownMenuItem(
-                                        value: asInt(
-                                          asMap(c['reference'])['chapter'],
-                                        ),
-                                        child: Text(
-                                          '${asMap(c['reference'])['chapter']}',
-                                        ),
-                                      ),
-                                  ],
-                                  onChanged: (value) => _navigate(
-                                    _chapters.indexWhere((c) {
-                                      final r = asMap(c['reference']);
-                                      return asInt(r['book']) == book &&
-                                          asInt(r['chapter']) == value;
-                                    }),
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                       ],
                     ),

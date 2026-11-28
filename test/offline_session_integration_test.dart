@@ -178,9 +178,9 @@ void main() {
       expect(reader.fontScale, 1.5);
       expect(reader.versePerLine, isTrue);
       expect(find.text('Johannes 2'), findsOneWidget);
-      await tester.tap(find.byType(DropdownButtonFormField<int>).last);
+      await tester.tap(find.text('Buch und Kapitel · Joh2'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('3').last);
+      await tester.tap(find.byKey(const ValueKey('passage-chapter-3')));
       await tester.pumpAndSettle();
       Json? position;
       for (var i = 0; i < 100; i++) {

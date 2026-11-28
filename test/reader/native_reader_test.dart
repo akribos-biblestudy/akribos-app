@@ -124,6 +124,7 @@ class ReaderApi extends AppApi {
   final Json data;
   final actions = <Json>[], requests = <Json>[];
   final pages = <String>[], reads = <String>[];
+  final getResponses = <String, Json>{};
   ReaderLocalStore get localStore => ReaderLocalStore(
     origin: origin,
     userId: asString(asMap(bootstrap['user'])['id']),
@@ -245,7 +246,7 @@ class ReaderApi extends AppApi {
   @override
   Future<dynamic> get(String path) async {
     reads.add(path);
-    return {};
+    return getResponses[path] ?? {};
   }
 
   @override
@@ -478,6 +479,52 @@ void main() {
       expect(api.requests, isEmpty);
       expect(api.actions, isEmpty);
       expect(snapshot.keys, isNot(contains('workspaceVersion')));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'passage picker uses the visible chapter before position reporting settles',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final fixture = readerFixture();
+      final first = asMap(asMaps(fixture['columns']).single['initialChapter']);
+      final second = {
+        ...first,
+        'reference': {'book': 43, 'chapter': 2},
+        'fullTitle': 'Johannes 2',
+      };
+      first['navigation'] = {
+        'next': {'book': 43, 'chapter': 2},
+      };
+      final api = ReaderApi(fixture)
+        ..getResponses['/api/reader/43/2?resource=BIBLE0'] = second
+        ..getResponses['/api/reader/resources/BIBLE0/navigation'] = {
+          'books': [
+            {
+              'book': 43,
+              'chapters': [1, 2],
+            },
+          ],
+        };
+      await tester.pumpWidget(app(api, const ReaderScreen(path: '/Joh1')));
+      await tester.pumpAndSettle();
+      final reader = find.byType(CustomScrollView);
+      final scroll = tester.widget<CustomScrollView>(reader).controller!;
+      await tester.drag(reader, Offset(0, -scroll.position.maxScrollExtent));
+      await tester.pumpAndSettle();
+      expect(api.reads, contains('/api/reader/43/2?resource=BIBLE0'));
+
+      await tester.drag(reader, const Offset(0, -780));
+      await tester.pump();
+      await tester.tap(find.textContaining('Bibel 0 · Joh1'));
+      await tester.pumpAndSettle();
+
+      final chapterTwo = find.byKey(const ValueKey('passage-chapter-2'));
+      expect(tester.widget<Semantics>(chapterTwo).properties.selected, isTrue);
       expect(tester.takeException(), isNull);
     },
   );
