@@ -93,7 +93,8 @@ Die Direkteingabe bleibt im Online-Reader verfügbar. Der Offline-Reader verwend
 dieselbe Listenansicht mit den heruntergeladenen Kapiteln des ausgewählten Werks.
 In sehr schmalen Fenstern mit großer Schrift nutzt die Leiste AT und NT.
 Screenreader lesen die ausgeschriebenen Testamentnamen. Die vollen Buchnamen können
-umbrechen.
+umbrechen. Im niedrigen Querformat teilt sich die Direkteingabe die Zeile mit dem
+Schließen-Button, damit die ausgewählten Einträge sichtbar bleiben.
 
 | Aufnahme | Prüfpunkt |
 | --- | --- |
@@ -101,10 +102,12 @@ umbrechen.
 | [Smartphone](screenshots/passage-picker/smartphone-psalm-118.png) | Psalmen und 118 beim Öffnen mittig, Psalm 119 direkt darunter |
 | [Tablet, Dunkel](screenshots/passage-picker/tablet-psalm-150-dunkel.png) | Psalm 150 am unteren Listenende mittig |
 | [320 dp, 200 % Schrift, E-Ink](screenshots/passage-picker/schmal-eink-grosse-schrift.png) | Umbruch von „2. Thessalonicher“ und sichtbare Auswahlbegrenzungen |
+| [640 × 360 dp, 200 % Schrift](screenshots/passage-picker/querformat-grosse-schrift.png) | Im Querformat bleiben Buch und Kapitel mittig und antippbar |
 
 Die Aufnahmen stammen vom Flutter-Widget mit Testnavigation. Widget-Tests vergleichen
 die Mittelpunkte der ausgewählten Zeilen mit ihren Scrollbereichen und prüfen
-Psalm 1, 118 und 150, lückenhafte Werke, die erneute Öffnung und die Offline-Auswahl.
+Psalm 1, 118 und 150, lückenhafte Werke, das Querformat mit Tastatur und die Öffnung
+direkt nach einem Kapitelwechsel durch Scrollen, online und offline.
 
 ## Aktualitätsgrenzen und Bildherkunft
 
