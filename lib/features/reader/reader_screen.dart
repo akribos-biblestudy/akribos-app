@@ -1083,13 +1083,20 @@ class _ReaderViewState extends State<_ReaderView> with WidgetsBindingObserver {
   }
 
   Future<void> _goTo(Json tile, Json tab) async {
+    // The reader reports scroll positions after a pause. Capture the visible
+    // location before opening the picker, including while a tab is activating.
+    final tabId = asString(tab['id']);
+    final reference =
+        _panes[tabId]?.currentState?.capturePosition() ??
+        _deferredPositions[tabId] ??
+        asMap(tab['reference']);
     final value = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (context) => PassagePicker(
-        initial: asMap(tab['reference']),
+        initial: reference,
         resourceId: asString(tab['resourceId']),
         api: _scope!.api,
         isLexicon: asMaps(_data['readerResources']).any(
@@ -2482,11 +2489,11 @@ class _ChapterPaneState extends State<_ChapterPane> {
     _timer = Timer(const Duration(milliseconds: 180), capturePosition);
   }
 
-  void capturePosition() {
-    if (!_needsCapture || !mounted || !widget.active || _aligning) return;
+  Json? capturePosition() {
+    if (!_needsCapture || !mounted || !widget.active || _aligning) return null;
     _needsCapture = false;
     final viewport = _viewport.currentContext?.findRenderObject();
-    if (viewport is! RenderBox) return;
+    if (viewport is! RenderBox) return null;
     final top = viewport.localToGlobal(Offset.zero).dy;
     Json? closest;
     var distance = double.infinity;
@@ -2525,6 +2532,7 @@ class _ChapterPaneState extends State<_ChapterPane> {
       widget.cache.reference = Map.of(closest);
       widget.onPosition(closest);
     }
+    return closest;
   }
 
   Json _cell(Json row) => asMap((row['cells'] as List).first);
