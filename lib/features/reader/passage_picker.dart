@@ -569,15 +569,13 @@ class _PassagePickerState extends State<PassagePicker> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // Full book names wrap rather than shrink. Reserve a little more
-          // width for them at large system text sizes.
           final largeText = MediaQuery.textScalerOf(context).scale(16) > 22;
           return Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
                 key: const ValueKey('passage-books-pane'),
-                flex: largeText ? 6 : 5,
+                flex: 3,
                 child: ColoredBox(
                   color: tokens.paper,
                   child: _bookPane(context),
@@ -590,7 +588,7 @@ class _PassagePickerState extends State<PassagePicker> {
               ),
               Expanded(
                 key: const ValueKey('passage-chapters-pane'),
-                flex: largeText ? 5 : 6,
+                flex: 2,
                 child: _chapterPane(
                   context,
                   book,

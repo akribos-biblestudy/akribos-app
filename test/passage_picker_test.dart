@@ -61,6 +61,13 @@ Finder get _chapterList =>
 Finder get _chapterScrollable =>
     find.descendant(of: _chapterList, matching: find.byType(Scrollable));
 
+void _expectBookListWider(WidgetTester tester) {
+  expect(
+    tester.getSize(_bookList).width,
+    greaterThan(tester.getSize(_chapterList).width),
+  );
+}
+
 void _expectCentered(WidgetTester tester, Finder row, Finder viewport) {
   expect(row, findsOneWidget);
   expect(tester.getCenter(row).dy, closeTo(tester.getCenter(viewport).dy, .1));
@@ -144,6 +151,7 @@ void main() {
     expect(_chapter(22), findsNothing);
     expect(_bookList, findsOneWidget);
     expect(_chapterList, findsOneWidget);
+    _expectBookListWider(tester);
     expect(find.byType(GridView), findsNothing);
     expect(find.byType(DropdownButton<int>), findsNothing);
     await tester.tap(_chapter(5));
@@ -269,6 +277,7 @@ void main() {
     );
     expect(api.requested, isNull);
     expect(find.byType(TextField), findsNothing);
+    _expectBookListWider(tester);
     expect(_chapter(120), findsNothing);
     expect(_chapter(151), findsOneWidget);
     _expectCentered(tester, _book(19), _bookList);
@@ -388,6 +397,7 @@ void main() {
     );
     expect(tester.takeException(), isNull);
     expect(find.text('2. Thessalonicher'), findsOneWidget);
+    _expectBookListWider(tester);
     _expectCentered(tester, _book(53), _bookList);
     _expectCentered(tester, _chapter(3), _chapterList);
     expect(tester.getSize(_book(53)).height, greaterThanOrEqualTo(48));
@@ -406,6 +416,7 @@ void main() {
           textScale: scale,
           keyboard: keyboard,
         );
+        _expectBookListWider(tester);
         _expectCentered(tester, _book(19), _bookList);
         _expectCentered(tester, _chapter(118), _chapterList);
         expect(_book(19).hitTestable(), findsOneWidget);
